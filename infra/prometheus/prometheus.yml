@@ -1,0 +1,42 @@
+global:
+  scrape_interval: 15s
+  evaluation_interval: 15s
+
+scrape_configs:
+  - job_name: prometheus
+    static_configs:
+      - targets: ["localhost:9090"]
+
+  - job_name: tip-services
+    metrics_path: /metrics
+    static_configs:
+      - targets: ["identity:8001"]
+        labels:
+          service: identity
+      - targets: ["events:8002"]
+        labels:
+          service: events
+      - targets: ["catalog:8003"]
+        labels:
+          service: catalog
+      - targets: ["docgen:8004"]
+        labels:
+          service: docgen
+
+  - job_name: postgres
+    static_configs:
+      - targets: ["postgres-exporter:9187"]
+
+  - job_name: redis
+    static_configs:
+      - targets: ["redis-exporter:9121"]
+
+  - job_name: minio
+    metrics_path: /minio/v2/metrics/cluster
+    scheme: http
+    static_configs:
+      - targets: ["minio:9000"]
+
+  - job_name: cadvisor
+    static_configs:
+      - targets: ["cadvisor:8080"]
