@@ -1,6 +1,6 @@
 import { FormEvent, useState } from "react";
-import { Link, useNavigate } from "react-router";
-import { useSignIn } from "@clerk/clerk-react";
+import { Link, useLocation, useNavigate } from "react-router";
+import { useAuth, useSignIn } from "@clerk/clerk-react";
 import { isClerkAPIResponseError } from "@clerk/clerk-react/errors";
 import { ChevronLeftIcon, EyeCloseIcon, EyeIcon } from "../../icons";
 import Label from "../form/Label";
@@ -9,8 +9,10 @@ import Checkbox from "../form/input/Checkbox";
 import Button from "../ui/button/Button";
 
 export default function SignInForm() {
+  const { isLoaded: isAuthLoaded, isSignedIn } = useAuth();
   const { isLoaded, signIn, setActive } = useSignIn();
   const navigate = useNavigate();
+  const location = useLocation();
   const [showPassword, setShowPassword] = useState(false);
   const [isChecked, setIsChecked] = useState(false);
   const [email, setEmail] = useState("");
@@ -18,9 +20,19 @@ export default function SignInForm() {
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  const goToDashboard = () => {
+    const from = (location.state as { from?: { pathname?: string } } | null)?.from?.pathname;
+    navigate(from && from !== "/signin" ? from : "/", { replace: true });
+  };
+
   const handleEmailSignIn = async (event: FormEvent) => {
     event.preventDefault();
     if (!isLoaded || !signIn) return;
+
+    if (isAuthLoaded && isSignedIn) {
+      goToDashboard();
+      return;
+    }
 
     setIsSubmitting(true);
     setError(null);
@@ -30,7 +42,7 @@ export default function SignInForm() {
 
       if (result.status === "complete") {
         await setActive({ session: result.createdSessionId });
-        navigate("/", { replace: true });
+        goToDashboard();
         return;
       }
 

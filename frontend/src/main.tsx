@@ -17,7 +17,12 @@ if (!clerkPublishableKey) {
 
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
-    <ClerkProvider publishableKey={clerkPublishableKey} afterSignOutUrl="/signin">
+    <ClerkProvider
+      publishableKey={clerkPublishableKey}
+      afterSignOutUrl="/signin"
+      signInFallbackRedirectUrl="/"
+      signUpFallbackRedirectUrl="/signin"
+    >
       <ThemeProvider>
         <AppWrapper>
           <TipAuthProvider>

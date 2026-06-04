@@ -273,7 +273,7 @@
       "gridPos": { "h": 8, "w": 8, "x": 0, "y": 19 },
       "id": 12,
       "options": { "legend": { "calcs": ["sum"], "displayMode": "table", "placement": "bottom", "showLegend": true }, "tooltip": { "mode": "multi", "sort": "desc" } },
-      "targets": [{ "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "sum(rate(http_requests_total{job=\"tip-services\", status=~\"4..\"}[5m])) by (service)", "legendFormat": "4xx {{service}}", "refId": "A" }],
+      "targets": [{ "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "sum(rate(http_requests_total{job=\"tip-services\", status=~\"4xx\"}[5m])) by (service)", "legendFormat": "4xx {{service}}", "refId": "A" }],
       "title": "Erreurs client (4xx)",
       "type": "timeseries"
     },
@@ -290,7 +290,7 @@
       "gridPos": { "h": 8, "w": 8, "x": 8, "y": 19 },
       "id": 13,
       "options": { "legend": { "calcs": ["sum"], "displayMode": "table", "placement": "bottom", "showLegend": true }, "tooltip": { "mode": "multi", "sort": "desc" } },
-      "targets": [{ "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "sum(rate(http_requests_total{job=\"tip-services\", status=~\"5..\"}[5m])) by (service)", "legendFormat": "5xx {{service}}", "refId": "A" }],
+      "targets": [{ "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "sum(rate(http_requests_total{job=\"tip-services\", status=~\"5xx\"}[5m])) by (service)", "legendFormat": "5xx {{service}}", "refId": "A" }],
       "title": "Erreurs serveur (5xx)",
       "type": "timeseries"
     },
@@ -516,7 +516,7 @@
       "gridPos": { "h": 1, "w": 24, "x": 0, "y": 69 },
       "id": 105,
       "panels": [],
-      "title": "Conteneurs Docker (cAdvisor)",
+      "title": "Ressources services API (process)",
       "type": "row"
     },
     {
@@ -532,8 +532,8 @@
       "gridPos": { "h": 8, "w": 12, "x": 0, "y": 70 },
       "id": 25,
       "options": { "legend": { "calcs": ["mean", "max"], "displayMode": "table", "placement": "bottom", "showLegend": true }, "tooltip": { "mode": "multi", "sort": "desc" } },
-      "targets": [{ "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "sum(rate(container_cpu_usage_seconds_total{name=~\".*(identity|events|catalog|docgen|postgres|redis|minio|nginx).*\", name!~\".*POD.*\"}[5m])) by (name)", "legendFormat": "{{name}}", "refId": "A" }],
-      "title": "CPU par conteneur TIP",
+      "targets": [{ "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "rate(process_cpu_seconds_total{job=\"tip-services\"}[5m])", "legendFormat": "{{service}}", "refId": "A" }],
+      "title": "CPU par service API",
       "type": "timeseries"
     },
     {
@@ -549,8 +549,8 @@
       "gridPos": { "h": 8, "w": 12, "x": 12, "y": 70 },
       "id": 26,
       "options": { "legend": { "calcs": ["mean", "max"], "displayMode": "table", "placement": "bottom", "showLegend": true }, "tooltip": { "mode": "multi", "sort": "desc" } },
-      "targets": [{ "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "container_memory_working_set_bytes{name=~\".*(identity|events|catalog|docgen|postgres|redis|minio|nginx).*\", name!~\".*POD.*\"}", "legendFormat": "{{name}}", "refId": "A" }],
-      "title": "Mémoire par conteneur TIP",
+      "targets": [{ "datasource": { "type": "prometheus", "uid": "prometheus" }, "expr": "process_resident_memory_bytes{job=\"tip-services\"}", "legendFormat": "{{service}}", "refId": "A" }],
+      "title": "Mémoire par service API",
       "type": "timeseries"
     }
   ],

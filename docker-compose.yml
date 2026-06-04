@@ -135,6 +135,7 @@ services:
       SMTP_FROM_EMAIL: ${SMTP_FROM_EMAIL:-noreply@traumatec.org}
       SMTP_FROM_NAME: ${SMTP_FROM_NAME:-Traumatec Impact Platform}
       CLERK_WEBHOOK_SECRET: ${CLERK_WEBHOOK_SECRET:-}
+      PYTHONPATH: /packages/tip-common
     volumes:
       - ./services/identity/app:/app/app
       - ./packages/tip-common/tip_common:/packages/tip-common/tip_common
@@ -162,6 +163,7 @@ services:
       MINIO_ACCESS_KEY: ${MINIO_ROOT_USER}
       MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD}
       MINIO_BUCKET: ${MINIO_BUCKET:-tip-documents}
+      PYTHONPATH: /packages/tip-common
     volumes:
       - ./services/events/app:/app/app
       - ./packages/tip-common/tip_common:/packages/tip-common/tip_common
@@ -189,6 +191,7 @@ services:
       MINIO_ACCESS_KEY: ${MINIO_ROOT_USER}
       MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD}
       MINIO_BUCKET: ${MINIO_BUCKET:-tip-documents}
+      PYTHONPATH: /packages/tip-common
     volumes:
       - ./services/catalog/app:/app/app
       - ./packages/tip-common/tip_common:/packages/tip-common/tip_common
@@ -218,6 +221,7 @@ services:
       MINIO_ACCESS_KEY: ${MINIO_ROOT_USER}
       MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD}
       MINIO_BUCKET: ${MINIO_BUCKET:-tip-documents}
+      PYTHONPATH: /packages/tip-common
     volumes:
       - ./services/docgen/app:/app/app
       - ./packages/tip-common/tip_common:/packages/tip-common/tip_common
@@ -252,6 +256,7 @@ services:
       MINIO_ACCESS_KEY: ${MINIO_ROOT_USER}
       MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD}
       MINIO_BUCKET: ${MINIO_BUCKET:-tip-documents}
+      PYTHONPATH: /packages/tip-common
     volumes:
       - ./services/docgen/app:/app/app
       - ./packages/tip-common/tip_common:/packages/tip-common/tip_common

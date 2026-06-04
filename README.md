@@ -33,18 +33,20 @@ cp .env.example .env
 docker compose up --build
 ```
 
-| URL | Description |
-| --- | --- |
-| [http://localhost:8080](http://localhost:8080) | Gateway Nginx (frontend + API) |
-| [http://localhost:8080/signin](http://localhost:8080/signin) | Connexion TIP |
-| [http://localhost:8025](http://localhost:8025) | Mailpit — emails dev |
-| [http://localhost:9001](http://localhost:9001) | MinIO Console — documents |
-| [http://localhost:9090](http://localhost:9090) | Prometheus |
-| [http://localhost:3001](http://localhost:3001) | Grafana — dashboard TIP |
-| [http://localhost:8001/api/v1/docs](http://localhost:8001/api/v1/docs) | OpenAPI identity |
-| [http://localhost:8002/api/v1/docs](http://localhost:8002/api/v1/docs) | OpenAPI events |
-| [http://localhost:8003/api/v1/docs](http://localhost:8003/api/v1/docs) | OpenAPI catalog |
-| [http://localhost:8004/api/v1/docs](http://localhost:8004/api/v1/docs) | OpenAPI docgen |
+
+| URL                                                                    | Description                    |
+| ---------------------------------------------------------------------- | ------------------------------ |
+| [http://localhost:8080](http://localhost:8080)                         | Gateway Nginx (frontend + API) |
+| [http://localhost:8080/signin](http://localhost:8080/signin)           | Connexion TIP                  |
+| [http://localhost:8025](http://localhost:8025)                         | Mailpit — emails dev           |
+| [http://localhost:9001](http://localhost:9001)                         | MinIO Console — documents      |
+| [http://localhost:9090](http://localhost:9090)                         | Prometheus                     |
+| [http://localhost:3001](http://localhost:3001)                         | Grafana — dashboard TIP        |
+| [http://localhost:8001/api/v1/docs](http://localhost:8001/api/v1/docs) | OpenAPI identity               |
+| [http://localhost:8002/api/v1/docs](http://localhost:8002/api/v1/docs) | OpenAPI events                 |
+| [http://localhost:8003/api/v1/docs](http://localhost:8003/api/v1/docs) | OpenAPI catalog                |
+| [http://localhost:8004/api/v1/docs](http://localhost:8004/api/v1/docs) | OpenAPI docgen                 |
+
 
 > Premier build Docker : comptez ~3 Go de téléchargement (images + dépendances). Les builds suivants utilisent le cache.
 
@@ -64,10 +66,12 @@ cd frontend && cp .env.example .env && npm install && npm run dev
 
 ## Greffer un module
 
-| Type | Guide |
-| --- | --- |
-| Microservice Python TIP | [services/README.md](services/README.md) |
+
+| Type                         | Guide                                                |
+| ---------------------------- | ---------------------------------------------------- |
+| Microservice Python TIP      | [services/README.md](services/README.md)             |
 | App externe (Guides Next.js) | [docs/ecosystem.md](docs/ecosystem.md) — autre dépôt |
+
 
 Guides : projet Next.js séparé, SSO Clerk commun, lien `VITE_GUIDES_URL` depuis TIP.
 
@@ -77,3 +81,4 @@ Guides : projet Next.js séparé, SSO Clerk commun, lien `VITE_GUIDES_URL` depui
 - [Architecture microservices](docs/architecture.md)
 - [Schéma base de données](database/README.md)
 - [ADR](docs/decisions/)
+
