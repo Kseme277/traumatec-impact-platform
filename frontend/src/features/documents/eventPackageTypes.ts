@@ -1,6 +1,6 @@
-/** Types d'événement AO Alliance — cours vs séminaire (format paquet). */
+/** Types d'événement AO Alliance — cours, séminaire, faculty (format paquet). */
 
-export type ActivityKind = "cours" | "seminaire";
+export type ActivityKind = "cours" | "seminaire" | "faculty";
 
 export interface EventPackageType {
   code: string;
@@ -14,6 +14,8 @@ export interface EventPackageType {
 }
 
 export type EventPackageTypeCatalog = Record<ActivityKind, EventPackageType[]>;
+
+export const ACTIVITY_KINDS: ActivityKind[] = ["cours", "seminaire", "faculty"];
 
 export const FALLBACK_PACKAGE_TYPES: EventPackageTypeCatalog = {
   cours: [
@@ -70,7 +72,34 @@ export const FALLBACK_PACKAGE_TYPES: EventPackageTypeCatalog = {
       duration_days: 1,
     },
   ],
+  faculty: [
+    {
+      code: "FET",
+      label: "Faculty ET",
+      activity_kind: "faculty",
+      activity_label: "Faculty Education Training",
+      title: "Faculty Education Training — FET",
+      description: "Formation Faculty Education Training (paquet documentaire 3 jours).",
+      preparation_theme: "operatory",
+      duration_days: 3,
+    },
+  ],
 };
+
+/** Fusionne le catalogue API avec le fallback (types récents toujours visibles). */
+export function mergePackageCatalog(api: Partial<EventPackageTypeCatalog>): EventPackageTypeCatalog {
+  const result = {} as EventPackageTypeCatalog;
+  for (const kind of ACTIVITY_KINDS) {
+    const apiItems = api[kind] ?? [];
+    const fallbackItems = FALLBACK_PACKAGE_TYPES[kind] ?? [];
+    const seen = new Set(apiItems.map((item) => item.code));
+    result[kind] = [
+      ...apiItems,
+      ...fallbackItems.filter((item) => !seen.has(item.code)),
+    ];
+  }
+  return result;
+}
 
 export function findPackageType(
   catalog: EventPackageTypeCatalog,
@@ -81,4 +110,10 @@ export function findPackageType(
     if (found) return found;
   }
   return undefined;
+}
+
+export function activityTabForKind(kind: string): ActivityKind {
+  if (kind === "seminaire") return "seminaire";
+  if (kind === "faculty") return "faculty";
+  return "cours";
 }

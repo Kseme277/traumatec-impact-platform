@@ -31,8 +31,11 @@ import { getApiToken } from "../../lib/clerkToken";
 import { useTranslation } from "../../i18n/useTranslation";
 import type { PackageBundle, PackageTemplate, TemplateEditorConfig } from "./types";
 import {
+  ACTIVITY_KINDS,
   FALLBACK_PACKAGE_TYPES,
+  activityTabForKind,
   findPackageType,
+  mergePackageCatalog,
   type ActivityKind,
   type EventPackageTypeCatalog,
 } from "./eventPackageTypes";
@@ -78,10 +81,10 @@ export default function PackageTemplatesManager({ isAdmin }: PackageTemplatesMan
     const rawType = searchParams.get("type") ?? searchParams.get("package_type");
     if (!rawType) return;
     const code = rawType.toUpperCase().replace(/-/g, "_");
-    const allTypes = [...(catalog.cours ?? []), ...(catalog.seminaire ?? [])];
+    const allTypes = ACTIVITY_KINDS.flatMap((kind) => catalog[kind] ?? []);
     const match = allTypes.find((item) => item.code === code);
     if (!match) return;
-    setActivityTab(match.activity_kind === "seminaire" ? "seminaire" : "cours");
+    setActivityTab(activityTabForKind(match.activity_kind));
     setSelectedType(match.code);
   }, [searchParams, catalog]);
 
@@ -170,10 +173,8 @@ export default function PackageTemplatesManager({ isAdmin }: PackageTemplatesMan
     setLoadError(null);
     try {
       const token = await getApiToken(getToken);
-      const typesData = await fetchPackageTypes(token).catch(() => FALLBACK_PACKAGE_TYPES);
-      if (typesData.cours?.length || typesData.seminaire?.length) {
-        setCatalog(typesData);
-      }
+      const typesData = await fetchPackageTypes(token).catch(() => ({} as Partial<EventPackageTypeCatalog>));
+      setCatalog(mergePackageCatalog(typesData));
 
       let bundlesData = await loadBundles(token).catch(() => [] as PackageBundle[]);
       await syncTypeData(token, selectedType, bundlesData);
@@ -410,7 +411,7 @@ export default function PackageTemplatesManager({ isAdmin }: PackageTemplatesMan
       </div>
 
       <div className="flex flex-wrap gap-2">
-        {(["cours", "seminaire"] as ActivityKind[]).map((kind) => (
+        {ACTIVITY_KINDS.map((kind) => (
           <button
             key={kind}
             type="button"
@@ -421,7 +422,11 @@ export default function PackageTemplatesManager({ isAdmin }: PackageTemplatesMan
                 : "bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300"
             }`}
           >
-            {kind === "cours" ? t("documents.activityCours") : t("documents.activitySeminaire")}
+            {kind === "cours"
+              ? t("documents.activityCours")
+              : kind === "seminaire"
+                ? t("documents.activitySeminaire")
+                : t("documents.activityFaculty")}
           </button>
         ))}
       </div>

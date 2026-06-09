@@ -14,6 +14,7 @@ import { themeLabel } from "./types";
 import type { EventSortDir, EventSortField } from "./eventSort";
 import { formatDateRangeFr } from "./eventDates";
 import ProjectStatusBadge from "./ProjectStatusBadge";
+import { getPackageGenerationUrgency, needsPackageGenerationHighlight } from "./packageGenerationUrgency";
 import { isEventOpen } from "./projectStatus";
 
 interface EvenementsTableProps {
@@ -115,21 +116,53 @@ export default function EvenementsTable({
             </TableRow>
           </TableHeader>
           <TableBody className="divide-y divide-gray-100 dark:divide-white/[0.05]">
-            {events.map((event) => (
-              <TableRow key={event.id} className="hover:bg-gray-50 dark:hover:bg-white/[0.02]">
+            {events.map((event) => {
+              const packageUrgent = needsPackageGenerationHighlight(event);
+              const urgency = getPackageGenerationUrgency(event);
+              return (
+              <TableRow
+                key={event.id}
+                title={packageUrgent ? t("events.packageDueRowTitle") : undefined}
+                className={
+                  packageUrgent
+                    ? "bg-error-50/90 ring-1 ring-inset ring-error-200 hover:bg-error-100/80 dark:bg-error-500/10 dark:ring-error-500/35 dark:hover:bg-error-500/15"
+                    : "hover:bg-gray-50 dark:hover:bg-white/[0.02]"
+                }
+              >
                 <TableCell className="px-4 py-4 text-start font-mono text-theme-sm text-gray-700 dark:text-gray-300">
-                  <span className="block truncate" title={event.project_number}>
-                    {event.project_number}
+                  <span className="flex items-center gap-2">
+                    {packageUrgent && (
+                      <span
+                        className="size-2 shrink-0 rounded-full bg-error-500"
+                        title={t("events.packageDueBadge")}
+                        aria-hidden
+                      />
+                    )}
+                    <span className="block truncate" title={event.project_number}>
+                      {event.project_number}
+                    </span>
                   </span>
                 </TableCell>
                 <TableCell className="px-4 py-4 text-start">
                   <Link
                     to={`/evenements/${event.id}`}
-                    className="block truncate font-medium text-gray-800 transition hover:text-brand-500 dark:text-white/90 dark:hover:text-brand-400"
+                    className={`block truncate font-medium transition hover:text-brand-500 dark:hover:text-brand-400 ${
+                      packageUrgent
+                        ? "text-error-800 dark:text-error-300"
+                        : "text-gray-800 dark:text-white/90"
+                    }`}
                     title={event.title}
                   >
                     {event.title}
                   </Link>
+                  {packageUrgent && (
+                    <Link
+                      to={`/documents/generation?event=${event.id}`}
+                      className="mt-1 inline-block text-theme-xs font-medium text-error-600 underline-offset-2 hover:underline dark:text-error-400"
+                    >
+                      {urgency === "overdue" ? t("events.packageOverdueLink") : t("events.packageDueLink")}
+                    </Link>
+                  )}
                   {(event.city || event.country || event.preparation_theme) && (
                     <span className="mt-1 block truncate text-theme-xs text-gray-500 dark:text-gray-400">
                       {[event.city, event.country].filter(Boolean).join(", ")}
@@ -177,7 +210,8 @@ export default function EvenementsTable({
                   </div>
                 </TableCell>
               </TableRow>
-            ))}
+            );
+            })}
           </TableBody>
         </Table>
       </div>

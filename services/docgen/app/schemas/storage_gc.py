@@ -43,3 +43,32 @@ class StorageGcConfigUpdate(BaseModel):
 class StorageGcRunResponse(BaseModel):
     message: str
     stats: StorageGcStats
+
+
+class GenerationStatusCount(BaseModel):
+    status: str
+    count: int = 0
+
+
+class GenerationMonthCount(BaseModel):
+    month: str
+    jobs: int = 0
+    certificates: int = 0
+
+
+class GenerationEventTop(BaseModel):
+    event_id: str
+    event_title: str
+    project_number: str
+    jobs: int = 0
+    certificates: int = 0
+
+
+class StorageGcAnalyticsResponse(BaseModel):
+    total_jobs: int = 0
+    total_certificates: int = 0
+    success_rate: float = 0.0
+    by_status: list[GenerationStatusCount] = []
+    by_month: list[GenerationMonthCount] = []
+    top_events: list[GenerationEventTop] = []
+    inventory: StorageGcInventory

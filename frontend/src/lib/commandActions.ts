@@ -60,6 +60,13 @@ export function rankUsers(users: Utilisateur[], query: string): Utilisateur[] {
     });
 }
 
+function hasResponsibleContact(event: Evenement): boolean {
+  const meta = event.metadata_json;
+  const email = String(event.responsible_email ?? meta?.responsible_email ?? "").trim();
+  const phone = String(event.responsible_phone ?? meta?.responsible_phone ?? "").trim();
+  return Boolean(email && phone);
+}
+
 async function ensureEventReadyForGeneration(
   getToken: GetTokenFn,
   event: Evenement,
@@ -71,22 +78,30 @@ async function ensureEventReadyForGeneration(
     };
   }
 
-  if (event.preparation_theme) {
-    return { event };
+  let current = event;
+
+  if (!current.preparation_theme) {
+    const token = await getToken();
+    const detailed = await fetchEvent(token, event.id);
+    const theme = suggestPreparationTheme(detailed);
+    if (!theme) {
+      return {
+        event: detailed,
+        error: "Thème de préparation manquant. Définissez Operatory, PBO ou IEC sur la fiche événement.",
+      };
+    }
+    current = await updateEvent(token, event.id, { preparation_theme: theme });
   }
 
-  const token = await getToken();
-  const detailed = await fetchEvent(token, event.id);
-  const theme = suggestPreparationTheme(detailed);
-  if (!theme) {
+  if (!hasResponsibleContact(current)) {
     return {
-      event: detailed,
-      error: "Thème de préparation manquant. Définissez Operatory, PBO ou IEC sur la fiche événement.",
+      event: current,
+      error:
+        "Courriel et téléphone du responsable manquants. Renseignez-les sur la page Génération documents.",
     };
   }
 
-  const updated = await updateEvent(token, event.id, { preparation_theme: theme });
-  return { event: updated };
+  return { event: current };
 }
 
 export async function searchEventsForCommand(getToken: GetTokenFn, query: string): Promise<Evenement[]> {

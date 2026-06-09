@@ -6,12 +6,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import get_settings
 from app.core.database import get_db
 from app.schemas.storage_gc import (
+    StorageGcAnalyticsResponse,
     StorageGcConfigResponse,
     StorageGcConfigUpdate,
     StorageGcInventory,
     StorageGcRunResponse,
     StorageGcStats,
 )
+from app.services.generation_analytics import get_generation_analytics
 from app.services.storage_garbage_collector import get_zip_inventory, run_storage_garbage_collection
 from tip_common.security import AuthenticatedUser, require_admin
 from tip_common.storage import get_object_storage
@@ -44,6 +46,17 @@ def _parse_stats(raw: str | None) -> StorageGcStats | None:
         return StorageGcStats.model_validate(json.loads(raw))
     except (json.JSONDecodeError, ValueError):
         return None
+
+
+@router.get("/analytics", response_model=StorageGcAnalyticsResponse)
+async def get_storage_gc_analytics(
+    _: AuthenticatedUser = Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
+) -> StorageGcAnalyticsResponse:
+    settings = await get_gc_settings(db)
+    retention_days = int(settings["retention_days"])
+    raw = await get_generation_analytics(db, retention_days)
+    return StorageGcAnalyticsResponse.model_validate(raw)
 
 
 @router.get("/config", response_model=StorageGcConfigResponse)

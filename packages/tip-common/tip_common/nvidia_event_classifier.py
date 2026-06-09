@@ -69,7 +69,7 @@ async def classify_event_package(
         f"Thème TIP : {event.get('preparation_theme') or '—'}\n"
         f"Début : {event.get('start_date') or '—'}\n"
         f"Fin : {event.get('end_date') or '—'}\n\n"
-        'Réponds UNIQUEMENT en JSON : {"package_type":"ORP_S|ORP_C|OP_C|NONOP_C|IEC_S",'
+        'Réponds UNIQUEMENT en JSON : {"package_type":"ORP_S|ORP_C|OP_C|NONOP_C|IEC_S|FET",'
         '"preparation_theme":"pbo|operatory|iec","confidence":0.9}'
     )
 

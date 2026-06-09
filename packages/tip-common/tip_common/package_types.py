@@ -13,6 +13,7 @@ PACKAGE_TYPE_OP_C = "OP_C"
 PACKAGE_TYPE_ORP_C = "ORP_C"
 PACKAGE_TYPE_IEC_S = "IEC_S"
 PACKAGE_TYPE_NONOP_C = "NONOP_C"
+PACKAGE_TYPE_FET = "FET"
 
 ALL_PACKAGE_TYPES = (
     PACKAGE_TYPE_ORP_S,
@@ -20,11 +21,13 @@ ALL_PACKAGE_TYPES = (
     PACKAGE_TYPE_ORP_C,
     PACKAGE_TYPE_IEC_S,
     PACKAGE_TYPE_NONOP_C,
+    PACKAGE_TYPE_FET,
 )
 
 
 ACTIVITY_COURS = "cours"
 ACTIVITY_SEMINAIRE = "seminaire"
+ACTIVITY_FACULTY = "faculty"
 
 # « Événement » = instance TIP (projet, dates, lieu). « Cours » / « Séminaire » = format AO du paquet.
 
@@ -98,11 +101,33 @@ PACKAGE_TYPE_SPECS: dict[str, PackageTypeSpec] = {
         duration_days=1,
         aliases=("iec s", "iec-s", "iec_s", "seminaire iec", "iec seminar"),
     ),
+    PACKAGE_TYPE_FET: PackageTypeSpec(
+        code=PACKAGE_TYPE_FET,
+        label="Faculty ET",
+        activity_kind=ACTIVITY_FACULTY,
+        activity_label="Faculty Education Training",
+        title="Faculty Education Training — FET (3 jours)",
+        description="Formation Faculty Education Training — même paquet documentaire que les cours AO (3 jours).",
+        preparation_theme="operatory",
+        duration_days=3,
+        aliases=(
+            "fet",
+            "fet c",
+            "faculty education training",
+            "faculty education",
+            "faculty training",
+            "formation faculty",
+        ),
+    ),
 }
 
 
 def list_package_types_by_activity() -> dict[str, list[dict]]:
-    grouped: dict[str, list[dict]] = {ACTIVITY_COURS: [], ACTIVITY_SEMINAIRE: []}
+    grouped: dict[str, list[dict]] = {
+        ACTIVITY_COURS: [],
+        ACTIVITY_SEMINAIRE: [],
+        ACTIVITY_FACULTY: [],
+    }
     for code in ALL_PACKAGE_TYPES:
         spec = PACKAGE_TYPE_SPECS[code]
         grouped[spec.activity_kind].append(
@@ -165,6 +190,8 @@ def _programme_file(files: list[Path]) -> Path | None:
 def detect_package_type_from_folder(folder_name: str, files: list[Path]) -> str | None:
     """Déduit le type de paquet depuis le nom du dossier et le fichier programme (02_*)."""
     label = _norm(folder_name).replace("_", " ")
+    if label in {"fet", "faculty education training", "faculty education"} or "fet" in label:
+        return PACKAGE_TYPE_FET
     for code, spec in PACKAGE_TYPE_SPECS.items():
         if _norm(spec.label) in label or any(alias in label for alias in spec.aliases):
             return code
@@ -202,6 +229,18 @@ def infer_preparation_theme_for_event(
     if not combined.strip():
         return None
 
+    if any(
+        kw in combined
+        for kw in (
+            "faculty education training",
+            "faculty education",
+            "faculty training",
+            "formation faculty",
+            " fet",
+            "fet ",
+        )
+    ) or re.search(r"\bfet\b", combined):
+        return "operatory"
     if any(
         kw in combined
         for kw in (
@@ -272,6 +311,7 @@ def infer_package_type_for_event(
     text = _norm(f"{event_type or ''} {title or ''}")
     # Ordre important : NONOP_C avant OP_C (« op c » est contenu dans « nonop c »).
     for code in (
+        PACKAGE_TYPE_FET,
         PACKAGE_TYPE_NONOP_C,
         PACKAGE_TYPE_ORP_C,
         PACKAGE_TYPE_ORP_S,
@@ -294,6 +334,16 @@ def infer_package_type_for_event(
     if theme == "pbo":
         return PACKAGE_TYPE_ORP_C if days >= 2 else PACKAGE_TYPE_ORP_S
     if theme == "operatory":
+        if any(
+            x in text
+            for x in (
+                "faculty education training",
+                "faculty education",
+                "faculty training",
+                "formation faculty",
+            )
+        ) or re.search(r"\bfet\b", text):
+            return PACKAGE_TYPE_FET
         if any(x in text for x in ("nonop", "non-op", "non op", "nonoperatory")):
             return PACKAGE_TYPE_NONOP_C
         return PACKAGE_TYPE_OP_C

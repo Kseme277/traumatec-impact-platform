@@ -49,6 +49,19 @@ import { jobStatusColor, jobStatusLabel } from "../features/documents/types";
 import { useTranslation } from "../i18n/useTranslation";
 import { showError, showSuccess } from "../lib/swal";
 
+function contactFromEvent(event: Evenement | null): { email: string; phone: string } {
+  if (!event) return { email: "", phone: "" };
+  const meta = event.metadata_json;
+  return {
+    email: String(event.responsible_email ?? meta?.responsible_email ?? "").trim(),
+    phone: String(event.responsible_phone ?? meta?.responsible_phone ?? "").trim(),
+  };
+}
+
+function isValidResponsibleEmail(email: string): boolean {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
+}
+
 function eventOptionLabel(event: Evenement): string {
   const dates = formatEventDateRange(event);
   const shortTitle = event.title.length > 36 ? `${event.title.slice(0, 36)}…` : event.title;
@@ -80,10 +93,24 @@ export default function DocumentsGenerationPage() {
   const [packagePreviewLoading, setPackagePreviewLoading] = useState(false);
   const [eventSearchQuery, setEventSearchQuery] = useState("");
   const [eventTypeFilter, setEventTypeFilter] = useState("");
+  const [responsibleEmail, setResponsibleEmail] = useState("");
+  const [responsiblePhone, setResponsiblePhone] = useState("");
 
   useEffect(() => {
     void loadEvents({ upcoming: true });
   }, [loadEvents]);
+
+  useEffect(() => {
+    if (!selectedEventId) {
+      setResponsibleEmail("");
+      setResponsiblePhone("");
+      return;
+    }
+    const source = eventDetail ?? events.find((event) => event.id === selectedEventId) ?? null;
+    const contact = contactFromEvent(source);
+    setResponsibleEmail(contact.email);
+    setResponsiblePhone(contact.phone);
+  }, [selectedEventId, eventDetail, events]);
 
   useEffect(() => {
     if (!selectedEventId || !isLoaded || !isSignedIn) {
@@ -257,11 +284,51 @@ export default function DocumentsGenerationPage() {
   const needsTheme = Boolean(
     showThemePanel && !themeInferenceLoading && !isPreparationTheme(themeDraft),
   );
+  const needsContact = Boolean(
+    selectedEvent && selectedIsGeneratable && (!responsibleEmail.trim() || !responsiblePhone.trim()),
+  );
+  const contactEmailInvalid = Boolean(responsibleEmail.trim() && !isValidResponsibleEmail(responsibleEmail));
   const inferredPackage = eventDetail?.inferred_package ?? selectedEvent?.inferred_package ?? null;
 
   const classifierLabel = (classifier?: string | null): string => {
     if (classifier === "nvidia") return t("documents.classifierNvidia");
     return t("documents.classifierRules");
+  };
+
+  const saveResponsibleContact = async (): Promise<Evenement | null> => {
+    if (!selectedEvent) return null;
+
+    const email = responsibleEmail.trim();
+    const phone = responsiblePhone.trim();
+
+    if (!email || !phone) {
+      await showError(t("documents.responsibleContactRequiredTitle"), t("documents.responsibleContactRequiredDesc"));
+      return null;
+    }
+    if (!isValidResponsibleEmail(email)) {
+      await showError(t("documents.responsibleEmailInvalidTitle"), t("documents.responsibleEmailInvalidDesc"));
+      return null;
+    }
+
+    const existing = contactFromEvent(selectedEvent);
+    if (existing.email === email && existing.phone === phone) {
+      return selectedEvent;
+    }
+
+    try {
+      const token = await getApiToken(getToken);
+      const updated = await updateEvent(token, selectedEvent.id, {
+        responsible_email: email,
+        responsible_phone: phone,
+      });
+      setEventDetail(updated);
+      await loadEvents({ upcoming: true });
+      return updated;
+    } catch (err) {
+      const message = err instanceof ApiError ? err.message : t("profile.saveFailed");
+      await showError(t("common.error"), message);
+      return null;
+    }
   };
 
   const saveTheme = async (options?: { quiet?: boolean }): Promise<Evenement | null> => {
@@ -345,6 +412,12 @@ export default function DocumentsGenerationPage() {
       }
       eventForGeneration = updated;
     }
+
+    const withContact = await saveResponsibleContact();
+    if (!withContact) {
+      return;
+    }
+    eventForGeneration = withContact;
 
     await runGeneration(eventForGeneration);
   };
@@ -542,6 +615,54 @@ export default function DocumentsGenerationPage() {
               </div>
             )}
 
+            {selectedEvent && selectedIsGeneratable && (
+              <div className="rounded-xl border border-gray-100 p-4 dark:border-gray-800">
+                <p className="text-sm font-medium text-gray-800 dark:text-white/90">
+                  {t("documents.responsibleContactTitle")}
+                </p>
+                <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                  {t("documents.responsibleContactDesc")}
+                </p>
+                {selectedEvent.responsible_person && (
+                  <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">
+                    {t("events.responsible")} :{" "}
+                    <span className="font-medium text-gray-800 dark:text-white/90">
+                      {selectedEvent.responsible_person}
+                    </span>
+                  </p>
+                )}
+                <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  <div>
+                    <Label>
+                      {t("events.responsibleEmail")} <span className="text-error-500">*</span>
+                    </Label>
+                    <Input
+                      type="email"
+                      value={responsibleEmail}
+                      onChange={(e) => setResponsibleEmail(e.target.value)}
+                      placeholder="responsable@exemple.org"
+                    />
+                    {contactEmailInvalid && (
+                      <p className="mt-1 text-xs text-error-600 dark:text-error-400">
+                        {t("documents.responsibleEmailInvalidDesc")}
+                      </p>
+                    )}
+                  </div>
+                  <div>
+                    <Label>
+                      {t("events.responsiblePhone")} <span className="text-error-500">*</span>
+                    </Label>
+                    <Input
+                      type="tel"
+                      value={responsiblePhone}
+                      onChange={(e) => setResponsiblePhone(e.target.value)}
+                      placeholder="+221 77 000 00 00"
+                    />
+                  </div>
+                </div>
+              </div>
+            )}
+
             {showThemePanel && (
               <div className="rounded-xl border border-warning-200 bg-warning-50/80 p-4 dark:border-warning-500/30 dark:bg-warning-500/10">
                 <p className="text-sm font-medium text-gray-800 dark:text-white/90">
@@ -626,6 +747,8 @@ export default function DocumentsGenerationPage() {
                   themeInferenceLoading ||
                   !selectedEvent ||
                   !selectedIsGeneratable ||
+                  needsContact ||
+                  contactEmailInvalid ||
                   (showThemePanel && !isPreparationTheme(themeDraft))
                 }
                 onClick={() => void handleGenerate()}

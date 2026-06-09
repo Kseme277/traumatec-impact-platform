@@ -311,6 +311,10 @@ def format_value_for_field(
     key = str(field.get("context_key", "")).strip()
     hint = str(field.get("format_hint", "")).lower()
     sample = str(field.get("sample", "")).strip()
+    kind = str(field.get("section_kind", "")).lower()
+
+    if kind == "date_lieu_combined":
+        return None
 
     if key in {"contact_line", "contact_placeholder"} or (
         sample and ("adresse@email" in sample.lower() or ("courriel" in sample.lower() and "téléphone" in sample.lower()))
@@ -341,6 +345,13 @@ def format_value_for_field(
         return None
     if key == "title" or "titre" in hint:
         title = (context.get("title_formatted") or context.get("title") or "").strip()
+        if title and re.match(r"^Titre de l[’']événement\s*:\s*", sample, re.I):
+            return re.sub(
+                r"^(Titre de l[’']événement\s*:\s*).+$",
+                rf"\g<1>{title}",
+                sample.strip(),
+                flags=re.I,
+            )
         if title:
             return title
     if "ville" in hint and "pays" in hint:
@@ -459,7 +470,8 @@ def _is_static_label_sample(sample: str) -> bool:
     if re.match(
         r"^(Monnaie:|Frais et perdiems|Hôtel|Restauration|Transports|Traduction|Lieu de l|"
         r"Matériel|Infrastructure|\(moins\)|Estimation Budget|Per diem|En signant|"
-        r"Coordonnées bancaires|Rapport du responsable|Veuillez |Merci de retourner|"
+        r"Coordonnées bancaires|Rapport du responsable|Rapport du responsable national de l|Veuillez |Merci de retourner|"
+        r"Voulez-vous recommander|Prochaine fois|AO Alliance Foundation|"
         r"Enseignants |Nom du titulaire|Adresse |Nom de la banque|N° de compte|SWIFT|Clearing|"
         r"Appel à une banque|Pré cours|Conférences|Discussions|Prochaine fois|Rapport rédigé|"
         r"Lieu, date|Voulez-vous recommander|Support technique|Problèmes avec|Traduction:|"

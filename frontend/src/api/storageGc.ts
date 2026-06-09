@@ -37,6 +37,39 @@ export interface StorageGcRunResult {
   stats: StorageGcStats;
 }
 
+export interface GenerationStatusCount {
+  status: string;
+  count: number;
+}
+
+export interface GenerationMonthCount {
+  month: string;
+  jobs: number;
+  certificates: number;
+}
+
+export interface GenerationEventTop {
+  event_id: string;
+  event_title: string;
+  project_number: string;
+  jobs: number;
+  certificates: number;
+}
+
+export interface StorageGcAnalytics {
+  total_jobs: number;
+  total_certificates: number;
+  success_rate: number;
+  by_status: GenerationStatusCount[];
+  by_month: GenerationMonthCount[];
+  top_events: GenerationEventTop[];
+  inventory: StorageGcInventory;
+}
+
+export function fetchStorageGcAnalytics(token: string | null) {
+  return apiFetch<StorageGcAnalytics>("/v1/generations/admin/storage-gc/analytics", token);
+}
+
 export function fetchStorageGcConfig(token: string | null) {
   return apiFetch<StorageGcConfig>("/v1/generations/admin/storage-gc/config", token);
 }

@@ -17,7 +17,9 @@ import EventStatCard from "../features/events/EventStatCard";
 import EvenementsTable from "../features/events/EvenementsTable";
 import EventsDashboardCalendar from "../features/events/EventsDashboardCalendar";
 import EventsImportModal from "../features/events/EventsImportModal";
+import PackageGenerationLegend from "../features/events/PackageGenerationLegend";
 import ProjectStatusLegend from "../features/events/ProjectStatusLegend";
+import { needsPackageGenerationHighlight } from "../features/events/packageGenerationUrgency";
 import { useEvents } from "../features/events/useEvents";
 import { useModal } from "../hooks/useModal";
 import type { EvenementFilters } from "../features/events/types";
@@ -119,6 +121,7 @@ export default function EvenementsPage() {
   const cancelledCount = events.filter(
     (event) => normalizeProjectStatus(event.project_status) === "Cancelled",
   ).length;
+  const packageDueCount = events.filter((event) => needsPackageGenerationHighlight(event)).length;
 
   const handleImport = async (file: File) => {
     const result = await importExcel(file);
@@ -187,6 +190,7 @@ export default function EvenementsPage() {
 
       <ComponentCard title={t("events.list")} desc={t("events.listDesc")}>
         <ProjectStatusLegend />
+        <PackageGenerationLegend />
 
         <div className="mb-6 flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 flex-1">
@@ -234,6 +238,12 @@ export default function EvenementsPage() {
             <p className="mb-3 text-xs text-gray-500 dark:text-gray-400">
               {totalItems} {t("events.resultsCount")}
               {search ? ` · ${t("events.searchActive")}` : ""}
+              {packageDueCount > 0 && (
+                <span className="text-error-600 dark:text-error-400">
+                  {" "}
+                  · {packageDueCount} {t("events.packageDueCount")}
+                </span>
+              )}
             </p>
             <EvenementsTable
               events={paginatedItems}

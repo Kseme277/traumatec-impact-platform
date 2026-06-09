@@ -34,6 +34,15 @@ export function suggestPreparationTheme(event: Pick<Evenement, "preparation_them
     return "iec";
   }
   if (
+    text.includes("faculty education training")
+    || text.includes("faculty education")
+    || text.includes("faculty training")
+    || text.includes("formation faculty")
+    || /\bfet\b/.test(text)
+  ) {
+    return "operatory";
+  }
+  if (
     text.includes("nonop")
     || text.includes("non-op")
     || text.includes("non op")

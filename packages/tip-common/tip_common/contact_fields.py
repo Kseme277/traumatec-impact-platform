@@ -100,12 +100,16 @@ def participants_count_display(context: dict[str, Any]) -> str:
 
 def format_responsible_sample(sample: str, context: dict[str, Any]) -> str | None:
     """Remplace le nom du responsable en conservant le libellé (Responsable :, etc.)."""
-    resp = (
-        context.get("responsible_formatted")
+    generator = (context.get("prepared_by_name") or context.get("prepared_by") or "").strip()
+    event_resp = (
+        context.get("responsible_override")
+        or context.get("responsible_formatted")
         or context.get("responsible_person")
         or context.get("responsable")
         or ""
     ).strip()
+    # Responsable national de l'événement ; le générateur du paquet n'est utilisé qu'en secours.
+    resp = event_resp or generator
 
     m = re.match(
         r"^(Nombre de participants\s*:\s*)(.*?)(\s+Responsable\s*:\s*)(.+)$",

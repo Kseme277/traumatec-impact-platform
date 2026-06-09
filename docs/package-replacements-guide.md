@@ -69,7 +69,7 @@ Audit généré à partir des fichiers source `Packages/{TYPE}/` (92 documents, 
 - **Remplacer :**
   - `Titre de l'événement : …` → `title`
   - `Date : … Lieu de l'événement : …` → `date_range` + `lieu`
-  - `Responsable : …` → `responsible_person`
+  - `Responsable : …` → `prepared_by` (nom de l'utilisateur ayant généré le paquet)
   - `Nombre de participants :` → `participants_expected` (si renseigné)
 - **Conserver :** grilles numérotées enseignants/participants (cases à cocher).
 

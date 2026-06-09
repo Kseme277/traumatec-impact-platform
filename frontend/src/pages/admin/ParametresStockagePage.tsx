@@ -8,12 +8,15 @@ import Switch from "../../components/form/switch/Switch";
 import Button from "../../components/ui/button/Button";
 import Select from "../../components/form/Select";
 import {
+  fetchStorageGcAnalytics,
   fetchStorageGcConfig,
   runStorageGc,
   updateStorageGcConfig,
+  type StorageGcAnalytics,
   type StorageGcConfig,
   type StorageGcStats,
 } from "../../api/storageGc";
+import StorageGcCharts from "../../features/admin/StorageGcCharts";
 import { ApiError } from "../../api/client";
 import { useTranslation } from "../../i18n/useTranslation";
 import { confirmAction, showError, showSuccess } from "../../lib/swal";
@@ -24,6 +27,7 @@ export default function ParametresStockagePage() {
   const { getToken } = useAuth();
   const { t, localeTag } = useTranslation();
   const [config, setConfig] = useState<StorageGcConfig | null>(null);
+  const [analytics, setAnalytics] = useState<StorageGcAnalytics | null>(null);
   const [enabled, setEnabled] = useState(true);
   const [retentionDays, setRetentionDays] = useState(14);
   const [isLoading, setIsLoading] = useState(true);
@@ -43,8 +47,12 @@ export default function ParametresStockagePage() {
     setIsLoading(true);
     try {
       const token = await getToken();
-      const cfg = await fetchStorageGcConfig(token);
+      const [cfg, stats] = await Promise.all([
+        fetchStorageGcConfig(token),
+        fetchStorageGcAnalytics(token),
+      ]);
       setConfig(cfg);
+      setAnalytics(stats);
       setEnabled(cfg.enabled);
       setRetentionDays(cfg.retention_days);
     } catch (err) {
@@ -229,6 +237,15 @@ export default function ParametresStockagePage() {
           </div>
         </ComponentCard>
       </div>
+
+      {!isLoading && analytics && (
+        <div className="mt-8">
+          <h2 className="mb-4 text-lg font-semibold text-gray-800 dark:text-white/90">
+            {t("storageGc.chartsSectionTitle")}
+          </h2>
+          <StorageGcCharts analytics={analytics} />
+        </div>
+      )}
     </>
   );
 }

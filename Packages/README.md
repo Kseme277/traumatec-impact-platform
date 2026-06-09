@@ -9,6 +9,7 @@
 | `ORP_C` | ORP C (3 jours) | `pbo` |
 | `IEC_S` | IEC S | `iec` |
 | `NONOP_C` | NonOp C | `operatory` |
+| `FET` | Faculty Education Training (copie identique de `OP_C`) | `operatory` |
 
 ## Import (recommandé)
 
@@ -23,14 +24,20 @@
 - **détecte le type** de paquet via le fichier `02_*` programme
 - extrait les **zones surlignées** des `.docx` et construit un modèle de remplacement (`replacement_model` dans `analysis_json`)
 
-## Créer des ZIP depuis ces dossiers
+## Créer des ZIP depuis ces dossiers (optionnel)
 
 ```bash
 python3 scripts/build_package_zips.py
 # → package-zips/ORP_S.zip, OP_C.zip, …
 ```
 
-Puis importer chaque ZIP via l'interface.
+Le bouton **Charger paquets système** importe aussi directement depuis `Packages/{TYPE}/` sans ZIP manuel.
+
+### FET = copie OP_C
+
+```bash
+rsync -a --delete Packages/OP_C/ Packages/FET/
+```
 
 ## API
 

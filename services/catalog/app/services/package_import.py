@@ -255,8 +255,8 @@ async def import_package_zip(
     }
 
 
-def _resolve_package_zips_dir() -> Path:
-    """Repère package-zips/ (Docker : /app/package-zips, local : racine du dépôt)."""
+def _candidate_package_roots() -> list[Path]:
+    """Chemins possibles vers package-zips/ et Packages/ (Docker ou dépôt local)."""
     file_path = Path(__file__).resolve()
     candidates: list[Path] = [
         Path("/app/package-zips"),
@@ -273,17 +273,60 @@ def _resolve_package_zips_dir() -> Path:
         if key not in seen:
             seen.add(key)
             unique.append(path)
+    return unique
 
-    for zips_dir in unique:
-        if zips_dir.is_dir() and any(zips_dir.glob("*.zip")):
-            return zips_dir
-    for packages_dir in unique:
-        if packages_dir.is_dir() and packages_dir.name == "Packages":
-            if any(p.is_dir() for p in packages_dir.iterdir()):
-                return packages_dir
-    raise ValueError(
-        "Dossier package-zips/ introuvable. "
-        "Vérifiez le volume Docker (package-zips) ou exécutez scripts/build_package_zips.py."
+
+def _resolve_package_roots() -> tuple[Path | None, Path | None]:
+    zips_dir: Path | None = None
+    packages_dir: Path | None = None
+    for path in _candidate_package_roots():
+        if not path.is_dir():
+            continue
+        if path.name == "package-zips" and zips_dir is None:
+            zips_dir = path
+        if path.name == "Packages" and packages_dir is None:
+            packages_dir = path
+    return zips_dir, packages_dir
+
+
+def _zip_package_folder(folder: Path) -> bytes:
+    """Crée un ZIP en mémoire depuis Packages/{TYPE}/ (sans fichier .zip sur disque)."""
+    files = [p for p in folder.iterdir() if p.is_file() and not p.name.startswith("~$")]
+    if not files:
+        raise ValueError(f"Aucun fichier dans {folder}")
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as zf:
+        for path in sorted(files, key=lambda item: item.name):
+            zf.write(path, arcname=path.name)
+    return buffer.getvalue()
+
+
+async def _bootstrap_import_type(
+    db: AsyncSession,
+    settings: Settings,
+    *,
+    package_type: str,
+    zip_bytes: bytes,
+    filename: str,
+    notes: str,
+    uploaded_by_id: int | None,
+    force: bool,
+) -> dict | None:
+    if not force:
+        existing = await db.execute(
+            select(PackageBundle.id).where(PackageBundle.package_type == package_type).limit(1)
+        )
+        if existing.scalar_one_or_none() is not None:
+            return None
+    return await import_package_zip(
+        db,
+        settings,
+        zip_bytes=zip_bytes,
+        filename=filename,
+        uploaded_by_id=uploaded_by_id,
+        package_type_hint=package_type,
+        notes=notes,
+        activate=True,
     )
 
 
@@ -294,39 +337,59 @@ async def bootstrap_system_packages(
     uploaded_by_id: int | None,
     force: bool = False,
 ) -> list[dict]:
-    """Importe les ZIP de package-zips/ (ou crée depuis Packages/) si absent."""
-    zips_dir = _resolve_package_zips_dir()
-    if not zips_dir.is_dir():
-        raise ValueError(f"Dossier introuvable : {zips_dir}")
-
-    zip_files = sorted(zips_dir.glob("*.zip"))
-    if not zip_files:
-        raise ValueError(f"Aucun fichier .zip dans {zips_dir}")
+    """Importe les paquets depuis package-zips/*.zip et/ou Packages/{TYPE}/ (ZIP généré à la volée)."""
+    zips_dir, packages_dir = _resolve_package_roots()
+    if zips_dir is None and packages_dir is None:
+        raise ValueError(
+            "Dossiers package-zips/ et Packages/ introuvables. "
+            "Vérifiez les volumes Docker ou la racine du dépôt."
+        )
 
     summaries: list[dict] = []
-    for zip_path in zip_files:
-        package_type = zip_path.stem.upper().replace("-", "_")
-        if not force:
-            existing = await db.execute(
-                select(PackageBundle.id)
-                .where(PackageBundle.package_type == package_type)
-                .limit(1)
-            )
-            if existing.scalar_one_or_none() is not None:
-                continue
+    imported_types: set[str] = set()
 
-        raw = zip_path.read_bytes()
-        summary = await import_package_zip(
-            db,
-            settings,
-            zip_bytes=raw,
-            filename=zip_path.name,
-            uploaded_by_id=uploaded_by_id,
-            package_type_hint=package_type,
-            notes="Import automatique depuis package-zips/",
-            activate=True,
-        )
-        summaries.append(summary)
+    if zips_dir is not None:
+        for zip_path in sorted(zips_dir.glob("*.zip")):
+            package_type = zip_path.stem.upper().replace("-", "_")
+            summary = await _bootstrap_import_type(
+                db,
+                settings,
+                package_type=package_type,
+                zip_bytes=zip_path.read_bytes(),
+                filename=zip_path.name,
+                notes="Import automatique depuis package-zips/",
+                uploaded_by_id=uploaded_by_id,
+                force=force,
+            )
+            if summary:
+                summaries.append(summary)
+                imported_types.add(package_type)
+
+    if packages_dir is not None:
+        for folder in sorted(packages_dir.iterdir()):
+            if not folder.is_dir() or folder.name.startswith("."):
+                continue
+            package_type = folder.name.upper().replace("-", "_")
+            if package_type in imported_types and not force:
+                continue
+            try:
+                raw = _zip_package_folder(folder)
+            except ValueError:
+                continue
+            summary = await _bootstrap_import_type(
+                db,
+                settings,
+                package_type=package_type,
+                zip_bytes=raw,
+                filename=f"{folder.name}.zip",
+                notes=f"Import automatique depuis Packages/{folder.name}/",
+                uploaded_by_id=uploaded_by_id,
+                force=force,
+            )
+            if summary:
+                summaries.append(summary)
+                imported_types.add(package_type)
+
     return summaries
 
 

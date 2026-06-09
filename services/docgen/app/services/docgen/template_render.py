@@ -245,6 +245,17 @@ def render_package_document(
             document_role=document_role,
         )
 
+    if document_role == "rapport_national" and ext == ".docx":
+        from app.services.docgen.rapport_national_docx_replace import (
+            apply_rapport_national_docx_replacements,
+        )
+
+        return apply_rapport_national_docx_replacements(
+            template_bytes,
+            context,
+            replacement_fields=fields,
+        )
+
     if ext == ".xlsx":
         rendered = apply_excel_replacements(
             template_bytes,
