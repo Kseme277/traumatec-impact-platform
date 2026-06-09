@@ -23,6 +23,11 @@ export default function ProtectedRoute({ requireAdmin = false }: ProtectedRouteP
     return <Navigate to="/signin" replace state={{ from: location }} />;
   }
 
+  // Clerk est prêt mais le profil TIP n'est pas encore résolu — évite le flash « Accès refusé »
+  if (!tipUser && !error) {
+    return <AuthLoadingScreen />;
+  }
+
   if (error || !tipUser) {
     return (
       <AuthErrorScreen

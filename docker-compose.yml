@@ -102,10 +102,12 @@ services:
     image: grafana/grafana:11.4.0
     environment:
       GF_SECURITY_ADMIN_USER: ${GRAFANA_ADMIN_USER:-tip_grafana}
-      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD}
+      GF_SECURITY_ADMIN_PASSWORD: ${GRAFANA_ADMIN_PASSWORD:-change-me-grafana}
       GF_USERS_ALLOW_SIGN_UP: "false"
       GF_SERVER_ROOT_URL: http://localhost:${GRAFANA_PORT:-3001}
       GF_DASHBOARDS_DEFAULT_HOME_DASHBOARD_PATH: /var/lib/grafana/dashboards/tip-overview.json
+      # Évite un crash-loop si le provisioning alerting échoue (fichier YAML invalide)
+      GF_UNIFIED_ALERTING_INITIALIZATION_TIMEOUT: 60s
     volumes:
       - ./infra/grafana/provisioning:/etc/grafana/provisioning:ro
       - ./infra/grafana/dashboards:/var/lib/grafana/dashboards:ro
@@ -114,6 +116,7 @@ services:
       - "${GRAFANA_PORT:-3001}:3000"
     depends_on:
       - prometheus
+    restart: unless-stopped
 
   identity:
     build:
@@ -371,6 +374,65 @@ services:
       docgen:
         condition: service_started
 
+  analytics:
+    build:
+      context: .
+      dockerfile: services/analytics/Dockerfile
+    env_file: .env
+    command:
+      [
+        "uvicorn",
+        "app.main:app",
+        "--host",
+        "0.0.0.0",
+        "--port",
+        "8005",
+        "--reload",
+      ]
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-tip}:${POSTGRES_PASSWORD:-tip}@postgres:5432/${POSTGRES_DB:-tip}
+      DB_SCHEMA: analytics
+      SERVICE_NAME: analytics
+      CLERK_JWKS_URL: ${CLERK_JWKS_URL:-}
+      CLERK_ISSUER: ${CLERK_ISSUER:-}
+      PYTHONPATH: /packages/tip-common
+    volumes:
+      - ./services/analytics/app:/app/app
+      - ./services/analytics/scripts:/app/scripts
+      - ./packages/tip-common/tip_common:/packages/tip-common/tip_common
+    ports:
+      - "${ANALYTICS_PORT:-8005}:8005"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  docgen-gc:
+    build:
+      context: .
+      dockerfile: services/docgen/Dockerfile.worker
+    env_file: .env
+    command: ["python", "-m", "app.workers.storage_gc_scheduler"]
+    environment:
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-tip}:${POSTGRES_PASSWORD:-tip}@postgres:5432/${POSTGRES_DB:-tip}
+      DB_SCHEMA: docgen
+      STORAGE_BACKEND: ${STORAGE_BACKEND:-minio}
+      MINIO_ENDPOINT: ${MINIO_ENDPOINT:-http://minio:9000}
+      MINIO_ACCESS_KEY: ${MINIO_ROOT_USER}
+      MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD}
+      MINIO_BUCKET: ${MINIO_BUCKET:-tip-documents}
+      STORAGE_GC_INTERVAL_SECONDS: ${STORAGE_GC_INTERVAL_SECONDS:-3600}
+      PYTHONPATH: /packages/tip-common
+    volumes:
+      - ./services/docgen/app:/app/app
+      - ./packages/tip-common/tip_common:/packages/tip-common/tip_common
+    depends_on:
+      postgres:
+        condition: service_healthy
+      minio:
+        condition: service_started
+      docgen:
+        condition: service_started
+
   frontend:
     build:
       context: ./frontend
@@ -411,6 +473,8 @@ services:
       catalog:
         condition: service_started
       docgen:
+        condition: service_started
+      analytics:
         condition: service_started
       frontend:
         condition: service_started

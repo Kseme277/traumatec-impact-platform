@@ -104,6 +104,27 @@ def _apply_update(event: Event, payload: EventUpdate) -> None:
         setattr(event, key, value)
 
 
+_EVENT_SORT_COLUMNS = {
+    "start_date": Event.start_date,
+    "title": Event.title,
+    "project_number": Event.project_number,
+    "country": Event.country,
+    "city": Event.city,
+    "amount_chf": Event.amount_chf,
+    "project_status": Event.project_status,
+    "responsible_person": Event.responsible_person,
+    "created_at": Event.created_at,
+}
+
+
+def _apply_event_sort(query, sort_by: str | None, sort_dir: str | None):
+    column = _EVENT_SORT_COLUMNS.get((sort_by or "start_date").strip(), Event.start_date)
+    direction = (sort_dir or "desc").strip().lower()
+    if direction == "asc":
+        return query.order_by(column.asc().nullslast(), Event.created_at.desc())
+    return query.order_by(column.desc().nullslast(), Event.created_at.desc())
+
+
 @router.get("/", response_model=EventListResponse)
 async def list_events(
     q: str | None = Query(default=None, description="Recherche texte"),
@@ -111,6 +132,8 @@ async def list_events(
     project_status: str | None = Query(default=None, description="Statut AO Alliance (Open, Closed, Cancelled)"),
     event_type: str | None = Query(default=None),
     country: str | None = Query(default=None),
+    sort_by: str | None = Query(default="start_date", description="Colonne de tri"),
+    sort_dir: str | None = Query(default="desc", description="asc ou desc"),
     upcoming: bool | None = Query(
         default=None,
         description="Si true, uniquement les événements dont la date de fin (ou début) n'est pas passée",
@@ -118,7 +141,7 @@ async def list_events(
     _: AuthenticatedUser = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> EventListResponse:
-    query = select(Event).order_by(Event.start_date.desc().nullslast(), Event.created_at.desc())
+    query = _apply_event_sort(select(Event), sort_by, sort_dir)
     count_query = select(func.count()).select_from(Event)
 
     filters = []
@@ -132,6 +155,8 @@ async def list_events(
                 Event.country.ilike(pattern),
                 Event.responsible_person.ilike(pattern),
                 Event.region.ilike(pattern),
+                Event.event_type.ilike(pattern),
+                Event.preparation_theme.ilike(pattern),
             )
         )
     if status_filter:

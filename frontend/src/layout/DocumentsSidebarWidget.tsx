@@ -13,7 +13,10 @@ export default function DocumentsSidebarWidget() {
   const { isAdmin } = useTipAuth();
 
   return (
-    <div className="mx-auto mb-10 w-full max-w-60 rounded-2xl bg-brand-500/5 px-4 py-5 text-center dark:bg-brand-500/10">
+    <div
+      data-tour="guides-widget"
+      className="mx-auto mb-10 w-full max-w-60 rounded-2xl bg-brand-500/5 px-4 py-5 text-center dark:bg-brand-500/10"
+    >
       <h3 className="mb-2 font-semibold text-gray-900 dark:text-white">{t("guides.title")}</h3>
       <p className="mb-4 text-xs text-gray-500 dark:text-gray-400">{t("guides.desc")}</p>
       {isGuidesConfigured() ? (

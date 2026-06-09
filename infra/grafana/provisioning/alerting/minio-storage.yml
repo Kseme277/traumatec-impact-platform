@@ -1,0 +1,76 @@
+apiVersion: 1
+
+groups:
+  - orgId: 1
+    name: TIP Stockage
+    folder: Traumatec TIP
+    interval: 1m
+    rules:
+      - uid: tip_minio_usage_5gb
+        title: MinIO stockage >= 5 Go (purge requise)
+        condition: C
+        data:
+          - refId: A
+            relativeTimeRange:
+              from: 600
+              to: 0
+            datasourceUid: prometheus
+            model:
+              editorMode: code
+              expr: minio_cluster_usage_total_bytes
+              instant: true
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: A
+          - refId: B
+            relativeTimeRange:
+              from: 600
+              to: 0
+            datasourceUid: __expr__
+            model:
+              expression: A
+              intervalMs: 1000
+              maxDataPoints: 43200
+              reducer: last
+              refId: B
+              type: reduce
+          - refId: C
+            relativeTimeRange:
+              from: 600
+              to: 0
+            datasourceUid: __expr__
+            model:
+              conditions:
+                - evaluator:
+                    params:
+                      - 5368709120
+                    type: gt
+                  operator:
+                    type: and
+                  query:
+                    params:
+                      - C
+                  reducer:
+                    params: []
+                    type: last
+                  type: query
+              expression: B
+              intervalMs: 1000
+              maxDataPoints: 43200
+              refId: C
+              type: threshold
+        dashboardUid: tip-overview
+        panelId: 28
+        noDataState: OK
+        execErrState: Error
+        for: 2m
+        annotations:
+          description: >-
+            Le volume MinIO (ZIP docgen, artefacts) depasse 5 Go.
+            Actions : page Admin TIP « Stockage MinIO » (/admin/stockage),
+            bouton « Executer maintenant » ou « Purger tous les ZIP »,
+            ou service docgen-gc (retention par defaut 14 j).
+          summary: MinIO >= 5 Go — purger le stockage (GC TIP ou console MinIO)
+        labels:
+          severity: warning
+          team: tip

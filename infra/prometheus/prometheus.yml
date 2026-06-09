@@ -22,6 +22,9 @@ scrape_configs:
       - targets: ["docgen:8004"]
         labels:
           service: docgen
+      - targets: ["analytics:8005"]
+        labels:
+          service: analytics
 
   - job_name: postgres
     static_configs:

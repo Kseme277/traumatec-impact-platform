@@ -18,7 +18,6 @@ import EventsBiDashboardSection from "../events/EventsBiDashboardSection";
 import EventsDashboardCalendar from "../events/EventsDashboardCalendar";
 import { useEvents } from "../events/useEvents";
 import DocumentsModuleCard from "../documents/DocumentsModuleCard";
-
 export default function DashboardAdmin() {
   const { t } = useTranslation();
   const { tipUser } = useTipAuth();

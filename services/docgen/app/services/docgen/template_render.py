@@ -73,9 +73,11 @@ def build_event_context(event: dict[str, Any]) -> dict[str, Any]:
     """Contexte Jinja2 / docxtpl — alias FR et EN pour les modèles AO."""
     start = event.get("start_date")
     end = event.get("end_date") or start
+    from tip_common.location_fields import resolve_lieu_display
+
     city = (event.get("city") or "").strip()
     country = (event.get("country") or "").strip()
-    lieu = ", ".join(part for part in (city, country) if part)
+    lieu = resolve_lieu_display(event)
 
     lieu_complet = (event.get("lieu_complet") or "").strip() or lieu
     title_display = (event.get("title_formatted") or event.get("title") or "").strip()
@@ -97,6 +99,8 @@ def build_event_context(event: dict[str, Any]) -> dict[str, Any]:
         "package_label": event.get("package_label") or "",
         "package_duration_days": event.get("package_duration_days") or event.get("expected_package_days") or 1,
         "activity_label": event.get("activity_label") or "",
+        "raw_title": (event.get("raw_title") or event.get("title") or "").strip(),
+        "metadata_json": event.get("metadata_json"),
         "city": city,
         "ville": city,
         "lieu": lieu_display,
@@ -231,13 +235,14 @@ def render_package_document(
     }
 
     ext = suffix.lower()
-    if document_role == "coordonnees_bancaires" and ext == ".docx":
+    if document_role in {"coordonnees_bancaires", "accuse_paiement"} and ext == ".docx":
         from app.services.docgen.coordonnees_docx_replace import apply_coordonnees_docx_replacements
 
         return apply_coordonnees_docx_replacements(
             template_bytes,
             context,
             replacement_fields=fields,
+            document_role=document_role,
         )
 
     if ext == ".xlsx":

@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { Search } from "lucide-react";
 import { Link } from "react-router";
 import AdminBreadcrumb from "../components/common/AdminBreadcrumb";
 import ComponentCard from "../components/common/ComponentCard";
@@ -20,6 +21,15 @@ import ProjectStatusLegend from "../features/events/ProjectStatusLegend";
 import { useEvents } from "../features/events/useEvents";
 import { useModal } from "../hooks/useModal";
 import type { EvenementFilters } from "../features/events/types";
+import {
+  buildSortSelectOptions,
+  DEFAULT_EVENT_SORT,
+  DEFAULT_EVENT_SORT_DIR,
+  nextSortDir,
+  parseSortOption,
+  sortOptionValue,
+  type EventSortField,
+} from "../features/events/eventSort";
 import { isEventOpen, normalizeProjectStatus, getProjectStatusFilterOptions } from "../features/events/projectStatus";
 import { useTipAuth } from "../context/TipAuthContext";
 import { useTranslation } from "../i18n/useTranslation";
@@ -46,20 +56,42 @@ export default function EvenementsPage() {
     remove,
     importExcel,
   } = useEvents();
+  const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
   const [projectStatus, setProjectStatus] = useState("");
   const [country, setCountry] = useState("");
+  const [sortBy, setSortBy] = useState<EventSortField>(DEFAULT_EVENT_SORT);
+  const [sortDir, setSortDir] = useState(DEFAULT_EVENT_SORT_DIR);
 
   const statusFilterOptions = useMemo(() => getProjectStatusFilterOptions(t), [t]);
+  const sortOptions = useMemo(() => buildSortSelectOptions(t), [t]);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => setSearch(searchInput.trim()), 350);
+    return () => window.clearTimeout(timer);
+  }, [searchInput]);
 
   const filters: EvenementFilters = useMemo(
     () => ({
-      q: search.trim() || undefined,
+      q: search || undefined,
       project_status: projectStatus || undefined,
       country: country.trim() || undefined,
+      sort_by: sortBy,
+      sort_dir: sortDir,
     }),
-    [search, projectStatus, country],
+    [search, projectStatus, country, sortBy, sortDir],
   );
+
+  const handleSort = useCallback((field: EventSortField) => {
+    setSortDir((prevDir) => nextSortDir(sortBy, field, prevDir));
+    setSortBy(field);
+  }, [sortBy]);
+
+  const handleSortSelect = useCallback((value: string) => {
+    const parsed = parseSortOption(value);
+    setSortBy(parsed.field);
+    setSortDir(parsed.dir);
+  }, []);
 
   useEffect(() => {
     void loadEvents(filters);
@@ -69,7 +101,7 @@ export default function EvenementsPage() {
     void loadStats();
   }, [loadStats]);
 
-  const paginationKey = `${search}|${projectStatus}|${country}|${events.length}`;
+  const paginationKey = `${search}|${projectStatus}|${country}|${sortBy}|${sortDir}|${events.length}`;
   const {
     paginatedItems,
     page,
@@ -157,21 +189,30 @@ export default function EvenementsPage() {
         <ProjectStatusLegend />
 
         <div className="mb-6 flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3 flex-1">
-            <Input
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              placeholder={t("events.searchPlaceholder")}
-            />
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4 flex-1">
+            <div className="relative sm:col-span-2 lg:col-span-1">
+              <Search className="pointer-events-none absolute left-3 top-1/2 size-4 -translate-y-1/2 text-gray-400" />
+              <Input
+                value={searchInput}
+                onChange={(e) => setSearchInput(e.target.value)}
+                placeholder={t("events.searchPlaceholder")}
+                className="pl-10"
+              />
+            </div>
             <Select
               options={statusFilterOptions}
-              defaultValue={projectStatus}
+              value={projectStatus}
               onChange={setProjectStatus}
             />
             <Input
               value={country}
               onChange={(e) => setCountry(e.target.value)}
               placeholder={t("events.filterCountry")}
+            />
+            <Select
+              options={sortOptions}
+              value={sortOptionValue(sortBy, sortDir)}
+              onChange={handleSortSelect}
             />
           </div>
           <div className="flex flex-wrap gap-3">
@@ -190,8 +231,15 @@ export default function EvenementsPage() {
           <TableLoader message={t("events.loadingList")} />
         ) : (
           <>
+            <p className="mb-3 text-xs text-gray-500 dark:text-gray-400">
+              {totalItems} {t("events.resultsCount")}
+              {search ? ` · ${t("events.searchActive")}` : ""}
+            </p>
             <EvenementsTable
               events={paginatedItems}
+              sortBy={sortBy}
+              sortDir={sortDir}
+              onSort={handleSort}
               onClose={handleClose}
               onDelete={handleDelete}
               showAdminActions={isAdmin}

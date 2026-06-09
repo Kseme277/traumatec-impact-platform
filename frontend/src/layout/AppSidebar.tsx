@@ -2,12 +2,15 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation } from "react-router";
 
 import {
+  Bell,
   ChevronDown,
   FileText,
   LayoutGrid,
   List,
   MoreHorizontal,
-  UserCircle,
+  Shield,
+  TrendingUp,
+  UserRound,
 } from "lucide-react";
 import { useSidebar } from "../context/SidebarContext";
 import { useTipAuth } from "../context/TipAuthContext";
@@ -19,8 +22,9 @@ type NavItem = {
   icon: React.ReactNode;
   path?: string;
   href?: string;
+  tourId?: string;
   adminOnly?: boolean;
-  subItems?: { name: string; path?: string; href?: string; adminOnly?: boolean }[];
+  subItems?: { name: string; path?: string; href?: string; tourId?: string; adminOnly?: boolean }[];
 };
 
 const AppSidebar: React.FC = () => {
@@ -31,28 +35,58 @@ const AppSidebar: React.FC = () => {
 
   const navItems: NavItem[] = useMemo(() => {
     const items: NavItem[] = [
-      { icon: <LayoutGrid className="size-6" strokeWidth={1.75} />, name: t("nav.dashboard"), path: "/" },
-      { icon: <List className="size-6" strokeWidth={1.75} />, name: t("nav.events"), path: "/evenements" },
+      {
+        icon: <LayoutGrid className="size-6" strokeWidth={1.75} />,
+        name: t("nav.dashboard"),
+        path: "/",
+        tourId: "nav-dashboard",
+      },
+      {
+        icon: <List className="size-6" strokeWidth={1.75} />,
+        name: t("nav.events"),
+        path: "/evenements",
+        tourId: "nav-events",
+      },
+      {
+        icon: <TrendingUp className="size-6" strokeWidth={1.75} />,
+        name: t("nav.predictions"),
+        path: "/predictions",
+        tourId: "nav-predictions",
+      },
+      {
+        icon: <Bell className="size-6" strokeWidth={1.75} />,
+        name: t("nav.notifications"),
+        path: "/notifications",
+        tourId: "nav-notifications",
+      },
       {
         icon: <FileText className="size-6" strokeWidth={1.75} />,
         name: t("nav.documents"),
+        tourId: "nav-documents",
         subItems: [
           { name: t("nav.templates"), path: "/documents/templates" },
-          { name: t("nav.generation"), path: "/documents/generation" },
+          { name: t("nav.generation"), path: "/documents/generation", tourId: "nav-generation" },
         ],
       },
     ];
 
-    items.push({ icon: <UserCircle className="size-6" strokeWidth={1.75} />, name: t("nav.profile"), path: "/profil" });
+    items.push({
+      icon: <UserRound className="size-6" strokeWidth={1.75} />,
+      name: t("nav.profile"),
+      path: "/profil",
+      tourId: "nav-profile",
+    });
 
     if (isAdmin) {
       items.push({
-        icon: <UserCircle className="size-6" strokeWidth={1.75} />,
+        icon: <Shield className="size-6" strokeWidth={1.75} />,
         name: t("nav.admin"),
+        tourId: "nav-admin",
         adminOnly: true,
         subItems: [
           { name: t("nav.users"), path: "/admin/utilisateurs" },
           { name: t("nav.audit"), path: "/admin/audit" },
+          { name: t("nav.storage"), path: "/admin/stockage" },
         ],
       });
     }
@@ -117,6 +151,7 @@ const AppSidebar: React.FC = () => {
           {nav.subItems ? (
             <button
               type="button"
+              data-tour={nav.tourId}
               onClick={() => handleSubmenuToggle(index)}
               className={`menu-item group ${
                 openSubmenu === index ? "menu-item-active" : "menu-item-inactive"
@@ -159,6 +194,7 @@ const AppSidebar: React.FC = () => {
             nav.path && (
               <Link
                 to={nav.path}
+                data-tour={nav.tourId}
                 className={`menu-item group ${
                   isActive(nav.path) ? "menu-item-active" : "menu-item-inactive"
                 }`}
@@ -192,6 +228,7 @@ const AppSidebar: React.FC = () => {
                     {subItem.path ? (
                       <Link
                         to={subItem.path}
+                        data-tour={subItem.tourId}
                         className={`menu-dropdown-item ${
                           isActive(subItem.path)
                             ? "menu-dropdown-item-active"

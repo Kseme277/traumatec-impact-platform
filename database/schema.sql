@@ -13,15 +13,20 @@ CREATE SCHEMA IF NOT EXISTS docgen;
 -- identity-service (Clerk + utilisateurs locaux)
 -- ---------------------------------------------------------------------------
 CREATE TABLE identity.utilisateurs (
-    id              SERIAL PRIMARY KEY,
-    clerk_id        VARCHAR(128) UNIQUE,
-    email           VARCHAR(255) NOT NULL UNIQUE,
-    nom             VARCHAR(128) NOT NULL,
-    prenom          VARCHAR(128) NOT NULL,
-    role            VARCHAR(32) NOT NULL
-                    CHECK (role IN ('administrateur', 'preparateur')),
-    est_actif       BOOLEAN NOT NULL DEFAULT TRUE,
-    created_at      TIMESTAMPTZ NOT NULL DEFAULT now()
+    id                  SERIAL PRIMARY KEY,
+    clerk_id            VARCHAR(128) UNIQUE,
+    username            VARCHAR(64) UNIQUE,
+    email               VARCHAR(255) NOT NULL UNIQUE,
+    nom                 VARCHAR(128) NOT NULL,
+    prenom              VARCHAR(128) NOT NULL,
+    phone               VARCHAR(32),
+    role                VARCHAR(32) NOT NULL
+                        CHECK (role IN ('administrateur', 'preparateur')),
+    est_actif           BOOLEAN NOT NULL DEFAULT TRUE,
+    created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
+    activation_date     TIMESTAMPTZ,
+    deactivation_date   TIMESTAMPTZ,
+    last_access         TIMESTAMPTZ
 );
 
 CREATE INDEX idx_identity_utilisateurs_clerk_id ON identity.utilisateurs(clerk_id);
@@ -144,7 +149,10 @@ CREATE TABLE catalog.system_settings (
 );
 
 INSERT INTO catalog.system_settings (key, value) VALUES
-    ('zip_name_pattern', '{project_number}_{event_name}_{city}_{country}_{date}');
+    ('zip_name_pattern', '{project_number}_{event_name}_{city}_{country}_{date}'),
+    ('storage_gc_enabled', 'true'),
+    ('storage_gc_retention_days', '14')
+ON CONFLICT (key) DO NOTHING;
 
 -- ---------------------------------------------------------------------------
 -- events-service
@@ -220,6 +228,7 @@ CREATE TABLE docgen.generation_jobs (
     rq_job_id               VARCHAR(128),
     zip_path                VARCHAR(512),
     zip_filename            VARCHAR(512),
+    zip_purged_at           TIMESTAMPTZ,
     certificate_count       INTEGER NOT NULL DEFAULT 0,
     template_versions_json  JSONB,
     logs_json               JSONB,

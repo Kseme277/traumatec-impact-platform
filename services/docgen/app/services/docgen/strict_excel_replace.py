@@ -10,6 +10,7 @@ from typing import Any
 from openpyxl import load_workbook
 
 from app.services.docgen.document_role_replace import _strict_fields_for_role
+from app.services.docgen.excel_cell_utils import set_cell_value
 
 logger = logging.getLogger(__name__)
 
@@ -77,7 +78,7 @@ def apply_strict_excel_replacements(
                     updated = _replace_prepared_by_cell(stripped, context)
 
                 if updated is not None and updated != stripped:
-                    cell.value = updated
+                    set_cell_value(sheet, cell, updated)
                     replaced += 1
 
     if not replaced:

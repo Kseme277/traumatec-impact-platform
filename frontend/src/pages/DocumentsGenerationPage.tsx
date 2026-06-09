@@ -636,7 +636,7 @@ export default function DocumentsGenerationPage() {
                     ? t("documents.saveThemeAndGenerate")
                     : t("documents.generateZip")}
               </Button>
-              {activeJob?.status === "completed" && (
+              {activeJob?.status === "completed" && activeJob.zip_available !== false && (
                 <Button
                   size="sm"
                   variant="outline"
@@ -644,6 +644,11 @@ export default function DocumentsGenerationPage() {
                 >
                   {t("documents.downloadZip")}
                 </Button>
+              )}
+              {activeJob?.status === "completed" && activeJob.zip_available === false && (
+                <span className="text-xs text-gray-500 dark:text-gray-400">
+                  {t("documents.zipExpired")}
+                </span>
               )}
               {selectedEvent && (
                 <Link to={`/evenements/${selectedEvent.id}/modifier`}>
@@ -695,7 +700,7 @@ export default function DocumentsGenerationPage() {
                           {new Date(job.created_at).toLocaleString(localeTag)}
                         </TableCell>
                         <TableCell className="px-2 py-2 text-right">
-                          {job.status === "completed" && (
+                          {job.status === "completed" && job.zip_available !== false && (
                             <button
                               type="button"
                               className="text-xs font-medium text-brand-500 hover:underline"
@@ -703,6 +708,9 @@ export default function DocumentsGenerationPage() {
                             >
                               ZIP
                             </button>
+                          )}
+                          {job.status === "completed" && job.zip_available === false && (
+                            <span className="text-xs text-gray-400">{t("documents.zipExpiredShort")}</span>
                           )}
                         </TableCell>
                         <TableCell className="px-2 py-2 text-right">

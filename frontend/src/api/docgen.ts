@@ -22,6 +22,21 @@ export function fetchGenerationHistory(token: string | null, eventId: string) {
   return fetchJson<GenerationJob[]>(`/v1/generations/events/${eventId}/history`, token);
 }
 
+export interface GenerationNotification {
+  id: string;
+  event_id: string;
+  event_title: string | null;
+  status: string;
+  zip_filename: string | null;
+  error_message: string | null;
+  created_at: string;
+  completed_at: string | null;
+}
+
+export function fetchRecentGenerationJobs(token: string | null, limit = 30) {
+  return fetchJson<GenerationNotification[]>(`/v1/generations/recent?limit=${limit}`, token);
+}
+
 async function fetchJson<T>(path: string, token: string | null, options: RequestInit = {}): Promise<T> {
   const headers = new Headers(options.headers);
   headers.set("Content-Type", "application/json");

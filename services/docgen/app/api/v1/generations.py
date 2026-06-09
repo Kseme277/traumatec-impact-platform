@@ -9,11 +9,54 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import get_settings
 from app.core.database import get_db
 from app.models.generation_job import GenerationJob
-from app.schemas.generation import GenerationJobResponse, GenerationStartResponse
+from app.schemas.generation import (
+    GenerationJobResponse,
+    GenerationNotificationResponse,
+    GenerationStartResponse,
+)
 from tip_common.security import AuthenticatedUser, get_current_user
 from tip_common.storage import get_object_storage
 
 router = APIRouter()
+
+
+@router.get("/recent", response_model=list[GenerationNotificationResponse])
+async def recent_generations(
+    user: AuthenticatedUser = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+    limit: int = 30,
+) -> list[GenerationNotificationResponse]:
+    """Notifications de fin de tâche DocGen (Redis/RQ) pour l'utilisateur courant."""
+    cap = min(max(limit, 1), 100)
+    result = await db.execute(
+        text(
+            """
+            SELECT j.id, j.event_id, j.status, j.zip_filename, j.error_message,
+                   j.created_at, j.completed_at, e.title AS event_title
+            FROM docgen.generation_jobs j
+            LEFT JOIN events.events e ON e.id = j.event_id
+            WHERE j.requested_by_id = :user_id
+              AND j.status IN ('completed', 'failed', 'running', 'queued')
+            ORDER BY COALESCE(j.completed_at, j.created_at) DESC
+            LIMIT :limit
+            """
+        ),
+        {"user_id": user.id, "limit": cap},
+    )
+    rows = result.mappings().all()
+    return [
+        GenerationNotificationResponse(
+            id=row["id"],
+            event_id=row["event_id"],
+            event_title=row["event_title"],
+            status=row["status"],
+            zip_filename=row["zip_filename"],
+            error_message=row["error_message"],
+            created_at=row["created_at"],
+            completed_at=row["completed_at"],
+        )
+        for row in rows
+    ]
 
 
 @router.get("/events/{event_id}/history", response_model=list[GenerationJobResponse])
@@ -129,7 +172,10 @@ async def download_zip(
 ) -> Response:
     job = await db.get(GenerationJob, job_id)
     if job is None or job.status != "completed" or not job.zip_path:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="ZIP non disponible")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="ZIP non disponible (expiré ou non généré). L'historique reste consultable.",
+        )
 
     storage = get_object_storage(get_settings())
     data = storage.download_bytes(job.zip_path)

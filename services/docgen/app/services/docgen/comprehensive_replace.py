@@ -9,6 +9,8 @@ from io import BytesIO
 from typing import Any
 from xml.etree import ElementTree as ET
 
+from app.services.docgen.excel_cell_utils import set_cell_value
+
 logger = logging.getLogger(__name__)
 
 W_NS = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
@@ -174,8 +176,7 @@ def apply_exhaustive_pairs_xlsx(data: bytes, pairs: list[tuple[str, str]]) -> by
                 for old, new in pairs:
                     if old in updated:
                         updated = updated.replace(old, new)
-                if updated != cell.value:
-                    cell.value = updated
+                if updated != cell.value and set_cell_value(sheet, cell, updated):
                     replaced += 1
 
     if not replaced:

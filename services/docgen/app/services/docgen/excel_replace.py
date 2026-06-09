@@ -9,6 +9,8 @@ from typing import Any
 
 from openpyxl import load_workbook
 
+from app.services.docgen.excel_cell_utils import set_cell_value
+
 logger = logging.getLogger(__name__)
 
 
@@ -119,8 +121,7 @@ def apply_excel_replacements(
                     document_role=document_role,
                     replacement_fields=replacement_fields,
                 )
-                if new_val != cell.value:
-                    cell.value = new_val
+                if new_val != cell.value and set_cell_value(sheet, cell, new_val):
                     replaced += 1
 
     if replaced:

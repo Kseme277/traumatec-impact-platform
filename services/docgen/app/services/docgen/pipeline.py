@@ -100,7 +100,7 @@ async def _load_prepared_by(session: AsyncSession, job_id: UUID) -> str:
             """
             SELECT u.prenom, u.nom, u.email
             FROM docgen.generation_jobs j
-            JOIN identity.users u ON u.id = j.requested_by_id
+            JOIN identity.utilisateurs u ON u.id = j.requested_by_id
             WHERE j.id = :job_id
             """
         ),
@@ -654,6 +654,7 @@ def run_docgen_job(job_id: str) -> None:
                 )
             except Exception as exc:
                 logger.exception("DocGen job %s failed", job_id)
+                await session.rollback()
                 await append_job_log(session, jid, level="error", message=str(exc)[:2000])
                 await session.execute(
                     text(

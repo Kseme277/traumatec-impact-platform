@@ -39,7 +39,7 @@ async function fetchMeWithTimeout(token: string | null): Promise<Utilisateur> {
 export function TipAuthProvider({ children }: { children: ReactNode }) {
   const { isLoaded, isSignedIn, getToken } = useAuth();
   const [tipUser, setTipUser] = useState<Utilisateur | null>(null);
-  const [profileLoading, setProfileLoading] = useState(false);
+  const [profileLoading, setProfileLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [errorStatus, setErrorStatus] = useState<number | null>(null);
 
@@ -55,6 +55,9 @@ export function TipAuthProvider({ children }: { children: ReactNode }) {
       setProfileLoading(false);
       return;
     }
+
+    setError(null);
+    setErrorStatus(null);
 
     setProfileLoading(true);
     try {

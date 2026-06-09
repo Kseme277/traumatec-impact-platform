@@ -3,12 +3,17 @@ export type RoleUtilisateur = "administrateur" | "preparateur";
 export interface Utilisateur {
   id: number;
   clerk_id: string | null;
+  username?: string | null;
   email: string;
   nom: string;
   prenom: string;
+  phone?: string | null;
   role: RoleUtilisateur;
   est_actif: boolean;
   created_at: string;
+  activation_date?: string | null;
+  deactivation_date?: string | null;
+  last_access?: string | null;
 }
 
 export interface UtilisateurCreateResult extends Utilisateur {
@@ -22,6 +27,8 @@ export interface UtilisateurCreatePayload {
   nom: string;
   prenom: string;
   role: RoleUtilisateur;
+  username?: string;
+  phone?: string;
 }
 
 export interface UtilisateurUpdatePayload {

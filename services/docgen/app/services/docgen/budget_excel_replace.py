@@ -9,6 +9,8 @@ from typing import Any
 
 from openpyxl import load_workbook
 
+from app.services.docgen.excel_cell_utils import cell_value, set_cell_value
+
 logger = logging.getLogger(__name__)
 
 # Libellés colonne B → clé contexte (colonne C uniquement)
@@ -75,9 +77,9 @@ def _replace_budget_sheet(sheet, context: dict[str, Any]) -> int:
                 new_value = _context_value(context, ctx_key)
                 if not new_value:
                     break
-                if value_cell.value != new_value:
-                    value_cell.value = new_value
-                    replaced += 1
+                if cell_value(sheet, value_cell) != new_value:
+                    if set_cell_value(sheet, value_cell, new_value):
+                        replaced += 1
                 break
     return replaced
 

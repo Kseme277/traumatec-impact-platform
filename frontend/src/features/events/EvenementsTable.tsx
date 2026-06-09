@@ -1,4 +1,5 @@
 import { Link } from "react-router";
+import { ArrowDown, ArrowUp, ArrowUpDown, Eye, Check, Trash2 } from "lucide-react";
 import {
   Table,
   TableBody,
@@ -6,37 +7,66 @@ import {
   TableHeader,
   TableRow,
 } from "../../components/ui/table";
-import { Check, Eye, Trash2 } from "lucide-react";
 import TableIconButton from "../../components/common/TableIconButton";
 import { useTranslation } from "../../i18n/useTranslation";
 import type { Evenement } from "./types";
 import { themeLabel } from "./types";
+import type { EventSortDir, EventSortField } from "./eventSort";
 import { formatDateRangeFr } from "./eventDates";
 import ProjectStatusBadge from "./ProjectStatusBadge";
 import { isEventOpen } from "./projectStatus";
 
 interface EvenementsTableProps {
   events: Evenement[];
+  sortBy: EventSortField;
+  sortDir: EventSortDir;
+  onSort: (field: EventSortField) => void;
   onClose: (event: Evenement) => void;
   onDelete: (event: Evenement) => void;
   showAdminActions?: boolean;
 }
 
+type SortableColumn = {
+  key: EventSortField;
+  label: string;
+};
+
+function SortIcon({
+  field,
+  sortBy,
+  sortDir,
+}: {
+  field: EventSortField;
+  sortBy: EventSortField;
+  sortDir: EventSortDir;
+}) {
+  if (sortBy !== field) {
+    return <ArrowUpDown className="size-3.5 opacity-40" aria-hidden />;
+  }
+  return sortDir === "asc" ? (
+    <ArrowUp className="size-3.5 text-brand-500" aria-hidden />
+  ) : (
+    <ArrowDown className="size-3.5 text-brand-500" aria-hidden />
+  );
+}
+
 export default function EvenementsTable({
   events,
+  sortBy,
+  sortDir,
+  onSort,
   onClose,
   onDelete,
   showAdminActions = false,
 }: EvenementsTableProps) {
   const { t } = useTranslation();
 
-  const headers = [
-    t("events.tableProject"),
-    t("events.tableEvent"),
-    t("common.status"),
-    t("events.tableResponsible"),
-    t("events.dates"),
-    t("common.actions"),
+  const sortableColumns: SortableColumn[] = [
+    { key: "project_number", label: t("events.tableProject") },
+    { key: "title", label: t("events.tableEvent") },
+    { key: "project_status", label: t("common.status") },
+    { key: "responsible_person", label: t("events.tableResponsible") },
+    { key: "start_date", label: t("events.dates") },
   ];
 
   if (events.length === 0) {
@@ -59,15 +89,29 @@ export default function EvenementsTable({
           </colgroup>
           <TableHeader className="border-b border-gray-100 dark:border-white/[0.05]">
             <TableRow>
-              {headers.map((header) => (
+              {sortableColumns.map((column) => (
                 <TableCell
-                  key={header}
+                  key={column.key}
                   isHeader
                   className="px-4 py-3 text-start text-theme-xs font-medium text-gray-500 dark:text-gray-400"
                 >
-                  {header}
+                  <button
+                    type="button"
+                    onClick={() => onSort(column.key)}
+                    className="inline-flex items-center gap-1.5 transition hover:text-brand-500 dark:hover:text-brand-400"
+                    aria-label={`${t("events.sortBy")} ${column.label}`}
+                  >
+                    <span>{column.label}</span>
+                    <SortIcon field={column.key} sortBy={sortBy} sortDir={sortDir} />
+                  </button>
                 </TableCell>
               ))}
+              <TableCell
+                isHeader
+                className="px-4 py-3 text-start text-theme-xs font-medium text-gray-500 dark:text-gray-400"
+              >
+                {t("common.actions")}
+              </TableCell>
             </TableRow>
           </TableHeader>
           <TableBody className="divide-y divide-gray-100 dark:divide-white/[0.05]">

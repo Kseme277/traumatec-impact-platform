@@ -13,6 +13,7 @@ from app.api.webhooks import clerk as clerk_webhooks
 from app.core.config import get_settings
 from app.services.audit_scheduler import audit_export_loop
 from app.services.bootstrap import bootstrap_default_admin
+from app.services.db_migrate import apply_pending_migrations
 from tip_common.storage import ensure_document_storage
 
 settings = get_settings()
@@ -21,6 +22,7 @@ settings = get_settings()
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     ensure_document_storage(settings)
+    await apply_pending_migrations()
     await bootstrap_default_admin()
     scheduler_task = asyncio.create_task(audit_export_loop())
     try:

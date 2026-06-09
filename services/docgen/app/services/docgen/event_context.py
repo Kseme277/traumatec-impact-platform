@@ -21,28 +21,9 @@ def _parse_iso(value: str | date | None) -> date | None:
 
 
 def _infer_location_from_title(title: str) -> dict[str, str]:
-    """Règles métier : extraire lieu/pays depuis le titre AO (ex. …_TBD_RDC)."""
-    result: dict[str, str] = {}
-    if not title:
-        return result
+    from tip_common.location_fields import infer_location_from_title
 
-    upper = title.upper()
-    country_map = {
-        "_RDC": ("Democratic Republic of the Congo", "RDC"),
-        "_CDI": ("Côte d'Ivoire", "CI"),
-        "_SEN": ("Senegal", "SN"),
-        "_CM": ("Cameroon", "CM"),
-        "_CMR": ("Cameroon", "CM"),
-    }
-    for suffix, (country, _code) in country_map.items():
-        if suffix in upper or upper.endswith(suffix.lstrip("_")):
-            result["country"] = country
-            break
-
-    if re.search(r"\bTBD\b", title, re.I):
-        result.setdefault("city", "TBD")
-
-    return result
+    return infer_location_from_title(title)
 
 
 async def enrich_event_context(
@@ -56,7 +37,8 @@ async def enrich_event_context(
     NVIDIA optionnel si clé API présente.
     """
     enriched = dict(event)
-    title = str(enriched.get("title") or "")
+    enriched["raw_title"] = str(enriched.get("title") or "")
+    title = enriched["raw_title"]
 
     hints = _infer_location_from_title(title)
     if not enriched.get("city") and hints.get("city"):

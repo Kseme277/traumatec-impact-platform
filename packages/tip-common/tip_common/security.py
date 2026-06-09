@@ -268,7 +268,26 @@ async def get_current_user(
             detail="Compte désactivé. Contactez un administrateur.",
         )
 
+    await _touch_user_session(user.id)
+
     return user
+
+
+async def _touch_user_session(user_id: int) -> None:
+    session_factory = _get_session_factory()
+    async with session_factory() as session:
+        await session.execute(
+            text(
+                """
+                UPDATE identity.utilisateurs
+                SET last_access = now(),
+                    activation_date = COALESCE(activation_date, now())
+                WHERE id = :user_id
+                """
+            ),
+            {"user_id": user_id},
+        )
+        await session.commit()
 
 
 async def require_admin(user: AuthenticatedUser = Depends(get_current_user)) -> AuthenticatedUser:

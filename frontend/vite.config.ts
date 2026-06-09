@@ -13,6 +13,7 @@ const serviceHostByPort: Record<number, string> = {
   8002: isDockerDev ? "events" : (process.env.VITE_API_SERVICE_HOST ?? "127.0.0.1"),
   8003: isDockerDev ? "catalog" : (process.env.VITE_API_SERVICE_HOST ?? "127.0.0.1"),
   8004: isDockerDev ? "docgen" : (process.env.VITE_API_SERVICE_HOST ?? "127.0.0.1"),
+  8005: isDockerDev ? "analytics" : (process.env.VITE_API_SERVICE_HOST ?? "127.0.0.1"),
 };
 
 function proxyTo(port: number, extra?: Partial<ProxyOptions>): ProxyOptions {
@@ -27,6 +28,7 @@ function proxyTo(port: number, extra?: Partial<ProxyOptions>): ProxyOptions {
 function directApiProxies(): Record<string, ProxyOptions> {
   return {
     "/api/v1/generations": proxyTo(8004, { timeout: 300_000 }),
+    "/api/v1/analytics": proxyTo(8005),
     "/api/v1/parcours": proxyTo(8003),
     "/api/v1/packages": proxyTo(8003),
     "/api/v1/profiles": proxyTo(8003),

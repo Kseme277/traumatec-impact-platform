@@ -16,9 +16,10 @@ import { usePagination } from "../../hooks/usePagination";
 
 export default function UtilisateursListPage() {
   const { t } = useTranslation();
-  const { users, isLoading, loadUsers, toggleStatus, removeUser } = useAdminUsers();
+  const { users, isLoading, loadUsers, toggleStatus, removeUser, resendInvite } = useAdminUsers();
   const [togglingId, setTogglingId] = useState<number | null>(null);
   const [deletingId, setDeletingId] = useState<number | null>(null);
+  const [resendingId, setResendingId] = useState<number | null>(null);
 
   const {
     paginatedItems,
@@ -44,6 +45,12 @@ export default function UtilisateursListPage() {
     setDeletingId(user.id);
     await removeUser(user);
     setDeletingId(null);
+  };
+
+  const handleResend = async (user: Utilisateur) => {
+    setResendingId(user.id);
+    await resendInvite(user);
+    setResendingId(null);
   };
 
   const activeCount = users.filter((user) => user.est_actif).length;
@@ -92,8 +99,10 @@ export default function UtilisateursListPage() {
               users={paginatedItems}
               togglingId={togglingId}
               deletingId={deletingId}
+              resendingId={resendingId}
               onToggle={(user) => void handleToggle(user)}
               onDelete={(user) => void handleDelete(user)}
+              onResendInvitation={(user) => void handleResend(user)}
             />
             <DataTablePagination
               page={page}

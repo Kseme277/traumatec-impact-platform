@@ -9,7 +9,7 @@ import {
   TableHeader,
   TableRow,
 } from "../../../components/ui/table";
-import { Eye, Trash2 } from "lucide-react";
+import { Eye, Mail, Trash2 } from "lucide-react";
 import { useTranslation } from "../../../i18n/useTranslation";
 import type { Utilisateur } from "../../auth/types";
 import { roleLabel } from "../../auth/types";
@@ -18,25 +18,35 @@ interface UtilisateursTableProps {
   users: Utilisateur[];
   togglingId: number | null;
   deletingId: number | null;
+  resendingId: number | null;
   onToggle: (user: Utilisateur) => void;
   onDelete: (user: Utilisateur) => void;
+  onResendInvitation: (user: Utilisateur) => void;
+}
+
+function isPendingActivation(user: Utilisateur): boolean {
+  return !user.activation_date;
 }
 
 export default function UtilisateursTable({
   users,
   togglingId,
   deletingId,
+  resendingId,
   onToggle,
   onDelete,
+  onResendInvitation,
 }: UtilisateursTableProps) {
   const { t, localeTag } = useTranslation();
 
   const headers = [
-    t("common.user"),
+    t("users.username"),
+    t("users.fullName"),
     t("common.email"),
+    t("users.phone"),
     t("common.role"),
+    t("users.lastAccess"),
     t("common.status"),
-    t("users.createdAt"),
     t("common.actions"),
   ];
 
@@ -46,18 +56,15 @@ export default function UtilisateursTable({
     );
   }
 
+  const formatAccess = (iso: string | null | undefined) => {
+    if (!iso) return "—";
+    return new Date(iso).toLocaleString(localeTag, { dateStyle: "short", timeStyle: "short" });
+  };
+
   return (
     <div className="-mx-4 overflow-hidden sm:-mx-6">
       <div className="overflow-x-auto px-4 sm:px-6">
-        <Table className="min-w-[920px] table-fixed w-full">
-          <colgroup>
-            <col className="w-[180px]" />
-            <col className="w-[240px]" />
-            <col className="w-[120px]" />
-            <col className="w-[100px]" />
-            <col className="w-[110px]" />
-            <col className="w-[140px]" />
-          </colgroup>
+        <Table className="min-w-[1100px] table-fixed w-full">
           <TableHeader className="border-b border-gray-100 dark:border-white/[0.05]">
             <TableRow>
               {headers.map((header) => (
@@ -74,6 +81,9 @@ export default function UtilisateursTable({
           <TableBody className="divide-y divide-gray-100 dark:divide-white/[0.05]">
             {users.map((user) => (
               <TableRow key={user.id} className="hover:bg-gray-50 dark:hover:bg-white/[0.02]">
+                <TableCell className="px-4 py-4 text-start text-theme-sm text-gray-600 dark:text-gray-300">
+                  {user.username ?? "—"}
+                </TableCell>
                 <TableCell className="px-4 py-4 text-start">
                   <Link
                     to={`/admin/utilisateurs/${user.id}`}
@@ -88,21 +98,37 @@ export default function UtilisateursTable({
                     {user.email}
                   </span>
                 </TableCell>
+                <TableCell className="px-4 py-4 text-start text-theme-sm text-gray-500 dark:text-gray-400">
+                  {user.phone ?? "—"}
+                </TableCell>
                 <TableCell className="px-4 py-4 text-start">
                   <Badge color="primary" size="sm">
                     {roleLabel(user.role, t)}
                   </Badge>
                 </TableCell>
+                <TableCell className="px-4 py-4 text-start text-theme-sm text-gray-500 dark:text-gray-400 whitespace-nowrap">
+                  {formatAccess(user.last_access)}
+                </TableCell>
                 <TableCell className="px-4 py-4 text-start">
                   <Badge color={user.est_actif ? "success" : "light"} size="sm">
-                    {user.est_actif ? t("common.active") : t("common.inactive")}
+                    {user.est_actif
+                      ? isPendingActivation(user)
+                        ? t("users.pendingActivation")
+                        : t("common.active")
+                      : t("common.inactive")}
                   </Badge>
-                </TableCell>
-                <TableCell className="px-4 py-4 text-start text-theme-sm text-gray-500 dark:text-gray-400 whitespace-nowrap">
-                  {new Date(user.created_at).toLocaleDateString(localeTag)}
                 </TableCell>
                 <TableCell className="px-4 py-4 text-start">
                   <div className="flex items-center gap-2">
+                    {isPendingActivation(user) && (
+                      <TableIconButton
+                        label={t("users.resendInvitation")}
+                        disabled={resendingId === user.id}
+                        onClick={() => onResendInvitation(user)}
+                      >
+                        <Mail className="size-5" strokeWidth={1.75} aria-hidden />
+                      </TableIconButton>
+                    )}
                     <TableIconButton
                       label={t("users.viewProfile")}
                       href={`/admin/utilisateurs/${user.id}`}

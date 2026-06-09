@@ -29,10 +29,13 @@ import UtilisateursListPage from "./pages/admin/UtilisateursListPage";
 import UtilisateurCreatePage from "./pages/admin/UtilisateurCreatePage";
 import UtilisateurDetailPage from "./pages/admin/UtilisateurDetailPage";
 import AuditPage from "./pages/admin/AuditPage";
+import ParametresStockagePage from "./pages/admin/ParametresStockagePage";
 import ProfilMotDePassePage from "./pages/ProfilMotDePassePage";
 import DocumentsTemplatesPage from "./pages/DocumentsTemplatesPage";
 import DocumentsGenerationPage from "./pages/DocumentsGenerationPage";
 import GuidesAdminHandoffPage from "./pages/GuidesAdminHandoffPage";
+import NotificationsPage from "./pages/NotificationsPage";
+import PredictionsPage from "./pages/PredictionsPage";
 
 export default function App() {
   return (
@@ -59,6 +62,8 @@ export default function App() {
             <Route path="/evenements/:id/modifier" element={<EvenementEditPage />} />
             <Route path="/documents/templates" element={<DocumentsTemplatesPage />} />
             <Route path="/documents/generation" element={<DocumentsGenerationPage />} />
+            <Route path="/notifications" element={<NotificationsPage />} />
+            <Route path="/predictions" element={<PredictionsPage />} />
             <Route path="/profile" element={<UserProfiles />} />
             <Route path="/profil" element={<UserProfiles />} />
             <Route path="/profil/mot-de-passe" element={<ProfilMotDePassePage />} />
@@ -80,6 +85,7 @@ export default function App() {
               <Route path="/admin/utilisateurs/nouveau" element={<UtilisateurCreatePage />} />
               <Route path="/admin/utilisateurs/:id" element={<UtilisateurDetailPage />} />
               <Route path="/admin/audit" element={<AuditPage />} />
+              <Route path="/admin/stockage" element={<ParametresStockagePage />} />
             </Route>
           </Route>
         </Route>

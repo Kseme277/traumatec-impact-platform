@@ -62,12 +62,27 @@ export interface EvenementListResponse {
   total: number;
 }
 
+export type EventSortField =
+  | "start_date"
+  | "title"
+  | "project_number"
+  | "country"
+  | "city"
+  | "amount_chf"
+  | "project_status"
+  | "responsible_person"
+  | "created_at";
+
+export type EventSortDir = "asc" | "desc";
+
 export interface EvenementFilters {
   q?: string;
   status?: EventStatus | "";
   project_status?: string;
   event_type?: string;
   country?: string;
+  sort_by?: EventSortField;
+  sort_dir?: EventSortDir;
   /** Uniquement événements dont la date de fin (ou début) n'est pas passée */
   upcoming?: boolean;
 }

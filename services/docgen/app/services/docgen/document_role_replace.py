@@ -87,11 +87,9 @@ def _event_day(context: dict[str, Any], day_index: int | None) -> date | None:
 
 
 def _lieu_line(context: dict[str, Any]) -> str:
-    city = (context.get("city") or "").strip()
-    country = (context.get("country") or "").strip()
-    if city and country:
-        return f"{city}, {country}"
-    return (context.get("lieu") or context.get("location") or city or country or "").strip()
+    from tip_common.location_fields import resolve_lieu_display
+
+    return resolve_lieu_display(context)
 
 
 def _date_for_role(context: dict[str, Any], document_role: str, day_index: int | None) -> str:

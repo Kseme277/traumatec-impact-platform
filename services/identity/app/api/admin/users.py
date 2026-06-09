@@ -1,4 +1,5 @@
 import logging
+from datetime import datetime, timezone
 
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select, text
@@ -19,7 +20,7 @@ from app.schemas.utilisateur import (
 from app.services.audit_service import record_audit_event
 from app.services.clerk_client import ClerkAPIError, ClerkClient
 from app.services.email_service import EmailService
-from tip_common.email_identity import normalize_email
+from tip_common.email_identity import email_local_part, normalize_email
 
 logger = logging.getLogger(__name__)
 
@@ -187,11 +188,23 @@ async def create_utilisateur(
         )
         raise HTTPException(status_code=status_code, detail=str(exc)) from exc
 
+    username = (payload.username or email_local_part(primary_email) or "user").strip().lower()
+    base_username = username
+    suffix = 1
+    while True:
+        check = await db.execute(select(Utilisateur).where(Utilisateur.username == username))
+        if check.scalar_one_or_none() is None:
+            break
+        suffix += 1
+        username = f"{base_username}{suffix}"
+
     utilisateur = Utilisateur(
         clerk_id=clerk_id,
+        username=username,
         email=primary_email,
         nom=payload.nom,
         prenom=payload.prenom,
+        phone=payload.phone,
         role=payload.role,
         est_actif=True,
     )
@@ -249,6 +262,10 @@ async def toggle_utilisateur_status(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Utilisateur introuvable")
 
     utilisateur.est_actif = not utilisateur.est_actif
+    if utilisateur.est_actif:
+        utilisateur.deactivation_date = None
+    else:
+        utilisateur.deactivation_date = datetime.now(timezone.utc)
     settings = get_settings()
 
     if utilisateur.clerk_id and settings.clerk_secret_key:

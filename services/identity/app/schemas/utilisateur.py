@@ -12,6 +12,8 @@ class UtilisateurCreate(BaseModel):
     nom: str = Field(min_length=1, max_length=128)
     prenom: str = Field(min_length=1, max_length=128)
     role: RoleUtilisateur
+    username: str | None = Field(default=None, min_length=2, max_length=64)
+    phone: str | None = Field(default=None, max_length=32)
 
 
 class UtilisateurResponse(BaseModel):
@@ -19,12 +21,17 @@ class UtilisateurResponse(BaseModel):
 
     id: int
     clerk_id: str | None
+    username: str | None = None
     email: str
     nom: str
     prenom: str
+    phone: str | None = None
     role: str
     est_actif: bool
     created_at: datetime
+    activation_date: datetime | None = None
+    deactivation_date: datetime | None = None
+    last_access: datetime | None = None
 
 
 class UtilisateurCreateResponse(UtilisateurResponse):

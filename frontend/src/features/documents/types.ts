@@ -81,6 +81,7 @@ export interface GenerationJob {
   event_id: string;
   status: GenerationJobStatus;
   zip_filename: string | null;
+  zip_available?: boolean;
   certificate_count: number;
   error_message: string | null;
   logs?: GenerationLogEntry[];

@@ -80,8 +80,14 @@ class ObjectStorage:
             return False
 
     def list_keys(self, prefix: str) -> list[str]:
-        response = self.client.list_objects_v2(Bucket=self.bucket, Prefix=prefix)
-        return [item["Key"] for item in response.get("Contents", []) if item.get("Key")]
+        keys: list[str] = []
+        paginator = self.client.get_paginator("list_objects_v2")
+        for page in paginator.paginate(Bucket=self.bucket, Prefix=prefix):
+            for item in page.get("Contents", []):
+                key = item.get("Key")
+                if key:
+                    keys.append(key)
+        return keys
 
 
 def get_object_storage(settings: BaseServiceSettings) -> ObjectStorage:

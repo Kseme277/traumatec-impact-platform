@@ -134,6 +134,8 @@ function buildQuery(filters: EvenementFilters = {}): string {
   if (filters.project_status) params.set("project_status", filters.project_status);
   if (filters.event_type) params.set("event_type", filters.event_type);
   if (filters.country) params.set("country", filters.country);
+  if (filters.sort_by) params.set("sort_by", filters.sort_by);
+  if (filters.sort_dir) params.set("sort_dir", filters.sort_dir);
   if (filters.upcoming) params.set("upcoming", "true");
   const query = params.toString();
   return query ? `?${query}` : "";
