@@ -66,6 +66,16 @@ CLERK_JWKS_URL=https://secure-xxx.clerk.accounts.dev/.well-known/jwks.json
 CLERK_ISSUER=https://secure-xxx.clerk.accounts.dev
 ```
 
+### 2.4.1 Connexion (mot de passe, OAuth, accès refusé)
+
+| Situation | Cause | Action |
+|-----------|--------|--------|
+| *The verification strategy is not valid for this account* | Le compte Clerk n'a pas encore de mot de passe (création admin avec invitation) | Ouvrir le **lien d'invitation** → `/accept-invitation` → définir le mot de passe, **ou** se connecter avec **Google / X** (même email que l'invitation) |
+| **Accès refusé** après OAuth | Email TIP ≠ email Clerk (ex. faute sur le domaine) | TIP lie automatiquement les emails **proches** (même identifiant local, domaine similaire) et synchronise `clerk_id` + email. À la création admin, le formulaire **vérifie Clerk** et propose l'email exact |
+| Mot de passe oublié | Compte déjà activé | `/reset-password` |
+
+**Clerk Dashboard** → **User & authentication** → **Email, password** : activer *Password* pour les comptes invités.
+
 ### 2.5 Emails Traumatec (Mailpit + webhook Clerk)
 
 TIP envoie les emails **au nom de Traumatec** (`noreply@traumatec.org`) sans boîte mail réelle, via un relais SMTP open source.
@@ -185,6 +195,11 @@ docker compose up --build
 | http://localhost:9090 | **Prometheus** — collecte métriques |
 | http://localhost:3001 | **Grafana** — dashboard TIP (login = `GRAFANA_ADMIN_USER` / `GRAFANA_ADMIN_PASSWORD`) |
 
+> **Clerk en dev** :
+> - **`http://localhost:5173`** (Vite) : pas de proxy Clerk — le SDK parle directement à `*.clerk.accounts.dev` (ajoutez `http://localhost:5173` dans Clerk → Allowed origins).
+> - **`http://localhost:8080`** (nginx) : proxy `/__clerk` actif.
+> - Évitez **`https://localhost:5173`** : Vite n’a pas de certificat TLS sur ce port.
+
 ### Observabilité (Prometheus + Grafana)
 
 - Chaque microservice FastAPI expose `/metrics` (débit, latence, erreurs HTTP).
@@ -247,7 +262,25 @@ Admin connecté → **Administration → Utilisateurs** → formulaire d'invitat
 
 ---
 
-## 7. SSO avec Guides (Next.js)
+## 7. Paquets documentaires (séminaires)
+
+Les modèles Word sont dans `Seminaires/` (dossiers `PBO`, `Op`, `IEC`). Le service **catalog** les importe vers MinIO ; **docgen** assemble le ZIP.
+
+| Étape | Qui | Action |
+|-------|-----|--------|
+| 1 | Admin | `docker compose up` (incl. `catalog`, `docgen`, `docgen-worker`, MinIO, Redis) |
+| 2 | Admin | **Documents → Templates** → *Importer les séminaires* (ou `python scripts/seed_seminaire_templates.py`) |
+| 3 | Tous | Vérifier les parcours (étapes par thème PBO / Operatory / IEC) |
+| 4 | Préparateur | Statut **Prêt** ; thème sur la fiche ou choisi à la génération si absent |
+| 5 | Préparateur | **Documents → Génération** → *Enregistrer le thème et générer* → télécharger |
+
+Traçabilité MinIO : sources `templates/seminaires/sources/{lot}/PBO|Op|IEC/…` ; paquets `generations/events/{event_id}/{job_id}/`.
+
+Détails : [ADR-013](decisions/013-seminaire-parcours-package-generation.md).
+
+---
+
+## 8. SSO avec Guides (Next.js)
 
 Les deux apps partagent le **même projet Clerk**. Le rôle est stocké dans `public_metadata.role` à la création (`administrateur` | `preparateur`).
 
@@ -255,7 +288,7 @@ Guides (autre repo) lit ce metadata pour autoriser l'accès.
 
 ---
 
-## 8. Dépannage
+## 9. Dépannage
 
 | Problème | Solution |
 |----------|----------|
@@ -270,7 +303,7 @@ Guides (autre repo) lit ce metadata pour autoriser l'accès.
 
 ---
 
-## 9. Variables — référence rapide
+## 10. Variables — référence rapide
 
 | Variable | Service | Description |
 |----------|---------|-------------|

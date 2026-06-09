@@ -4,16 +4,21 @@ import ComponentCard from "../../../components/common/ComponentCard";
 import Switch from "../../../components/form/switch/Switch";
 import Badge from "../../../components/ui/badge/Badge";
 import Button from "../../../components/ui/button/Button";
+import { useTranslation } from "../../../i18n/useTranslation";
 import type { Utilisateur } from "../../auth/types";
 import { roleLabel } from "../../auth/types";
 import { useTipAuth } from "../../../context/TipAuthContext";
+import InvitationLinkCopy from "./InvitationLinkCopy";
 
 interface UtilisateurDetailCardProps {
   user: Utilisateur;
   isToggling: boolean;
   isResending: boolean;
+  activationLink?: string | null;
+  activationHint?: string | null;
   onToggle: (user: Utilisateur) => Promise<boolean>;
   onResend: (user: Utilisateur) => Promise<boolean>;
+  onGenerateLink: (user: Utilisateur) => Promise<void>;
 }
 
 function DetailRow({ label, children }: { label: string; children: React.ReactNode }) {
@@ -29,9 +34,13 @@ export default function UtilisateurDetailCard({
   user,
   isToggling,
   isResending,
+  activationLink,
+  activationHint,
   onToggle,
   onResend,
+  onGenerateLink,
 }: UtilisateurDetailCardProps) {
+  const { t, localeTag } = useTranslation();
   const { tipUser } = useTipAuth();
   const isSelf = tipUser?.id === user.id;
   const [active, setActive] = useState(user.est_actif);
@@ -51,49 +60,49 @@ export default function UtilisateurDetailCard({
 
   return (
     <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
-      <ComponentCard title="Profil" desc="Informations du compte invité" className="xl:col-span-2">
-        <DetailRow label="Nom complet">
+      <ComponentCard title={t("users.profile")} desc={t("users.profileDesc")} className="xl:col-span-2">
+        <DetailRow label={t("users.fullName")}>
           {user.prenom} {user.nom}
         </DetailRow>
-        <DetailRow label="Email">{user.email}</DetailRow>
-        <DetailRow label="Rôle">
+        <DetailRow label={t("common.email")}>{user.email}</DetailRow>
+        <DetailRow label={t("common.role")}>
           <Badge color="primary" size="sm">
-            {roleLabel(user.role)}
+            {roleLabel(user.role, t)}
           </Badge>
         </DetailRow>
-        <DetailRow label="Identifiant Clerk">
+        <DetailRow label={t("users.clerkId")}>
           <span className="font-mono text-theme-xs">{user.clerk_id ?? "—"}</span>
         </DetailRow>
-        <DetailRow label="Créé le">
-          {new Date(user.created_at).toLocaleString("fr-FR")}
+        <DetailRow label={t("users.createdAt")}>
+          {new Date(user.created_at).toLocaleString(localeTag)}
         </DetailRow>
       </ComponentCard>
 
-      <ComponentCard title="Accès" desc="Activation et invitation">
+      <ComponentCard title={t("users.access")} desc={t("users.accessDesc")}>
         <div className="space-y-6">
           <div className="flex items-center justify-between gap-4 rounded-xl border border-gray-100 p-4 dark:border-gray-800">
             <div>
-              <p className="text-sm font-medium text-gray-800 dark:text-white/90">Compte actif</p>
+              <p className="text-sm font-medium text-gray-800 dark:text-white/90">{t("users.accountActive")}</p>
               <p className="mt-1 text-theme-xs text-gray-500 dark:text-gray-400">
-                {active ? "L'utilisateur peut se connecter" : "Accès suspendu"}
+                {active ? t("users.canSignIn") : t("users.accessSuspended")}
               </p>
             </div>
             <Switch
               checked={active}
               disabled={isToggling || isSelf}
-              aria-label={`Statut de ${user.email}`}
+              aria-label={`${t("common.status")} ${user.email}`}
               onChange={() => void handleSwitch()}
             />
           </div>
 
           {isSelf && (
             <p className="text-theme-xs text-warning-600 dark:text-orange-400">
-              Vous ne pouvez pas désactiver votre propre compte.
+              {t("users.cannotDisableSelf")}
             </p>
           )}
 
           <Badge color={active ? "success" : "light"} size="sm">
-            {active ? "Actif" : "Inactif"}
+            {active ? t("common.active") : t("common.inactive")}
           </Badge>
 
           <Button
@@ -103,12 +112,25 @@ export default function UtilisateurDetailCard({
             disabled={!active || isResending}
             onClick={() => void onResend(user)}
           >
-            {isResending ? "Envoi..." : "Renvoyer l'invitation"}
+            {isResending ? t("common.sending") : t("users.resendInvite")}
           </Button>
+
+          <Button
+            className="w-full"
+            size="sm"
+            disabled={!active || isResending}
+            onClick={() => void onGenerateLink(user)}
+          >
+            {isResending ? t("common.loading") : t("users.getActivationLink")}
+          </Button>
+
+          {activationLink ? (
+            <InvitationLinkCopy url={activationLink} hint={activationHint} />
+          ) : null}
 
           <Link to="/admin/utilisateurs">
             <Button className="w-full" variant="outline" size="sm">
-              Retour à la liste
+              {t("common.backToList")}
             </Button>
           </Link>
         </div>

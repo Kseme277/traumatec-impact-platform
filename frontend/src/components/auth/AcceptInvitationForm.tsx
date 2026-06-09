@@ -1,80 +1,140 @@
-import { FormEvent, useEffect, useState } from "react";
+import { FormEvent, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router";
-import { useSignUp } from "@clerk/clerk-react";
+import { useAuth, useSignIn, useSignUp } from "@clerk/clerk-react";
 import { isClerkAPIResponseError } from "@clerk/clerk-react/errors";
+import { useTranslation } from "../../i18n/useTranslation";
 import { ChevronLeftIcon, EyeCloseIcon, EyeIcon } from "../../icons";
 import Label from "../form/Label";
 import Input from "../form/input/InputField";
 import Button from "../ui/button/Button";
 
 export default function AcceptInvitationForm() {
-  const { isLoaded, signUp, setActive } = useSignUp();
+  const { t } = useTranslation();
+  const { isLoaded: authLoaded, isSignedIn, signOut } = useAuth();
+  const { isLoaded: signUpLoaded, signUp, setActive: setActiveSignUp } = useSignUp();
+  const { isLoaded: signInLoaded, signIn, setActive: setActiveSignIn } = useSignIn();
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const ticket = searchParams.get("__clerk_ticket") ?? searchParams.get("ticket");
+
+  const ticket = useMemo(
+    () =>
+      searchParams.get("__clerk_ticket") ??
+      searchParams.get("ticket") ??
+      searchParams.get("__clerk_invitation_token"),
+    [searchParams],
+  );
+
+  const clerkStatus = searchParams.get("__clerk_status");
 
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [ticketChecked, setTicketChecked] = useState(false);
+  const [isSigningOut, setIsSigningOut] = useState(false);
+  const [sessionReady, setSessionReady] = useState(false);
+
+  const clerkReady = signUpLoaded && signInLoaded;
 
   useEffect(() => {
-    if (!isLoaded || !signUp || !ticket || ticketChecked) return;
+    if (!ticket) {
+      setError(t("auth.invalidInvitation"));
+      return;
+    }
+    if (!authLoaded) return;
 
-    const prepare = async () => {
-      try {
-        await signUp.create({ strategy: "ticket", ticket });
-        setTicketChecked(true);
-      } catch (err) {
-        if (isClerkAPIResponseError(err)) {
-          setError(err.errors[0]?.longMessage ?? "Invitation invalide ou expirée.");
-        } else {
-          setError("Impossible de valider l'invitation.");
-        }
-        setTicketChecked(true);
-      }
-    };
+    if (isSignedIn) {
+      setIsSigningOut(true);
+      const returnUrl = `${window.location.pathname}${window.location.search}`;
+      void signOut({ redirectUrl: returnUrl });
+      return;
+    }
 
-    void prepare();
-  }, [isLoaded, signUp, ticket, ticketChecked]);
+    setIsSigningOut(false);
+    setSessionReady(true);
+  }, [authLoaded, isSignedIn, signOut, ticket, t]);
 
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
-    if (!isLoaded || !signUp) return;
+    if (!clerkReady || !ticket || !sessionReady) return;
 
     if (password.length < 8) {
-      setError("Le mot de passe doit contenir au moins 8 caractères.");
+      setError(t("auth.passwordMin8"));
       return;
     }
 
     if (password !== confirmPassword) {
-      setError("Les mots de passe ne correspondent pas.");
+      setError(t("auth.passwordsMismatch"));
       return;
     }
 
     setIsSubmitting(true);
     setError(null);
 
+    const preferSignUp = clerkStatus !== "sign_in";
+
     try {
-      let currentSignUp = signUp;
-      if (currentSignUp.status !== "complete") {
-        currentSignUp = await signUp.update({ password });
+      if (preferSignUp && signUp) {
+        try {
+          const signupResult = await signUp.create({
+            strategy: "ticket",
+            ticket,
+            password,
+          });
+
+          if (signupResult.status === "complete" && signupResult.createdSessionId) {
+            await setActiveSignUp({ session: signupResult.createdSessionId });
+            navigate("/", { replace: true });
+            return;
+          }
+        } catch (signupErr) {
+          if (!signIn) {
+            throw signupErr;
+          }
+        }
       }
 
-      if (currentSignUp.status === "complete" && currentSignUp.createdSessionId) {
-        await setActive({ session: currentSignUp.createdSessionId });
+      if (!signIn) {
+        setError(t("auth.invitationFailed"));
+        return;
+      }
+
+      const signinResult = await signIn.create({ strategy: "ticket", ticket });
+
+      if (signinResult.status === "needs_new_password") {
+        const updated = await signIn.update({ password });
+        if (updated.status === "complete" && updated.createdSessionId) {
+          await setActiveSignIn({ session: updated.createdSessionId });
+          navigate("/", { replace: true });
+          return;
+        }
+      }
+
+      if (signinResult.status === "complete" && signinResult.createdSessionId) {
+        await setActiveSignIn({ session: signinResult.createdSessionId });
         navigate("/", { replace: true });
         return;
       }
 
-      setError("Activation incomplète. Contactez un administrateur.");
+      if (!preferSignUp && signUp) {
+        const signupResult = await signUp.create({
+          strategy: "ticket",
+          ticket,
+          password,
+        });
+        if (signupResult.status === "complete" && signupResult.createdSessionId) {
+          await setActiveSignUp({ session: signupResult.createdSessionId });
+          navigate("/", { replace: true });
+          return;
+        }
+      }
+
+      setError(t("auth.activationIncomplete"));
     } catch (err) {
       if (isClerkAPIResponseError(err)) {
-        setError(err.errors[0]?.longMessage ?? err.errors[0]?.message ?? "Échec de l'activation");
+        setError(err.errors[0]?.longMessage ?? err.errors[0]?.message ?? t("auth.activationFailed"));
       } else {
-        setError("Impossible d'activer le compte.");
+        setError(t("auth.accountActivationFailed"));
       }
     } finally {
       setIsSubmitting(false);
@@ -84,10 +144,21 @@ export default function AcceptInvitationForm() {
   if (!ticket) {
     return (
       <div className="flex flex-col flex-1 justify-center w-full max-w-md mx-auto">
-        <p className="text-sm text-error-500">Lien d&apos;invitation invalide ou incomplet.</p>
+        <p className="text-sm text-error-500">{t("auth.invalidInvitation")}</p>
         <Link to="/signin" className="mt-4 text-sm text-brand-500 hover:underline">
-          Retour à la connexion
+          {t("common.backToSignIn")}
         </Link>
+      </div>
+    );
+  }
+
+  if (isSigningOut || !authLoaded || !sessionReady) {
+    return (
+      <div className="flex flex-1 flex-col items-center justify-center gap-2 px-6">
+        <div className="h-8 w-8 animate-spin rounded-full border-2 border-brand-500 border-t-transparent" />
+        <p className="text-center text-sm text-gray-500 dark:text-gray-400">
+          {isSigningOut ? t("auth.signingOutForInvitation") : t("auth.activating")}
+        </p>
       </div>
     );
   }
@@ -100,17 +171,15 @@ export default function AcceptInvitationForm() {
           className="inline-flex items-center text-sm text-gray-500 transition-colors hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
         >
           <ChevronLeftIcon className="size-5" />
-          Retour à la connexion
+          {t("common.backToSignIn")}
         </Link>
       </div>
       <div className="flex flex-col justify-center flex-1 w-full max-w-md mx-auto">
         <div className="mb-5 sm:mb-8">
           <h1 className="mb-2 font-semibold text-gray-800 text-title-sm dark:text-white/90 sm:text-title-md">
-            Activer mon compte
+            {t("auth.activateAccount")}
           </h1>
-          <p className="text-sm text-gray-500 dark:text-gray-400">
-            Définissez votre mot de passe pour accéder à Traumatec Impact Platform.
-          </p>
+          <p className="text-sm text-gray-500 dark:text-gray-400">{t("auth.activateAccountDesc")}</p>
         </div>
 
         {error && (
@@ -122,18 +191,23 @@ export default function AcceptInvitationForm() {
           </div>
         )}
 
+        {!clerkReady ? (
+          <p className="text-sm text-gray-500 dark:text-gray-400">{t("auth.clerkLoading")}</p>
+        ) : null}
+
         <form onSubmit={handleSubmit} className="space-y-6">
           <div>
             <Label>
-              Mot de passe <span className="text-error-500">*</span>
+              {t("common.password")} <span className="text-error-500">*</span>
             </Label>
             <div className="relative">
               <Input
                 type={showPassword ? "text" : "password"}
                 required
+                autoComplete="new-password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="Au moins 8 caractères"
+                placeholder={t("auth.passwordMin8Placeholder")}
               />
               <span
                 onClick={() => setShowPassword(!showPassword)}
@@ -149,23 +223,24 @@ export default function AcceptInvitationForm() {
           </div>
           <div>
             <Label>
-              Confirmer le mot de passe <span className="text-error-500">*</span>
+              {t("auth.confirmPassword")} <span className="text-error-500">*</span>
             </Label>
             <Input
               type="password"
               required
+              autoComplete="new-password"
               value={confirmPassword}
               onChange={(e) => setConfirmPassword(e.target.value)}
-              placeholder="Répétez le mot de passe"
+              placeholder={t("auth.passwordRepeat")}
             />
           </div>
           <Button
             type="submit"
             className="w-full"
             size="sm"
-            disabled={!isLoaded || isSubmitting || !ticketChecked}
+            disabled={!clerkReady || isSubmitting}
           >
-            {isSubmitting ? "Activation..." : "Activer mon compte"}
+            {isSubmitting ? t("auth.activating") : t("auth.activateAccount")}
           </Button>
         </form>
       </div>

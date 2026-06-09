@@ -2,12 +2,14 @@ import { FormEvent, useState } from "react";
 import { Link, useNavigate } from "react-router";
 import { useSignIn } from "@clerk/clerk-react";
 import { isClerkAPIResponseError } from "@clerk/clerk-react/errors";
+import { useTranslation } from "../../i18n/useTranslation";
 import { ChevronLeftIcon } from "../../icons";
 import Label from "../form/Label";
 import Input from "../form/input/InputField";
 import Button from "../ui/button/Button";
 
 export default function ForgotPasswordForm() {
+  const { t } = useTranslation();
   const { isLoaded, signIn, setActive } = useSignIn();
   const navigate = useNavigate();
   const [email, setEmail] = useState("");
@@ -33,12 +35,12 @@ export default function ForgotPasswordForm() {
         identifier: email,
       });
       setStep("reset");
-      setInfo("Un code de réinitialisation a été envoyé à votre adresse email.");
+      setInfo(t("auth.codeSent"));
     } catch (err) {
       if (isClerkAPIResponseError(err)) {
-        setError(err.errors[0]?.longMessage ?? err.errors[0]?.message ?? "Email introuvable");
+        setError(err.errors[0]?.longMessage ?? err.errors[0]?.message ?? t("auth.emailNotFound"));
       } else {
-        setError("Impossible d'envoyer le code. Réessayez.");
+        setError(t("auth.sendCodeFailed"));
       }
     } finally {
       setIsSubmitting(false);
@@ -50,12 +52,12 @@ export default function ForgotPasswordForm() {
     if (!isLoaded || !signIn) return;
 
     if (password.length < 8) {
-      setError("Le mot de passe doit contenir au moins 8 caractères.");
+      setError(t("auth.passwordMin8"));
       return;
     }
 
     if (password !== confirmPassword) {
-      setError("Les mots de passe ne correspondent pas.");
+      setError(t("auth.passwordsMismatch"));
       return;
     }
 
@@ -75,12 +77,12 @@ export default function ForgotPasswordForm() {
         return;
       }
 
-      setError("Réinitialisation incomplète. Vérifiez le code reçu par email.");
+      setError(t("auth.resetIncomplete"));
     } catch (err) {
       if (isClerkAPIResponseError(err)) {
-        setError(err.errors[0]?.longMessage ?? err.errors[0]?.message ?? "Code ou mot de passe invalide");
+        setError(err.errors[0]?.longMessage ?? err.errors[0]?.message ?? t("auth.invalidCodeOrPassword"));
       } else {
-        setError("Impossible de réinitialiser le mot de passe.");
+        setError(t("auth.resetFailed"));
       }
     } finally {
       setIsSubmitting(false);
@@ -95,18 +97,16 @@ export default function ForgotPasswordForm() {
           className="inline-flex items-center text-sm text-gray-500 transition-colors hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-300"
         >
           <ChevronLeftIcon className="size-5" />
-          Retour à la connexion
+          {t("common.backToSignIn")}
         </Link>
       </div>
       <div className="flex flex-col justify-center flex-1 w-full max-w-md mx-auto">
         <div className="mb-5 sm:mb-8">
           <h1 className="mb-2 font-semibold text-gray-800 text-title-sm dark:text-white/90 sm:text-title-md">
-            Mot de passe oublié
+            {t("auth.forgotPasswordTitle")}
           </h1>
           <p className="text-sm text-gray-500 dark:text-gray-400">
-            {step === "email"
-              ? "Saisissez votre email Traumatec pour recevoir un code de réinitialisation."
-              : "Saisissez le code reçu par email et choisissez un nouveau mot de passe."}
+            {step === "email" ? t("auth.forgotPasswordEmailDesc") : t("auth.forgotPasswordResetDesc")}
           </p>
         </div>
 
@@ -129,7 +129,7 @@ export default function ForgotPasswordForm() {
           <form onSubmit={handleSendCode} className="space-y-6">
             <div>
               <Label>
-                Email <span className="text-error-500">*</span>
+                {t("common.email")} <span className="text-error-500">*</span>
               </Label>
               <Input
                 type="email"
@@ -140,14 +140,14 @@ export default function ForgotPasswordForm() {
               />
             </div>
             <Button type="submit" className="w-full" size="sm" disabled={isSubmitting || !isLoaded}>
-              {isSubmitting ? "Envoi..." : "Envoyer le code"}
+              {isSubmitting ? t("common.sending") : t("auth.sendCode")}
             </Button>
           </form>
         ) : (
           <form onSubmit={handleResetPassword} className="space-y-6">
             <div>
               <Label>
-                Code reçu par email <span className="text-error-500">*</span>
+                {t("auth.codeReceived")} <span className="text-error-500">*</span>
               </Label>
               <Input
                 type="text"
@@ -160,30 +160,30 @@ export default function ForgotPasswordForm() {
             </div>
             <div>
               <Label>
-                Nouveau mot de passe <span className="text-error-500">*</span>
+                {t("auth.newPassword")} <span className="text-error-500">*</span>
               </Label>
               <Input
                 type="password"
                 required
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="Au moins 8 caractères"
+                placeholder={t("auth.passwordMin8Placeholder")}
               />
             </div>
             <div>
               <Label>
-                Confirmer le mot de passe <span className="text-error-500">*</span>
+                {t("auth.confirmPassword")} <span className="text-error-500">*</span>
               </Label>
               <Input
                 type="password"
                 required
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
-                placeholder="Répétez le mot de passe"
+                placeholder={t("auth.passwordRepeat")}
               />
             </div>
             <Button type="submit" className="w-full" size="sm" disabled={isSubmitting || !isLoaded}>
-              {isSubmitting ? "Réinitialisation..." : "Réinitialiser et se connecter"}
+              {isSubmitting ? t("auth.resetting") : t("auth.resetAndSignIn")}
             </Button>
             <button
               type="button"
@@ -197,7 +197,7 @@ export default function ForgotPasswordForm() {
               }}
               className="w-full text-sm text-brand-500 hover:text-brand-600 dark:text-brand-400"
             >
-              Renvoyer un code à une autre adresse
+              {t("auth.resendToOther")}
             </button>
           </form>
         )}

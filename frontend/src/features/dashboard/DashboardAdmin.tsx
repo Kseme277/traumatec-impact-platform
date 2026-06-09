@@ -2,83 +2,104 @@ import { useEffect } from "react";
 import { Link } from "react-router";
 import PageMeta from "../../components/common/PageMeta";
 import Button from "../../components/ui/button/Button";
+import {
+  BoxIconLine,
+  CalenderIcon,
+  CheckCircleIcon,
+  GroupIcon,
+  ListIcon,
+} from "../../icons";
 import { useTipAuth } from "../../context/TipAuthContext";
+import { useTranslation } from "../../i18n/useTranslation";
 import { useAdminUsers } from "../admin/users/useAdminUsers";
-import GuidesDocCard from "./GuidesDocCard";
-import { roleLabel } from "../auth/types";
-
-function MetricCard({
-  label,
-  value,
-  hint,
-}: {
-  label: string;
-  value: string;
-  hint?: string;
-}) {
-  return (
-    <div className="rounded-2xl border border-gray-200 bg-white p-5 dark:border-gray-800 dark:bg-white/[0.03]">
-      <p className="text-sm text-gray-500 dark:text-gray-400">{label}</p>
-      <p className="mt-2 text-2xl font-semibold text-gray-800 dark:text-white/90">{value}</p>
-      {hint && <p className="mt-1 text-theme-xs text-gray-400">{hint}</p>}
-    </div>
-  );
-}
+import EventStatCard from "../events/EventStatCard";
+import UserStatCard from "../admin/users/UserStatCard";
+import EventsBiDashboardSection from "../events/EventsBiDashboardSection";
+import EventsDashboardCalendar from "../events/EventsDashboardCalendar";
+import { useEvents } from "../events/useEvents";
+import DocumentsModuleCard from "../documents/DocumentsModuleCard";
 
 export default function DashboardAdmin() {
+  const { t } = useTranslation();
   const { tipUser } = useTipAuth();
-  const { users, loadUsers } = useAdminUsers();
+  const { users, loadUsers, isLoading: isUsersLoading } = useAdminUsers();
+  const { stats, loadStats, isStatsLoading } = useEvents();
 
   useEffect(() => {
     void loadUsers();
-  }, [loadUsers]);
+    void loadStats();
+  }, [loadUsers, loadStats]);
 
-  const activeCount = users.filter((user) => user.est_actif).length;
+  const activeUsers = users.filter((user) => user.est_actif).length;
 
   return (
     <>
-      <PageMeta title="Administration | TIP" description="Traumatec Impact Platform — Administrateur" />
+      <PageMeta title={t("dashboard.adminMeta")} description={t("dashboard.metaDesc")} />
       <div className="mb-6">
         <h1 className="text-2xl font-semibold text-gray-800 dark:text-white/90">
-          Bonjour, {tipUser?.prenom}
+          {t("dashboard.greeting")}, {tipUser?.prenom}
         </h1>
-        <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-          Espace {roleLabel("administrateur")} — pilotage plateforme et utilisateurs
-        </p>
+        <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{t("dashboard.adminSpace")}</p>
       </div>
 
       <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4 md:gap-6">
-        <MetricCard label="Utilisateurs actifs" value={String(activeCount)} hint={`${users.length} au total`} />
-        <MetricCard label="Imports annuels" value="—" hint="Projects.xlsx" />
-        <MetricCard label="Templates" value="—" hint="Paquets + certificats" />
-        <MetricCard label="Audit (7 j)" value="—" hint="Journal minimal" />
+        <UserStatCard
+          label={t("dashboard.activeUsers")}
+          value={isUsersLoading ? "—" : activeUsers}
+          icon={<GroupIcon className="size-6 text-brand-500 dark:text-brand-400" />}
+          iconBgClassName="bg-brand-50 dark:bg-brand-500/15"
+        />
+        <EventStatCard
+          label={t("nav.events")}
+          value={isStatsLoading ? "—" : (stats?.total ?? "—")}
+          icon={<ListIcon className="size-6 text-info-600 dark:text-blue-light-500" />}
+          iconBgClassName="bg-blue-light-50 dark:bg-blue-light-500/15"
+        />
+        <EventStatCard
+          label={t("events.open")}
+          value={isStatsLoading ? "—" : (stats?.open_count ?? stats?.active ?? "—")}
+          icon={<CalenderIcon className="size-6 text-warning-600 dark:text-warning-500" />}
+          iconBgClassName="bg-warning-50 dark:bg-warning-500/15"
+        />
+        <EventStatCard
+          label={t("events.closed")}
+          value={isStatsLoading ? "—" : (stats?.closed_count ?? "—")}
+          icon={<CheckCircleIcon className="size-6 text-success-600 dark:text-success-500" />}
+          iconBgClassName="bg-success-50 dark:bg-success-500/15"
+        />
+      </div>
+
+      <EventsBiDashboardSection stats={stats} isLoading={isStatsLoading} />
+
+      <div className="mb-6">
+        <EventsDashboardCalendar
+          calendar={stats?.calendar ?? []}
+          calendarYear={stats?.calendar_year}
+          isLoading={isStatsLoading}
+        />
       </div>
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
         <div className="space-y-6 xl:col-span-2">
           <div className="rounded-2xl border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-white/[0.03]">
-            <h2 className="text-lg font-semibold text-gray-800 dark:text-white/90">Administration</h2>
-            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-              Gérez les comptes invités, les accès et les invitations email.
-            </p>
+            <h2 className="text-lg font-semibold text-gray-800 dark:text-white/90">
+              {t("dashboard.adminSection")}
+            </h2>
+            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{t("dashboard.adminDesc")}</p>
             <div className="mt-6 flex flex-wrap gap-3">
               <Link to="/admin/utilisateurs">
-                <Button size="sm">Gérer les utilisateurs</Button>
-              </Link>
-              <Link to="/admin/utilisateurs/nouveau">
-                <Button size="sm" variant="outline">
-                  Inviter un utilisateur
-                </Button>
+                <Button size="sm">{t("dashboard.manageUsers")}</Button>
               </Link>
               <Link to="/evenements">
                 <Button size="sm" variant="outline">
-                  Événements
+                  <BoxIconLine className="mr-2 size-4" />
+                  {t("nav.events")}
                 </Button>
               </Link>
             </div>
           </div>
         </div>
-        <GuidesDocCard />
+        <DocumentsModuleCard />
       </div>
     </>
   );

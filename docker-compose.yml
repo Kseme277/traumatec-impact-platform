@@ -26,7 +26,10 @@ services:
       timeout: 5s
       retries: 5
 
+  # Optionnel : relais SMTP dev (reset mot de passe). Invitations = Clerk.
+  # Démarrer avec : docker compose --profile mail up -d
   mailpit:
+    profiles: ["mail"]
     image: axllent/mailpit:v1.21
     ports:
       - "${MAILPIT_SMTP_PORT:-1025}:1025"
@@ -117,6 +120,16 @@ services:
       context: .
       dockerfile: services/identity/Dockerfile
     env_file: .env
+    command:
+      [
+        "uvicorn",
+        "app.main:app",
+        "--host",
+        "0.0.0.0",
+        "--port",
+        "8001",
+        "--reload",
+      ]
     environment:
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-tip}:${POSTGRES_PASSWORD:-tip}@postgres:5432/${POSTGRES_DB:-tip}
       DB_SCHEMA: identity
@@ -129,12 +142,24 @@ services:
       BOOTSTRAP_ADMIN_PRENOM: ${BOOTSTRAP_ADMIN_PRENOM:-}
       BOOTSTRAP_ADMIN_CLERK_ID: ${BOOTSTRAP_ADMIN_CLERK_ID:-}
       APP_PUBLIC_URL: ${APP_PUBLIC_URL:-http://localhost:5173}
-      SMTP_HOST: mailpit
-      SMTP_PORT: 1025
-      SMTP_ENABLED: ${SMTP_ENABLED:-true}
+      SMTP_HOST: ${SMTP_HOST:-mailpit}
+      SMTP_PORT: ${SMTP_PORT:-1025}
+      SMTP_ENABLED: ${SMTP_ENABLED:-false}
+      MINIO_ENDPOINT: ${MINIO_ENDPOINT:-http://minio:9000}
+      MINIO_ACCESS_KEY: ${MINIO_ROOT_USER}
+      MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD}
+      MINIO_BUCKET: ${MINIO_BUCKET:-tip-documents}
+      STORAGE_BACKEND: minio
       SMTP_FROM_EMAIL: ${SMTP_FROM_EMAIL:-noreply@traumatec.org}
       SMTP_FROM_NAME: ${SMTP_FROM_NAME:-Traumatec Impact Platform}
       CLERK_WEBHOOK_SECRET: ${CLERK_WEBHOOK_SECRET:-}
+      GUIDES_BRIDGE_ENABLED: ${GUIDES_BRIDGE_ENABLED:-false}
+      GUIDES_API_URL: ${GUIDES_API_URL:-}
+      GUIDES_WEB_URL: ${GUIDES_WEB_URL:-}
+      GUIDES_PROXY_WEB_URL: ${GUIDES_PROXY_WEB_URL:-}
+      GUIDES_COMPANY_SLUG: ${GUIDES_COMPANY_SLUG:-}
+      GUIDES_BRIDGE_EMAIL: ${GUIDES_BRIDGE_EMAIL:-}
+      GUIDES_BRIDGE_PASSWORD: ${GUIDES_BRIDGE_PASSWORD:-}
       PYTHONPATH: /packages/tip-common
     volumes:
       - ./services/identity/app:/app/app
@@ -144,7 +169,7 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
-      mailpit:
+      minio:
         condition: service_started
 
   events:
@@ -152,6 +177,16 @@ services:
       context: .
       dockerfile: services/events/Dockerfile
     env_file: .env
+    command:
+      [
+        "uvicorn",
+        "app.main:app",
+        "--host",
+        "0.0.0.0",
+        "--port",
+        "8002",
+        "--reload",
+      ]
     environment:
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-tip}:${POSTGRES_PASSWORD:-tip}@postgres:5432/${POSTGRES_DB:-tip}
       DB_SCHEMA: events
@@ -163,6 +198,14 @@ services:
       MINIO_ACCESS_KEY: ${MINIO_ROOT_USER}
       MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD}
       MINIO_BUCKET: ${MINIO_BUCKET:-tip-documents}
+      CLERK_JWKS_URL: ${CLERK_JWKS_URL:-}
+      CLERK_ISSUER: ${CLERK_ISSUER:-}
+      NVIDIA_API_KEY: ${NVIDIA_API_KEY:-}
+      NVIDIA_API_BASE_URL: ${NVIDIA_API_BASE_URL:-https://integrate.api.nvidia.com/v1}
+      NVIDIA_CLASSIFIER_MODEL: ${NVIDIA_CLASSIFIER_MODEL:-meta/llama-3.3-70b-instruct}
+      NVIDIA_CLASSIFIER_TEMPERATURE: ${NVIDIA_CLASSIFIER_TEMPERATURE:-0.2}
+      NVIDIA_CLASSIFIER_TOP_P: ${NVIDIA_CLASSIFIER_TOP_P:-0.7}
+      NVIDIA_CLASSIFIER_MAX_TOKENS: ${NVIDIA_CLASSIFIER_MAX_TOKENS:-256}
       PYTHONPATH: /packages/tip-common
     volumes:
       - ./services/events/app:/app/app
@@ -177,11 +220,31 @@ services:
       minio:
         condition: service_started
 
+  onlyoffice:
+    image: onlyoffice/documentserver:8.0.1
+    environment:
+      JWT_ENABLED: "false"
+      # Autorise catalog:8003 / minio (réseau Docker) — sinon « Échec du téléchargement »
+      ALLOW_PRIVATE_IP_ADDRESS: "true"
+      ALLOW_META_IP_ADDRESS: "true"
+    ports:
+      - "${ONLYOFFICE_PORT:-9980}:80"
+
   catalog:
     build:
       context: .
       dockerfile: services/catalog/Dockerfile
     env_file: .env
+    command:
+      [
+        "uvicorn",
+        "app.main:app",
+        "--host",
+        "0.0.0.0",
+        "--port",
+        "8003",
+        "--reload",
+      ]
     environment:
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-tip}:${POSTGRES_PASSWORD:-tip}@postgres:5432/${POSTGRES_DB:-tip}
       DB_SCHEMA: catalog
@@ -191,10 +254,20 @@ services:
       MINIO_ACCESS_KEY: ${MINIO_ROOT_USER}
       MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD}
       MINIO_BUCKET: ${MINIO_BUCKET:-tip-documents}
+      CLERK_JWKS_URL: ${CLERK_JWKS_URL:-}
+      CLERK_ISSUER: ${CLERK_ISSUER:-}
+      ONLYOFFICE_PUBLIC_URL: ${ONLYOFFICE_PUBLIC_URL:-http://localhost:9980}
+      CATALOG_INTERNAL_URL: http://catalog:8003
+      ONLYOFFICE_FILE_SECRET: ${ONLYOFFICE_FILE_SECRET:-change-me-onlyoffice-file-secret}
+      NVIDIA_API_KEY: ${NVIDIA_API_KEY:-}
+      NVIDIA_API_BASE_URL: ${NVIDIA_API_BASE_URL:-https://integrate.api.nvidia.com/v1}
+      NVIDIA_CLASSIFIER_MODEL: ${NVIDIA_CLASSIFIER_MODEL:-meta/llama-3.3-70b-instruct}
       PYTHONPATH: /packages/tip-common
     volumes:
       - ./services/catalog/app:/app/app
       - ./packages/tip-common/tip_common:/packages/tip-common/tip_common
+      - ./package-zips:/app/package-zips:ro
+      - ./Packages:/app/Packages:ro
     ports:
       - "${CATALOG_PORT:-8003}:8003"
     depends_on:
@@ -202,12 +275,24 @@ services:
         condition: service_healthy
       minio:
         condition: service_started
+      onlyoffice:
+        condition: service_started
 
   docgen:
     build:
       context: .
       dockerfile: services/docgen/Dockerfile
     env_file: .env
+    command:
+      [
+        "uvicorn",
+        "app.main:app",
+        "--host",
+        "0.0.0.0",
+        "--port",
+        "8004",
+        "--reload",
+      ]
     environment:
       DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER:-tip}:${POSTGRES_PASSWORD:-tip}@postgres:5432/${POSTGRES_DB:-tip}
       DB_SCHEMA: docgen
@@ -221,6 +306,14 @@ services:
       MINIO_ACCESS_KEY: ${MINIO_ROOT_USER}
       MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD}
       MINIO_BUCKET: ${MINIO_BUCKET:-tip-documents}
+      CLERK_JWKS_URL: ${CLERK_JWKS_URL:-}
+      CLERK_ISSUER: ${CLERK_ISSUER:-}
+      NVIDIA_API_KEY: ${NVIDIA_API_KEY:-}
+      NVIDIA_API_BASE_URL: ${NVIDIA_API_BASE_URL:-https://integrate.api.nvidia.com/v1}
+      NVIDIA_CLASSIFIER_MODEL: ${NVIDIA_CLASSIFIER_MODEL:-meta/llama-3.3-70b-instruct}
+      NVIDIA_CLASSIFIER_TEMPERATURE: ${NVIDIA_CLASSIFIER_TEMPERATURE:-0.2}
+      NVIDIA_CLASSIFIER_TOP_P: ${NVIDIA_CLASSIFIER_TOP_P:-0.7}
+      NVIDIA_CLASSIFIER_MAX_TOKENS: ${NVIDIA_CLASSIFIER_MAX_TOKENS:-256}
       PYTHONPATH: /packages/tip-common
     volumes:
       - ./services/docgen/app:/app/app
@@ -256,6 +349,12 @@ services:
       MINIO_ACCESS_KEY: ${MINIO_ROOT_USER}
       MINIO_SECRET_KEY: ${MINIO_ROOT_PASSWORD}
       MINIO_BUCKET: ${MINIO_BUCKET:-tip-documents}
+      NVIDIA_API_KEY: ${NVIDIA_API_KEY:-}
+      NVIDIA_API_BASE_URL: ${NVIDIA_API_BASE_URL:-https://integrate.api.nvidia.com/v1}
+      NVIDIA_CLASSIFIER_MODEL: ${NVIDIA_CLASSIFIER_MODEL:-meta/llama-3.3-70b-instruct}
+      NVIDIA_CLASSIFIER_TEMPERATURE: ${NVIDIA_CLASSIFIER_TEMPERATURE:-0.2}
+      NVIDIA_CLASSIFIER_TOP_P: ${NVIDIA_CLASSIFIER_TOP_P:-0.7}
+      NVIDIA_CLASSIFIER_MAX_TOKENS: ${NVIDIA_CLASSIFIER_MAX_TOKENS:-256}
       PYTHONPATH: /packages/tip-common
     volumes:
       - ./services/docgen/app:/app/app
@@ -274,28 +373,44 @@ services:
       dockerfile: Dockerfile
       target: dev
     environment:
-      VITE_API_PROXY_TARGET: http://nginx:80
+      # direct = proxy Vite → microservices (sans nginx). Redémarrer frontend après changement.
+      VITE_API_PROXY_TARGET: direct
+      VITE_DOCKER_DEV: "true"
       VITE_CLERK_PUBLISHABLE_KEY: ${VITE_CLERK_PUBLISHABLE_KEY:-}
+      VITE_CLERK_PROXY_URL: /__clerk
+      VITE_CLERK_FRONTEND_API_URL: ${CLERK_ISSUER:-https://champion-toucan-51.clerk.accounts.dev}
       VITE_API_BASE_URL: /api
-      VITE_GUIDES_URL: ${VITE_GUIDES_URL:-}
+      VITE_GUIDES_URL: ${VITE_GUIDES_URL:-http://192.168.1.45:3100}
+      VITE_GUIDES_API_URL: ${VITE_GUIDES_API_URL:-http://192.168.1.45:3080}
+      VITE_GUIDES_HANDOFF_URL: ${VITE_GUIDES_HANDOFF_URL:-}
+      VITE_ONLYOFFICE_URL: ${ONLYOFFICE_PUBLIC_URL:-http://localhost:9980}
     volumes:
       - ./frontend:/app
       - /app/node_modules
     ports:
       - "${FRONTEND_PORT:-5173}:5173"
+    command: sh -c "npm ci && npm run dev -- --host 0.0.0.0"
 
   nginx:
     image: nginx:1.27-alpine
     ports:
       - "${NGINX_PORT:-8080}:80"
+      - "${GUIDES_PROXY_PORT:-3101}:3101"
     volumes:
       - ./infra/nginx/nginx.conf:/etc/nginx/nginx.conf:ro
+      - ./frontend/public/guidehub-handoff.html:/var/www/guidehub-handoff.html:ro
     depends_on:
-      - identity
-      - events
-      - catalog
-      - docgen
-      - frontend
+      identity:
+        condition: service_started
+      events:
+        condition: service_started
+      catalog:
+        condition: service_started
+      docgen:
+        condition: service_started
+      frontend:
+        condition: service_started
+    restart: unless-stopped
 
 volumes:
   pgdata:

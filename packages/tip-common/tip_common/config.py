@@ -36,6 +36,9 @@ class BaseServiceSettings(BaseSettings):
             return [origin.strip() for origin in value.split(",") if origin.strip()]
         return value
 
+    clerk_jwks_url: str = ""
+    clerk_issuer: str = ""
+
     firebase_project_id: str = ""
     firebase_credentials_path: str | None = None
 

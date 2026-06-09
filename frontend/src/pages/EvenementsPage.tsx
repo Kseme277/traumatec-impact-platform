@@ -1,15 +1,222 @@
+import { useEffect, useMemo, useState } from "react";
+import { Link } from "react-router";
+import AdminBreadcrumb from "../components/common/AdminBreadcrumb";
+import ComponentCard from "../components/common/ComponentCard";
 import PageMeta from "../components/common/PageMeta";
+import Button from "../components/ui/button/Button";
+import Input from "../components/form/input/InputField";
+import Select from "../components/form/Select";
+import {
+  CalenderIcon,
+  CheckCircleIcon,
+  CloseIcon,
+  ListIcon,
+} from "../icons";
+import EventStatCard from "../features/events/EventStatCard";
+import EvenementsTable from "../features/events/EvenementsTable";
+import EventsDashboardCalendar from "../features/events/EventsDashboardCalendar";
+import EventsImportModal from "../features/events/EventsImportModal";
+import ProjectStatusLegend from "../features/events/ProjectStatusLegend";
+import { useEvents } from "../features/events/useEvents";
+import { useModal } from "../hooks/useModal";
+import type { EvenementFilters } from "../features/events/types";
+import { isEventOpen, normalizeProjectStatus, getProjectStatusFilterOptions } from "../features/events/projectStatus";
+import { useTipAuth } from "../context/TipAuthContext";
+import { useTranslation } from "../i18n/useTranslation";
+import DataTablePagination from "../components/common/DataTablePagination";
+import TableLoader from "../components/common/TableLoader";
+import { usePagination } from "../hooks/usePagination";
+import { showSuccess } from "../lib/swal";
 
 export default function EvenementsPage() {
+  const { t, localeTag } = useTranslation();
+  const { isAdmin } = useTipAuth();
+  const importModal = useModal();
+  const {
+    events,
+    total,
+    stats,
+    isLoading,
+    isStatsLoading,
+    isSubmitting,
+    importProgress,
+    loadEvents,
+    loadStats,
+    close,
+    remove,
+    importExcel,
+  } = useEvents();
+  const [search, setSearch] = useState("");
+  const [projectStatus, setProjectStatus] = useState("");
+  const [country, setCountry] = useState("");
+
+  const statusFilterOptions = useMemo(() => getProjectStatusFilterOptions(t), [t]);
+
+  const filters: EvenementFilters = useMemo(
+    () => ({
+      q: search.trim() || undefined,
+      project_status: projectStatus || undefined,
+      country: country.trim() || undefined,
+    }),
+    [search, projectStatus, country],
+  );
+
+  useEffect(() => {
+    void loadEvents(filters);
+  }, [loadEvents, filters]);
+
+  useEffect(() => {
+    void loadStats();
+  }, [loadStats]);
+
+  const paginationKey = `${search}|${projectStatus}|${country}|${events.length}`;
+  const {
+    paginatedItems,
+    page,
+    setPage,
+    totalPages,
+    totalItems,
+    rangeStart,
+    rangeEnd,
+  } = usePagination(events, 10, paginationKey);
+
+  const openCount = events.filter((event) => isEventOpen(event.project_status)).length;
+  const closedCount = events.filter(
+    (event) => normalizeProjectStatus(event.project_status) === "Closed",
+  ).length;
+  const cancelledCount = events.filter(
+    (event) => normalizeProjectStatus(event.project_status) === "Cancelled",
+  ).length;
+
+  const handleImport = async (file: File) => {
+    const result = await importExcel(file);
+    importModal.closeModal();
+    if (result) {
+      await loadEvents(filters);
+      await showSuccess(
+        t("events.importDone"),
+        `${result.imported_count.toLocaleString(localeTag)} ${t("events.importDoneDesc")}`,
+      );
+    }
+  };
+
+  const handleClose = async (event: Parameters<typeof close>[0]) => {
+    const ok = await close(event);
+    if (ok) await loadEvents(filters);
+  };
+
+  const handleDelete = async (event: Parameters<typeof remove>[0]) => {
+    const ok = await remove(event);
+    if (ok) await loadEvents(filters);
+  };
+
   return (
     <>
-      <PageMeta title="Événements | TIP" description="Liste des événements — Sprint 1" />
-      <div className="rounded-2xl border border-slate-200 bg-white p-8 text-center dark:border-slate-800 dark:bg-slate-900">
-        <h1 className="text-xl font-semibold text-slate-900 dark:text-slate-100">Événements</h1>
-        <p className="mt-2 text-sm text-slate-500 dark:text-slate-400">
-          Module disponible au Sprint 1 — import Projects.xlsx et fiche événement.
-        </p>
+      <PageMeta
+        title={`${t("events.title")} | ${t("common.appName")}`}
+        description={t("events.listDesc")}
+      />
+      <AdminBreadcrumb pageTitle={t("events.title")} crumbs={[{ label: t("nav.home"), to: "/" }]} />
+
+      <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4 md:gap-6">
+        <EventStatCard
+          label={t("events.totalEvents")}
+          value={isLoading ? "—" : total}
+          icon={<ListIcon className="size-6 text-brand-500 dark:text-brand-400" />}
+          iconBgClassName="bg-brand-50 dark:bg-brand-500/15"
+        />
+        <EventStatCard
+          label={t("events.open")}
+          value={isLoading ? "—" : openCount}
+          icon={<CalenderIcon className="size-6 text-warning-600 dark:text-warning-500" />}
+          iconBgClassName="bg-warning-50 dark:bg-warning-500/15"
+        />
+        <EventStatCard
+          label={t("events.closed")}
+          value={isLoading ? "—" : closedCount}
+          icon={<CheckCircleIcon className="size-6 text-success-600 dark:text-success-500" />}
+          iconBgClassName="bg-success-50 dark:bg-success-500/15"
+        />
+        <EventStatCard
+          label={t("events.cancelled")}
+          value={isLoading ? "—" : cancelledCount}
+          icon={<CloseIcon className="size-6 text-error-600 dark:text-error-500" />}
+          iconBgClassName="bg-error-50 dark:bg-error-500/15"
+        />
       </div>
+
+      <div className="mb-6">
+        <EventsDashboardCalendar
+          calendar={stats?.calendar ?? []}
+          calendarYear={stats?.calendar_year}
+          isLoading={isStatsLoading}
+        />
+      </div>
+
+      <ComponentCard title={t("events.list")} desc={t("events.listDesc")}>
+        <ProjectStatusLegend />
+
+        <div className="mb-6 flex flex-col gap-4 xl:flex-row xl:items-end xl:justify-between">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3 flex-1">
+            <Input
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              placeholder={t("events.searchPlaceholder")}
+            />
+            <Select
+              options={statusFilterOptions}
+              defaultValue={projectStatus}
+              onChange={setProjectStatus}
+            />
+            <Input
+              value={country}
+              onChange={(e) => setCountry(e.target.value)}
+              placeholder={t("events.filterCountry")}
+            />
+          </div>
+          <div className="flex flex-wrap gap-3">
+            {isAdmin && (
+              <Button size="sm" variant="outline" onClick={importModal.openModal}>
+                {t("events.importExcel")}
+              </Button>
+            )}
+            <Link to="/evenements/nouveau">
+              <Button size="sm">{t("events.addEvent")}</Button>
+            </Link>
+          </div>
+        </div>
+
+        {isLoading ? (
+          <TableLoader message={t("events.loadingList")} />
+        ) : (
+          <>
+            <EvenementsTable
+              events={paginatedItems}
+              onClose={handleClose}
+              onDelete={handleDelete}
+              showAdminActions={isAdmin}
+            />
+            <DataTablePagination
+              page={page}
+              totalPages={totalPages}
+              totalItems={totalItems}
+              rangeStart={rangeStart}
+              rangeEnd={rangeEnd}
+              onPageChange={setPage}
+            />
+          </>
+        )}
+      </ComponentCard>
+
+      {isAdmin && (
+        <EventsImportModal
+          isOpen={importModal.isOpen}
+          onClose={importModal.closeModal}
+          isSubmitting={isSubmitting}
+          importProgress={importProgress}
+          onImport={handleImport}
+        />
+      )}
     </>
   );
 }

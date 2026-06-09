@@ -6,8 +6,8 @@ router = APIRouter()
 
 
 @router.get("/")
-async def list_certificate_sets(_: AuthenticatedUser = Depends(get_current_user)) -> dict[str, str]:
-    return {"status": "not_implemented", "service": "catalog"}
+async def list_certificate_sets(_: AuthenticatedUser = Depends(get_current_user)) -> list:
+    return []
 
 
 @router.post("/")

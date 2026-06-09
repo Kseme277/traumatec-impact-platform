@@ -124,74 +124,6 @@ def _layout(
 </html>"""
 
 
-def render_invitation_email(
-    *,
-    settings: Settings,
-    prenom: str,
-    nom: str,
-    invitation_url: str,
-) -> str:
-    safe_prenom = escape(prenom)
-    safe_nom = escape(nom)
-    safe_url = escape(invitation_url)
-
-    main_html = f"""\
-<p style="margin:0 0 12px;color:{C.gray_900};">Bonjour {safe_prenom} {safe_nom},</p>
-<p style="margin:0;color:{C.gray_600};">Un administrateur vous a invité à rejoindre la plateforme. Cliquez sur le bouton ci-dessous pour définir votre mot de passe et activer votre accès.</p>"""
-
-    cta_html = f"""\
-<tr>
-  <td style="padding:35px 30px 11px 30px;font-size:0;background-color:{C.white};border-bottom:1px solid {C.gray_200};">
-    <!--[if mso]>
-    <table role="presentation" width="100%">
-    <tr>
-    <td style="width:145px;" align="left" valign="top">
-    <![endif]-->
-    <div class="col-sml" style="display:inline-block;width:100%;max-width:145px;vertical-align:top;text-align:center;font-family:Arial,sans-serif;font-size:14px;color:{C.gray_900};">
-      <div style="width:96px;height:96px;margin:0 auto 20px;border-radius:16px;background-color:{C.brand_50};line-height:96px;font-size:36px;font-weight:bold;color:{C.brand_500};">T</div>
-    </div>
-    <!--[if mso]>
-    </td>
-    <td style="width:395px;padding-bottom:20px;" valign="top">
-    <![endif]-->
-    <div class="col-lge" style="display:inline-block;width:100%;max-width:395px;vertical-align:top;padding-bottom:20px;font-family:Arial,sans-serif;font-size:16px;line-height:22px;color:{C.gray_900};">
-      <p style="margin-top:0;margin-bottom:12px;color:{C.gray_600};">Votre compte est prêt. L&apos;activation ne prend qu&apos;une minute : choisissez un mot de passe sécurisé, puis connectez-vous avec votre email Traumatec.</p>
-      <p style="margin-top:0;margin-bottom:18px;color:{C.gray_500};font-size:14px;">Ce lien expire sous 30 jours. Si vous n&apos;êtes pas concerné, ignorez cet email.</p>
-      <p style="margin:0;">
-        <a href="{safe_url}" style="background:{C.brand_500};text-decoration:none;padding:12px 28px;color:{C.white};border-radius:8px;display:inline-block;mso-padding-alt:0;text-underline-color:{C.brand_500};font-weight:bold;">
-          <!--[if mso]><i style="letter-spacing:28px;mso-font-width:-100%;mso-text-raise:20pt">&nbsp;</i><![endif]-->
-          <span style="mso-text-raise:10pt;font-weight:bold;">Activer mon compte</span>
-          <!--[if mso]><i style="letter-spacing:28px;mso-font-width:-100%">&nbsp;</i><![endif]-->
-        </a>
-      </p>
-    </div>
-    <!--[if mso]>
-    </td>
-    </tr>
-    </table>
-    <![endif]-->
-  </td>
-</tr>"""
-
-    secondary_html = f"""\
-<tr>
-  <td style="padding:24px 30px 30px 30px;background-color:{C.white};">
-    <p style="margin:0 0 8px;font-size:14px;color:{C.gray_500};">Le bouton ne fonctionne pas ? Copiez ce lien dans votre navigateur :</p>
-    <p style="margin:0;word-break:break-all;font-size:13px;line-height:20px;">
-      <a href="{safe_url}" style="color:{C.brand_600};text-decoration:underline;">{safe_url}</a>
-    </p>
-  </td>
-</tr>"""
-
-    return _layout(
-        settings=settings,
-        title="Invitation à rejoindre la plateforme",
-        main_html=main_html,
-        cta_html=cta_html,
-        secondary_html=secondary_html,
-    )
-
-
 def render_password_reset_email(*, settings: Settings, code: str) -> str:
     safe_code = escape(code)
     reset_url = escape(f"{settings.app_public_url.rstrip('/')}/reset-password")
@@ -244,6 +176,66 @@ def render_password_reset_email(*, settings: Settings, code: str) -> str:
     return _layout(
         settings=settings,
         title="Réinitialisation du mot de passe",
+        main_html=main_html,
+        cta_html=cta_html,
+        secondary_html=secondary_html,
+    )
+
+
+def render_invitation_email(
+    *,
+    settings: Settings,
+    prenom: str,
+    nom: str,
+    invitation_url: str,
+) -> str:
+    safe_prenom = escape(prenom.strip() or "collègue")
+    safe_nom = escape(nom.strip())
+    safe_url = escape(invitation_url)
+    full_name = escape(f"{prenom} {nom}".strip() or "Utilisateur")
+
+    main_html = f"""\
+<p style="margin:0 0 12px;color:{C.gray_900};">Bonjour {safe_prenom},</p>
+<p style="margin:0 0 12px;color:{C.gray_600};">
+  Vous avez été invité(e) à rejoindre <strong>{escape(settings.app_name)}</strong>
+  en tant que <strong>{full_name}</strong>.
+</p>
+<p style="margin:0;color:{C.gray_600};">
+  Cliquez sur le bouton ci-dessous pour activer votre compte et définir votre mot de passe.
+</p>"""
+
+    cta_html = f"""\
+<tr>
+  <td style="padding:35px 30px 11px 30px;font-size:0;background-color:{C.white};border-bottom:1px solid {C.gray_200};">
+    <div style="font-family:Arial,sans-serif;font-size:16px;line-height:22px;color:{C.gray_900};">
+      <p style="margin:0 0 18px;">
+        <a href="{safe_url}" style="background:{C.brand_500};text-decoration:none;padding:14px 32px;color:{C.white};border-radius:8px;display:inline-block;font-weight:bold;">
+          Activer mon compte
+        </a>
+      </p>
+      <p style="margin:0;font-size:13px;line-height:20px;color:{C.gray_500};">
+        Lien direct : <a href="{safe_url}" style="color:{C.brand_500};word-break:break-all;">{safe_url}</a>
+      </p>
+    </div>
+  </td>
+</tr>"""
+
+    secondary_html = f"""\
+<tr>
+  <td style="padding:24px 30px 30px 30px;background-color:{C.white};">
+    <p style="margin:0 0 10px;font-size:14px;line-height:20px;color:{C.gray_500};">
+      Si l&apos;email n&apos;apparaît pas dans votre boîte de réception, consultez l&apos;onglet
+      <strong>Promotions</strong> ou <strong>Courrier indésirable</strong> (Gmail classe souvent les invitations).
+    </p>
+    <p style="margin:0;font-size:14px;line-height:20px;color:{C.gray_500};">
+      Si vous n&apos;attendiez pas cette invitation, ignorez cet email.
+    </p>
+  </td>
+</tr>"""
+
+    return _layout(
+        settings=settings,
+        title="Invitation Traumatec Impact Platform",
         main_html=main_html,
         cta_html=cta_html,
         secondary_html=secondary_html,

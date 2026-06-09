@@ -1,6 +1,8 @@
-import { GUIDES_URL, isGuidesConfigured, openGuides } from "../../config/guides";
+import { getGuidesEntryUrl, isGuidesConfigured } from "../../config/guides";
+import { useTranslation } from "../../i18n/useTranslation";
 
 export default function GuidesDocCard({ className = "" }: { className?: string }) {
+  const { t } = useTranslation();
   const configured = isGuidesConfigured();
 
   return (
@@ -20,28 +22,23 @@ export default function GuidesDocCard({ className = "" }: { className?: string }
         </div>
         <div className="min-w-0 flex-1">
           <h3 className="text-base font-semibold text-slate-900 dark:text-slate-100">
-            Guides procédures
+            {t("guides.title")}
           </h3>
-          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-            Consultez les procédures métier AO Alliance et téléchargez les modèles de préparation
-            (Op, PBO, IEC).
-          </p>
+          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">{t("guides.descLong")}</p>
           {configured ? (
-            <button
-              type="button"
-              onClick={openGuides}
+            <a
+              href={getGuidesEntryUrl()}
+              target="_blank"
+              rel="noopener noreferrer"
               className="mt-4 inline-flex h-10 items-center rounded-lg bg-brand-500 px-4 text-sm font-semibold text-white transition hover:bg-brand-600 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2 dark:focus:ring-offset-slate-900"
             >
-              Ouvrir Guides →
-            </button>
+              {t("guides.open")}
+            </a>
           ) : (
             <p className="mt-4 text-xs text-amber-600 dark:text-amber-400">
-              Configurez <code className="rounded bg-slate-100 px-1 dark:bg-slate-800">VITE_GUIDES_URL</code>{" "}
-              dans le fichier .env
+              {t("guides.configureEnv")}{" "}
+              <code className="rounded bg-slate-100 px-1 dark:bg-slate-800">VITE_GUIDES_URL</code>
             </p>
-          )}
-          {configured && (
-            <p className="mt-2 truncate text-xs text-slate-400">{GUIDES_URL}</p>
           )}
         </div>
       </div>

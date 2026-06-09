@@ -16,8 +16,11 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 
 TEMPLATES_PREFIX = "templates/"
+PACKAGES_BUNDLES_PREFIX = "templates/packages/bundles/"
 GENERATIONS_PREFIX = "generations/"
+GENERATIONS_EVENT_PREFIX = "generations/events/"
 UPLOADS_PREFIX = "uploads/"
+AUDIT_EXPORTS_PREFIX = "audit/exports/"
 
 
 class ObjectStorage:

@@ -40,6 +40,29 @@ CREATE TABLE identity.audit_logs (
 
 CREATE INDEX idx_identity_audit_created_at ON identity.audit_logs(created_at DESC);
 
+CREATE TABLE identity.audit_export_config (
+    id              INTEGER PRIMARY KEY DEFAULT 1 CHECK (id = 1),
+    interval_hours  INTEGER NOT NULL DEFAULT 24,
+    enabled         BOOLEAN NOT NULL DEFAULT true,
+    last_run_at     TIMESTAMPTZ,
+    updated_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+    updated_by_id   INTEGER REFERENCES identity.utilisateurs(id)
+);
+
+INSERT INTO identity.audit_export_config (id, interval_hours, enabled) VALUES (1, 24, true);
+
+CREATE TABLE identity.audit_export_files (
+    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    storage_key     VARCHAR(512) NOT NULL,
+    period_start    TIMESTAMPTZ NOT NULL,
+    period_end      TIMESTAMPTZ NOT NULL,
+    record_count    INTEGER NOT NULL DEFAULT 0,
+    file_size_bytes BIGINT NOT NULL DEFAULT 0,
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX idx_identity_audit_export_files_created ON identity.audit_export_files(created_at DESC);
+
 -- ---------------------------------------------------------------------------
 -- catalog-service (templates, jeux certificats, profils)
 -- ---------------------------------------------------------------------------
@@ -81,10 +104,32 @@ CREATE TABLE catalog.certificate_template_steps (
     CONSTRAINT uq_catalog_cert_steps_set_step UNIQUE (template_set_id, step_number)
 );
 
+CREATE TABLE catalog.package_bundles (
+    id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    package_type        VARCHAR(32) NOT NULL,
+    version             INTEGER NOT NULL,
+    label               VARCHAR(255) NOT NULL,
+    source_zip_name     VARCHAR(512),
+    zip_path            VARCHAR(512) NOT NULL,
+    file_count          INTEGER NOT NULL DEFAULT 0,
+    analysis_json       JSONB,
+    is_active           BOOLEAN NOT NULL DEFAULT FALSE,
+    uploaded_by_id      INTEGER,
+    notes               TEXT,
+    created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
+    CONSTRAINT uq_package_bundles_type_version UNIQUE (package_type, version)
+);
+
+CREATE INDEX idx_package_bundles_type ON catalog.package_bundles(package_type);
+CREATE INDEX idx_package_bundles_active ON catalog.package_bundles(package_type, is_active);
+
 CREATE TABLE catalog.event_profiles (
     id                      UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name                    VARCHAR(255) NOT NULL,
     preparation_theme       VARCHAR(32),
+    package_type            VARCHAR(32),
+    event_type_label        VARCHAR(64),
+    active_bundle_id        UUID REFERENCES catalog.package_bundles(id),
     package_template_ids    JSONB,
     certificate_set_id      UUID REFERENCES catalog.certificate_template_sets(id),
     is_active               BOOLEAN NOT NULL DEFAULT TRUE,
@@ -119,10 +164,13 @@ CREATE TABLE events.events (
     annual_import_id        UUID REFERENCES events.annual_imports(id),
     project_number          VARCHAR(64) NOT NULL,
     title                   VARCHAR(512) NOT NULL,
-    event_type              VARCHAR(64),
+    event_type              VARCHAR(255),
     preparation_theme       VARCHAR(32) CHECK (preparation_theme IN ('operatory', 'pbo', 'iec')),
     country                 VARCHAR(128),
     city                    VARCHAR(128),
+    region                  VARCHAR(128),
+    responsible_person      VARCHAR(255),
+    project_status          VARCHAR(128),
     start_date              DATE,
     end_date                DATE,
     status                  VARCHAR(32) NOT NULL DEFAULT 'imported'
@@ -174,6 +222,7 @@ CREATE TABLE docgen.generation_jobs (
     zip_filename            VARCHAR(512),
     certificate_count       INTEGER NOT NULL DEFAULT 0,
     template_versions_json  JSONB,
+    logs_json               JSONB,
     error_message           TEXT,
     started_at              TIMESTAMPTZ,
     completed_at            TIMESTAMPTZ,

@@ -18,7 +18,8 @@ class Settings(BaseServiceSettings):
     app_public_url: str = "http://localhost:5173"
     app_name: str = "Traumatec Impact Platform"
 
-    smtp_enabled: bool = True
+    smtp_enabled: bool = False
+    invitation_smtp_fallback: bool = True
     smtp_host: str = "mailpit"
     smtp_port: int = 1025
     smtp_use_tls: bool = False
@@ -30,6 +31,15 @@ class Settings(BaseServiceSettings):
     bootstrap_admin_nom: str = ""
     bootstrap_admin_prenom: str = ""
     bootstrap_admin_clerk_id: str = ""
+
+    # GuideHub / traumatec-guide-evens — voir .env (GUIDES_*)
+    guides_bridge_enabled: bool = False
+    guides_api_url: str = ""
+    guides_web_url: str = ""
+    guides_proxy_web_url: str = ""
+    guides_company_slug: str = ""
+    guides_bridge_email: str = ""
+    guides_bridge_password: str = ""
 
 
 @lru_cache

@@ -1,8 +1,8 @@
 import { useAuth } from "@clerk/clerk-react";
 import { useCallback, useState } from "react";
-import { fetchAllUsers, resendInvitation, toggleUserStatus } from "../../../api/users";
+import { deleteUser, fetchAllUsers, resendInvitation, toggleUserStatus } from "../../../api/users";
 import { ApiError } from "../../../api/client";
-import type { Utilisateur } from "../../features/auth/types";
+import type { InvitationActionResponse, Utilisateur } from "../../auth/types";
 import { confirmAction, showError, showSuccess } from "../../../lib/swal";
 
 export function useAdminUsers() {
@@ -57,32 +57,85 @@ export function useAdminUsers() {
     [getToken, loadUsers],
   );
 
+  const requestActivationLink = useCallback(
+    async (user: Utilisateur, options?: { confirm?: boolean }) => {
+      if (options?.confirm !== false) {
+        const result = await confirmAction({
+          title: "Renvoyer l'invitation ?",
+          text: `Un email Clerk sera envoyé à ${user.email} si possible, sinon un lien d'activation sera généré.`,
+          icon: "question",
+          confirmText: "Continuer",
+        });
+        if (!result.isConfirmed) return null;
+      }
+
+      try {
+        const token = await getToken();
+        const response = await resendInvitation(token, user.id);
+        return response;
+      } catch (err) {
+        await showError(
+          "Envoi impossible",
+          err instanceof ApiError ? err.message : "Une erreur est survenue.",
+        );
+        return null;
+      }
+    },
+    [getToken],
+  );
+
   const resendInvite = useCallback(
+    async (user: Utilisateur): Promise<InvitationActionResponse | null> => {
+      const response = await requestActivationLink(user);
+      if (!response) return null;
+      await showSuccess("Invitation envoyée", response.message);
+      return response;
+    },
+    [requestActivationLink],
+  );
+
+  const generateActivationLink = useCallback(
+    async (user: Utilisateur): Promise<InvitationActionResponse | null> => {
+      return requestActivationLink(user, { confirm: false });
+    },
+    [requestActivationLink],
+  );
+
+  const removeUser = useCallback(
     async (user: Utilisateur) => {
       const result = await confirmAction({
-        title: "Renvoyer l'invitation ?",
-        text: `Un nouvel email sera envoyé à ${user.email}.`,
-        icon: "question",
-        confirmText: "Envoyer",
+        title: "Supprimer l'utilisateur ?",
+        text: `${user.prenom} ${user.nom} (${user.email}) sera retiré de TIP et de Clerk. Action irréversible.`,
+        icon: "warning",
+        confirmText: "Supprimer",
       });
 
       if (!result.isConfirmed) return false;
 
       try {
         const token = await getToken();
-        const response = await resendInvitation(token, user.id);
-        await showSuccess("Invitation envoyée", response.message);
+        const response = await deleteUser(token, user.id);
+        await showSuccess("Utilisateur supprimé", response.message);
+        await loadUsers();
         return true;
       } catch (err) {
         await showError(
-          "Envoi impossible",
+          "Suppression impossible",
           err instanceof ApiError ? err.message : "Une erreur est survenue.",
         );
         return false;
       }
     },
-    [getToken],
+    [getToken, loadUsers],
   );
 
-  return { users, isLoading, loadUsers, toggleStatus, resendInvite };
+  return {
+    users,
+    isLoading,
+    loadUsers,
+    toggleStatus,
+    resendInvite,
+    generateActivationLink,
+    removeUser,
+  };
 }

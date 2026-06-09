@@ -188,6 +188,22 @@ layer(base);
   body {
     @apply relative font-normal font-outfit z-1 bg-gray-50;
   }
+
+  /* Flèche visible sur tous les <select> natifs (sauf ceux avec chevron custom). */
+  select:not(.has-custom-chevron) {
+    appearance: none;
+    -webkit-appearance: none;
+    -moz-appearance: none;
+    padding-right: 2.75rem;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 20 20' fill='none'%3E%3Cpath d='M4.792 7.396L10 12.604L15.208 7.396' stroke='%2398a2b3' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 0.75rem center;
+    background-size: 1.25rem;
+  }
+
+  .dark select:not(.has-custom-chevron) {
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='20' height='20' viewBox='0 0 20 20' fill='none'%3E%3Cpath d='M4.792 7.396L10 12.604L15.208 7.396' stroke='%2398a2b3' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  }
 }
 
 @utility menu-item {
@@ -789,4 +805,22 @@ span.flatpickr-weekday,
 
 .simplebar-scrollbar.simplebar-visible:before {
   @apply opacity-100;
+}
+
+/* Autofill navigateur — évite le fond jaune sur les champs mot de passe */
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus {
+  -webkit-text-fill-color: rgb(31 41 55);
+  caret-color: rgb(31 41 55);
+  transition: background-color 9999s ease-out 0s;
+  -webkit-box-shadow: 0 0 0 1000px rgb(255 255 255) inset;
+}
+
+.dark input:-webkit-autofill,
+.dark input:-webkit-autofill:hover,
+.dark input:-webkit-autofill:focus {
+  -webkit-text-fill-color: rgb(255 255 255 / 0.9);
+  caret-color: rgb(255 255 255 / 0.9);
+  -webkit-box-shadow: 0 0 0 1000px rgb(17 24 39) inset;
 }

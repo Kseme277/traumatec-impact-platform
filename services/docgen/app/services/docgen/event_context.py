@@ -1,0 +1,136 @@
+"""Enrichissement du contexte événement pour remplacements docx/xlsx/doc."""
+
+from __future__ import annotations
+
+import re
+from datetime import date
+from typing import Any
+
+from tip_common.package_types import PACKAGE_TYPE_SPECS
+
+
+def _parse_iso(value: str | date | None) -> date | None:
+    if value is None:
+        return None
+    if isinstance(value, date):
+        return value
+    try:
+        return date.fromisoformat(str(value).strip()[:10])
+    except ValueError:
+        return None
+
+
+def _infer_location_from_title(title: str) -> dict[str, str]:
+    """Règles métier : extraire lieu/pays depuis le titre AO (ex. …_TBD_RDC)."""
+    result: dict[str, str] = {}
+    if not title:
+        return result
+
+    upper = title.upper()
+    country_map = {
+        "_RDC": ("Democratic Republic of the Congo", "RDC"),
+        "_CDI": ("Côte d'Ivoire", "CI"),
+        "_SEN": ("Senegal", "SN"),
+        "_CM": ("Cameroon", "CM"),
+        "_CMR": ("Cameroon", "CM"),
+    }
+    for suffix, (country, _code) in country_map.items():
+        if suffix in upper or upper.endswith(suffix.lstrip("_")):
+            result["country"] = country
+            break
+
+    if re.search(r"\bTBD\b", title, re.I):
+        result.setdefault("city", "TBD")
+
+    return result
+
+
+async def enrich_event_context(
+    event: dict[str, Any],
+    *,
+    package_type: str | None = None,
+    classified: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """
+    Complète les champs manquants (ville, pays) et ajoute les métadonnées paquet.
+    NVIDIA optionnel si clé API présente.
+    """
+    enriched = dict(event)
+    title = str(enriched.get("title") or "")
+
+    hints = _infer_location_from_title(title)
+    if not enriched.get("city") and hints.get("city"):
+        enriched["city"] = hints["city"]
+    if not enriched.get("country") and hints.get("country"):
+        enriched["country"] = hints["country"]
+
+    if classified:
+        for key in ("package_type", "preparation_theme", "package_label"):
+            if classified.get(key) and not enriched.get(key):
+                enriched[key] = classified[key]
+
+    pkg = package_type or enriched.get("package_type") or (classified or {}).get("package_type")
+    if pkg and pkg in PACKAGE_TYPE_SPECS:
+        spec = PACKAGE_TYPE_SPECS[pkg]
+        enriched["package_type"] = pkg
+        enriched["package_label"] = spec.label
+        enriched["package_duration_days"] = spec.duration_days
+        enriched["activity_label"] = spec.activity_label
+        if not enriched.get("preparation_theme"):
+            enriched["preparation_theme"] = spec.preparation_theme
+
+    import os
+
+    use_ai = os.getenv("DOCGEN_GENERATION_USE_AI", "").lower() in ("1", "true", "yes")
+    if use_ai:
+        try:
+            from tip_common.nvidia_event_classifier import enrich_event_fields_with_ai
+
+            ai_fields = await enrich_event_fields_with_ai(enriched)
+            for key, value in (ai_fields or {}).items():
+                if value and not enriched.get(key):
+                    enriched[key] = value
+        except Exception:
+            pass
+
+        try:
+            from tip_common.ai_title_formatter import format_event_labels_with_ai
+
+            enriched.update(await format_event_labels_with_ai(enriched))
+        except Exception:
+            pass
+
+    from tip_common.contact_fields import extract_contact_fields
+    from tip_common.title_formatter import format_document_title
+
+    enriched.update(extract_contact_fields(enriched))
+    formatted_title = format_document_title(enriched)
+    if formatted_title:
+        enriched["title_formatted"] = formatted_title
+
+    start = _parse_iso(enriched.get("start_date"))
+    end = _parse_iso(enriched.get("end_date"))
+    if start and end:
+        enriched["event_calendar_days"] = max(1, (end - start).days + 1)
+
+    if start:
+        months = (
+            "janvier", "février", "mars", "avril", "mai", "juin",
+            "juillet", "août", "septembre", "octobre", "novembre", "décembre",
+        )
+        single = f"{start.day} {months[start.month - 1]} {start.year}"
+        if not enriched.get("date_single_formatted"):
+            enriched["date_single_formatted"] = single
+        if not enriched.get("date_range_formatted"):
+            if end and end != start:
+                end_single = f"{end.day} {months[end.month - 1]} {end.year}"
+                if start.month == end.month and start.year == end.year:
+                    enriched["date_range_formatted"] = (
+                        f"{start.day} – {end.day} {months[start.month - 1]} {start.year}"
+                    )
+                else:
+                    enriched["date_range_formatted"] = f"{single} – {end_single}"
+            else:
+                enriched["date_range_formatted"] = single
+
+    return enriched

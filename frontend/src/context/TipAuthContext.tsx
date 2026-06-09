@@ -10,23 +10,40 @@ import {
 import { useAuth } from "@clerk/clerk-react";
 import { fetchMe } from "../api/users";
 import { ApiError } from "../api/client";
+import { getApiToken } from "../lib/clerkToken";
 import type { Utilisateur } from "../features/auth/types";
 
 interface TipAuthContextValue {
   tipUser: Utilisateur | null;
   isLoading: boolean;
   error: string | null;
+  errorStatus: number | null;
   isAdmin: boolean;
   refreshProfile: () => Promise<void>;
 }
 
 const TipAuthContext = createContext<TipAuthContextValue | undefined>(undefined);
 
+const PROFILE_FETCH_TIMEOUT_MS = 20_000;
+
+async function fetchMeWithTimeout(token: string | null): Promise<Utilisateur> {
+  const controller = new AbortController();
+  const timeout = window.setTimeout(() => controller.abort(), PROFILE_FETCH_TIMEOUT_MS);
+  try {
+    return await fetchMe(token, { signal: controller.signal });
+  } finally {
+    window.clearTimeout(timeout);
+  }
+}
+
 export function TipAuthProvider({ children }: { children: ReactNode }) {
   const { isLoaded, isSignedIn, getToken } = useAuth();
   const [tipUser, setTipUser] = useState<Utilisateur | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [profileLoading, setProfileLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [errorStatus, setErrorStatus] = useState<number | null>(null);
+
+  const isLoading = !isLoaded || profileLoading;
 
   const refreshProfile = useCallback(async () => {
     if (!isLoaded) return;
@@ -34,21 +51,36 @@ export function TipAuthProvider({ children }: { children: ReactNode }) {
     if (!isSignedIn) {
       setTipUser(null);
       setError(null);
-      setIsLoading(false);
+      setErrorStatus(null);
+      setProfileLoading(false);
       return;
     }
 
-    setIsLoading(true);
+    setProfileLoading(true);
     try {
-      const token = await getToken();
-      const profile = await fetchMe(token);
+      const token = await getApiToken(getToken);
+      const profile = await fetchMeWithTimeout(token);
       setTipUser(profile);
       setError(null);
+      setErrorStatus(null);
     } catch (err) {
       setTipUser(null);
-      setError(err instanceof ApiError ? err.message : "Impossible de charger le profil");
+      if (err instanceof ApiError) {
+        setError(err.message);
+        setErrorStatus(err.status);
+      } else if (err instanceof DOMException && err.name === "AbortError") {
+        setError(
+          "Délai dépassé lors du chargement du profil. Vérifiez que l'API TIP est démarrée (docker compose up -d).",
+        );
+        setErrorStatus(0);
+      } else {
+        setError(
+          "Impossible de contacter l'API (port 8080 / nginx). Lancez « docker compose up -d » puis vérifiez que le conteneur nginx est bien démarré.",
+        );
+        setErrorStatus(0);
+      }
     } finally {
-      setIsLoading(false);
+      setProfileLoading(false);
     }
   }, [getToken, isLoaded, isSignedIn]);
 
@@ -61,10 +93,11 @@ export function TipAuthProvider({ children }: { children: ReactNode }) {
       tipUser,
       isLoading,
       error,
+      errorStatus,
       isAdmin: tipUser?.role === "administrateur",
       refreshProfile,
     }),
-    [tipUser, isLoading, error, refreshProfile],
+    [tipUser, isLoading, error, errorStatus, refreshProfile],
   );
 
   return <TipAuthContext.Provider value={value}>{children}</TipAuthContext.Provider>;

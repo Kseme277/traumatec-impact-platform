@@ -1,7 +1,7 @@
 import logging
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import select
+from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
@@ -9,46 +9,134 @@ from app.core.database import get_db
 from app.deps.auth import require_admin
 from app.models.utilisateur import Utilisateur
 from app.schemas.utilisateur import (
+    EmailCheckResponse,
+    InvitationActionResponse,
     ToggleStatusResponse,
     UtilisateurCreate,
+    UtilisateurCreateResponse,
     UtilisateurResponse,
 )
+from app.services.audit_service import record_audit_event
 from app.services.clerk_client import ClerkAPIError, ClerkClient
 from app.services.email_service import EmailService
+from tip_common.email_identity import normalize_email
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter()
 
 
-async def _send_invitation_email(
-    *,
+async def _deliver_invitation_email(
     settings,
+    *,
     to_email: str,
     prenom: str,
     nom: str,
     invitation_url: str | None,
-) -> None:
-    if not invitation_url:
-        return
-    mailer = EmailService(settings)
-    try:
-        await mailer.send_invitation(
-            to_email=to_email,
-            prenom=prenom,
-            nom=nom,
-            invitation_url=invitation_url,
+    clerk_notified: bool,
+) -> tuple[bool, str | None]:
+    """Clerk notify + optionnellement SMTP TIP (copie de secours avec le lien)."""
+    smtp_sent = False
+    if (
+        invitation_url
+        and settings.smtp_enabled
+        and settings.invitation_smtp_fallback
+    ):
+        try:
+            mailer = EmailService(settings)
+            await mailer.send_invitation(
+                to_email=to_email,
+                prenom=prenom,
+                nom=nom,
+                invitation_url=invitation_url,
+            )
+            smtp_sent = True
+        except Exception:
+            logger.exception("Échec envoi SMTP invitation à %s", to_email)
+
+    if smtp_sent or clerk_notified:
+        hint = None
+        if clerk_notified and not smtp_sent:
+            hint = (
+                "Email envoyé par Clerk — vérifiez l'onglet Promotions ou Courrier indésirable "
+                "(Gmail classe souvent les invitations Traumatec)."
+            )
+        return True, hint
+
+    if invitation_url:
+        return False, (
+            "Compte créé. Copiez le lien d'invitation ci-dessous et transmettez-le à l'utilisateur."
         )
-    except Exception:
-        logger.exception("Invitation créée mais email non envoyé à %s", to_email)
+
+    return False, (
+        "Compte créé mais l'activation Clerk a échoué. "
+        "Ajoutez http://localhost:5173/accept-invitation dans Clerk → Paths / URLs de redirection, "
+        "puis utilisez « Renvoyer l'invitation »."
+    )
 
 
-@router.post("/create", response_model=UtilisateurResponse, status_code=status.HTTP_201_CREATED)
-async def create_utilisateur(
-    payload: UtilisateurCreate,
+def _clerk_sent_activation_email(invitation_url: str | None) -> bool:
+    """True si Clerk a envoyé l'email (invitation hébergée), pas pour un lien jeton TIP."""
+    if not invitation_url:
+        return False
+    return "accept-invitation?ticket=" not in invitation_url
+
+
+@router.get("/check-email", response_model=EmailCheckResponse)
+async def check_invitation_email(
+    email: str,
     _: Utilisateur = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
-) -> Utilisateur:
+) -> EmailCheckResponse:
+    """Vérifie les doublons TIP / Clerk avant création (évite les emails proches)."""
+    settings = get_settings()
+    normalized = normalize_email(email)
+
+    tip_exists = False
+    result = await db.execute(select(Utilisateur).where(Utilisateur.email == normalized))
+    if result.scalar_one_or_none():
+        tip_exists = True
+
+    clerk_exists = False
+    conflicting: list[str] = []
+    suggested: str | None = None
+
+    if settings.clerk_secret_key:
+        clerk = ClerkClient(settings)
+        clerk_id = await clerk.find_user_id_by_email(normalized)
+        clerk_exists = clerk_id is not None
+        variants = await clerk.find_clerk_emails_for_local_part(normalized)
+        conflicting = [v for v in variants if v != normalized]
+        if conflicting:
+            suggested = conflicting[0]
+
+    can_create = not tip_exists and not conflicting
+    message: str | None = None
+    if tip_exists:
+        message = "Cet email est déjà enregistré dans TIP."
+    elif conflicting and suggested:
+        message = (
+            f"Un compte Clerk existe déjà avec {suggested}. "
+            "Utilisez cet email exact pour l'invitation."
+        )
+
+    return EmailCheckResponse(
+        normalized_email=normalized,
+        tip_exists=tip_exists,
+        clerk_exists=clerk_exists,
+        conflicting_clerk_emails=conflicting,
+        suggested_email=suggested,
+        can_create=can_create,
+        message=message,
+    )
+
+
+@router.post("/create", response_model=UtilisateurCreateResponse, status_code=status.HTTP_201_CREATED)
+async def create_utilisateur(
+    payload: UtilisateurCreate,
+    admin: Utilisateur = Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
+) -> UtilisateurCreateResponse:
     settings = get_settings()
     if not settings.clerk_secret_key:
         raise HTTPException(
@@ -56,7 +144,9 @@ async def create_utilisateur(
             detail="Clerk n'est pas configuré (CLERK_SECRET_KEY manquant)",
         )
 
-    existing = await db.execute(select(Utilisateur).where(Utilisateur.email == payload.email))
+    normalized_email = normalize_email(str(payload.email))
+
+    existing = await db.execute(select(Utilisateur).where(Utilisateur.email == normalized_email))
     if existing.scalar_one_or_none():
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
@@ -65,38 +155,71 @@ async def create_utilisateur(
 
     clerk = ClerkClient(settings)
     try:
-        result = await clerk.create_user_with_invitation(
-            email=str(payload.email),
+        result = await clerk.provision_user_with_invitation(
+            email=normalized_email,
             nom=payload.nom,
             prenom=payload.prenom,
             role=payload.role,
         )
         clerk_id = result.clerk_id
-        await _send_invitation_email(
-            settings=settings,
-            to_email=str(payload.email).lower(),
+        primary_email = (
+            await clerk.get_primary_email(clerk_id) if clerk_id else normalized_email
+        ) or normalized_email
+        invitation_url = result.invitation_url
+        invitation_sent, invitation_hint = await _deliver_invitation_email(
+            settings,
+            to_email=primary_email,
             prenom=payload.prenom,
             nom=payload.nom,
-            invitation_url=result.invitation_url,
+            invitation_url=invitation_url,
+            clerk_notified=_clerk_sent_activation_email(invitation_url),
         )
+        if not invitation_sent:
+            logger.warning(
+                "Utilisateur Clerk créé pour %s mais email d'invitation non confirmé",
+                primary_email,
+            )
     except ClerkAPIError as exc:
-        raise HTTPException(
-            status_code=status.HTTP_502_BAD_GATEWAY,
-            detail=str(exc),
-        ) from exc
+        status_code = (
+            status.HTTP_409_CONFLICT
+            if exc.status_code == 409
+            else status.HTTP_502_BAD_GATEWAY
+        )
+        raise HTTPException(status_code=status_code, detail=str(exc)) from exc
 
     utilisateur = Utilisateur(
         clerk_id=clerk_id,
-        email=str(payload.email).lower(),
+        email=primary_email,
         nom=payload.nom,
         prenom=payload.prenom,
         role=payload.role,
         est_actif=True,
     )
     db.add(utilisateur)
+    await db.flush()
+    await record_audit_event(
+        db,
+        actor_id=admin.id,
+        action="user.create",
+        entity_type="user",
+        entity_id=str(utilisateur.id),
+        payload={"email": utilisateur.email, "role": utilisateur.role},
+    )
     await db.commit()
     await db.refresh(utilisateur)
-    return utilisateur
+    return UtilisateurCreateResponse(
+        id=utilisateur.id,
+        clerk_id=utilisateur.clerk_id,
+        email=utilisateur.email,
+        nom=utilisateur.nom,
+        prenom=utilisateur.prenom,
+        role=utilisateur.role,
+        est_actif=utilisateur.est_actif,
+        created_at=utilisateur.created_at,
+        invitation_sent=invitation_sent,
+        invitation_url=invitation_url,
+        invitation_hint=invitation_hint,
+    )
 
 
 @router.get("", response_model=list[UtilisateurResponse])
@@ -138,6 +261,14 @@ async def toggle_utilisateur_status(
                 detail=str(exc),
             ) from exc
 
+    await record_audit_event(
+        db,
+        actor_id=admin.id,
+        action="user.toggle_status",
+        entity_type="user",
+        entity_id=str(utilisateur.id),
+        payload={"est_actif": utilisateur.est_actif},
+    )
     await db.commit()
     await db.refresh(utilisateur)
 
@@ -149,10 +280,10 @@ async def toggle_utilisateur_status(
     )
 
 
-@router.post("/{user_id}/resend-invitation", response_model=ToggleStatusResponse)
+@router.post("/{user_id}/resend-invitation", response_model=InvitationActionResponse)
 async def resend_invitation(
     user_id: int,
-    _: Utilisateur = Depends(require_admin),
+    admin: Utilisateur = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ) -> ToggleStatusResponse:
     settings = get_settings()
@@ -178,13 +309,7 @@ async def resend_invitation(
         invitation_url = await clerk.create_invitation_only(
             email=utilisateur.email,
             role=utilisateur.role,
-        )
-        await _send_invitation_email(
-            settings=settings,
-            to_email=utilisateur.email,
-            prenom=utilisateur.prenom,
-            nom=utilisateur.nom,
-            invitation_url=invitation_url,
+            clerk_id=utilisateur.clerk_id,
         )
     except ClerkAPIError as exc:
         raise HTTPException(
@@ -192,14 +317,111 @@ async def resend_invitation(
             detail=str(exc),
         ) from exc
 
-    if not invitation_url:
+    invitation_sent, hint_extra = await _deliver_invitation_email(
+        settings,
+        to_email=utilisateur.email,
+        prenom=utilisateur.prenom,
+        nom=utilisateur.nom,
+        invitation_url=invitation_url,
+        clerk_notified=_clerk_sent_activation_email(invitation_url),
+    )
+
+    if not invitation_url and not invitation_sent:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
-            detail="Une invitation est déjà en cours pour cet utilisateur",
+            detail=(
+                "Activation Clerk impossible. "
+                "Vérifiez http://localhost:5173/accept-invitation dans le dashboard Clerk."
+            ),
         )
 
-    return ToggleStatusResponse(
+    await record_audit_event(
+        db,
+        actor_id=admin.id,
+        action="user.resend_invitation",
+        entity_type="user",
+        entity_id=str(utilisateur.id),
+        payload={"email": utilisateur.email},
+    )
+    await db.commit()
+
+    message = f"Invitation renvoyée à {utilisateur.email}"
+    if hint_extra:
+        message = f"{message}. {hint_extra}"
+    if invitation_url and not invitation_sent:
+        message = f"{message} Copiez le lien d'activation ci-dessous."
+
+    return InvitationActionResponse(
         id=utilisateur.id,
         est_actif=utilisateur.est_actif,
-        message="Invitation renvoyée par email",
+        message=message,
+        invitation_url=invitation_url,
+        invitation_sent=invitation_sent,
+        invitation_hint=hint_extra,
+    )
+
+
+@router.delete("/{user_id}", response_model=ToggleStatusResponse)
+async def delete_utilisateur(
+    user_id: int,
+    admin: Utilisateur = Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
+) -> ToggleStatusResponse:
+    if admin.id == user_id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Vous ne pouvez pas supprimer votre propre compte",
+        )
+
+    result = await db.execute(select(Utilisateur).where(Utilisateur.id == user_id))
+    utilisateur = result.scalar_one_or_none()
+    if utilisateur is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Utilisateur introuvable")
+
+    jobs = await db.execute(
+        text("SELECT COUNT(*) FROM docgen.generation_jobs WHERE requested_by_id = :id"),
+        {"id": user_id},
+    )
+    if int(jobs.scalar_one()) > 0:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Cet utilisateur a des générations associées. Désactivez-le plutôt.",
+        )
+
+    imports = await db.execute(
+        text("SELECT COUNT(*) FROM events.annual_imports WHERE imported_by_id = :id"),
+        {"id": user_id},
+    )
+    if int(imports.scalar_one()) > 0:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Cet utilisateur a des imports associés. Désactivez-le plutôt.",
+        )
+
+    settings = get_settings()
+    if utilisateur.clerk_id and settings.clerk_secret_key:
+        clerk = ClerkClient(settings)
+        try:
+            await clerk.delete_user(utilisateur.clerk_id)
+        except ClerkAPIError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                detail=str(exc),
+            ) from exc
+
+    await record_audit_event(
+        db,
+        actor_id=admin.id,
+        action="user.delete",
+        entity_type="user",
+        entity_id=str(user_id),
+        payload={"email": utilisateur.email},
+    )
+    await db.delete(utilisateur)
+    await db.commit()
+
+    return ToggleStatusResponse(
+        id=user_id,
+        est_actif=False,
+        message=f"Utilisateur {utilisateur.prenom} {utilisateur.nom} supprimé",
     )

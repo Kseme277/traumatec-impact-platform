@@ -10,10 +10,12 @@ from app.services.email_service import EmailService
 logger = logging.getLogger(__name__)
 router = APIRouter()
 
+_INVITATION_SLUGS = frozenset({"invitation", "organization_invitation"})
+
 
 @router.post("/clerk")
 async def clerk_webhook(request: Request) -> dict[str, str]:
-    """Reçoit email.created de Clerk et envoie via SMTP Traumatec (Mailpit en dev)."""
+    """Relais SMTP optionnel pour certains emails Clerk (ex. reset). Les invitations sont envoyées par Clerk."""
     settings = get_settings()
     if not settings.clerk_webhook_secret:
         raise HTTPException(
@@ -43,6 +45,11 @@ async def clerk_webhook(request: Request) -> dict[str, str]:
         logger.warning("email.created sans destinataire")
         return {"status": "ignored"}
 
+    slug = data.get("slug") or ""
+    if slug in _INVITATION_SLUGS or "invitation" in slug:
+        logger.info("email.created (%s) ignoré — envoi géré par Clerk", slug)
+        return {"status": "ignored"}
+
     nested = data.get("data") or {}
     otp_code = nested.get("otp") or nested.get("otp_code") or data.get("otp_code")
 
@@ -52,7 +59,7 @@ async def clerk_webhook(request: Request) -> dict[str, str]:
             to_email=to_email,
             subject=data.get("subject") or "Traumatec Impact Platform",
             html_body=data.get("body"),
-            slug=data.get("slug") or "",
+            slug=slug,
             otp_code=otp_code,
         )
     except Exception as exc:

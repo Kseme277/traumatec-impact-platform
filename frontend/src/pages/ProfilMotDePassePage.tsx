@@ -1,19 +1,26 @@
-import { Navigate } from "react-router";
-import { useAuth } from "@clerk/clerk-react";
-import { useTipAuth } from "../context/TipAuthContext";
+import PageMeta from "../components/common/PageMeta";
+import PageBreadcrumb from "../components/common/PageBreadCrumb";
+import AuthLoadingScreen from "../components/auth/AuthLoadingScreen";
 import ModifMotDePasse from "../features/auth/ModifMotDePasse";
+import { useTipAuth } from "../context/TipAuthContext";
+import { useTranslation } from "../i18n/useTranslation";
 
 export default function ProfilMotDePassePage() {
-  const { isSignedIn } = useAuth();
-  const { tipUser } = useTipAuth();
+  const { t } = useTranslation();
+  const { tipUser, isLoading } = useTipAuth();
 
-  if (!isSignedIn || !tipUser) {
-    return <Navigate to="/signin" replace />;
+  if (isLoading || !tipUser) {
+    return <AuthLoadingScreen message={t("profile.loadingProfile")} />;
   }
 
   return (
-    <div className="p-4 sm:p-6">
+    <>
+      <PageMeta
+        title={`${t("profile.passwordPageTitle")} | ${t("common.appName")}`}
+        description={t("profile.passwordPageMeta")}
+      />
+      <PageBreadcrumb pageTitle={t("profile.passwordPageTitle")} />
       <ModifMotDePasse />
-    </div>
+    </>
   );
 }

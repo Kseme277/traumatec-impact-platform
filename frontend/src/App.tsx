@@ -17,6 +17,9 @@ import AppLayout from "./layout/AppLayout";
 import { ScrollToTop } from "./components/common/ScrollToTop";
 import Home from "./pages/Dashboard/Home";
 import EvenementsPage from "./pages/EvenementsPage";
+import EvenementDetailPage from "./pages/EvenementDetailPage";
+import EvenementCreatePage from "./pages/EvenementCreatePage";
+import EvenementEditPage from "./pages/EvenementEditPage";
 import ProtectedRoute from "./features/auth/ProtectedRoute";
 import SignIn from "./pages/AuthPages/SignIn";
 import ResetPassword from "./pages/AuthPages/ResetPassword";
@@ -25,7 +28,11 @@ import SsoCallback from "./pages/AuthPages/SsoCallback";
 import UtilisateursListPage from "./pages/admin/UtilisateursListPage";
 import UtilisateurCreatePage from "./pages/admin/UtilisateurCreatePage";
 import UtilisateurDetailPage from "./pages/admin/UtilisateurDetailPage";
+import AuditPage from "./pages/admin/AuditPage";
 import ProfilMotDePassePage from "./pages/ProfilMotDePassePage";
+import DocumentsTemplatesPage from "./pages/DocumentsTemplatesPage";
+import DocumentsGenerationPage from "./pages/DocumentsGenerationPage";
+import GuidesAdminHandoffPage from "./pages/GuidesAdminHandoffPage";
 
 export default function App() {
   return (
@@ -39,10 +46,19 @@ export default function App() {
         <Route path="/signup" element={<Navigate to="/signin" replace />} />
         <Route path="/sso-callback" element={<SsoCallback />} />
 
+        <Route element={<ProtectedRoute requireAdmin />}>
+          <Route path="/guides/admin-handoff" element={<GuidesAdminHandoffPage />} />
+        </Route>
+
         <Route element={<ProtectedRoute />}>
           <Route element={<AppLayout />}>
             <Route index path="/" element={<Home />} />
             <Route path="/evenements" element={<EvenementsPage />} />
+            <Route path="/evenements/nouveau" element={<EvenementCreatePage />} />
+            <Route path="/evenements/:id" element={<EvenementDetailPage />} />
+            <Route path="/evenements/:id/modifier" element={<EvenementEditPage />} />
+            <Route path="/documents/templates" element={<DocumentsTemplatesPage />} />
+            <Route path="/documents/generation" element={<DocumentsGenerationPage />} />
             <Route path="/profile" element={<UserProfiles />} />
             <Route path="/profil" element={<UserProfiles />} />
             <Route path="/profil/mot-de-passe" element={<ProfilMotDePassePage />} />
@@ -63,6 +79,7 @@ export default function App() {
               <Route path="/admin/utilisateurs" element={<UtilisateursListPage />} />
               <Route path="/admin/utilisateurs/nouveau" element={<UtilisateurCreatePage />} />
               <Route path="/admin/utilisateurs/:id" element={<UtilisateurDetailPage />} />
+              <Route path="/admin/audit" element={<AuditPage />} />
             </Route>
           </Route>
         </Route>

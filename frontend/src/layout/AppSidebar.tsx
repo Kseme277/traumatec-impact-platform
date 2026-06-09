@@ -2,17 +2,17 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation } from "react-router";
 
 import {
-  ChevronDownIcon,
-  GridIcon,
-  HorizontaLDots,
-  ListIcon,
-  PlugInIcon,
-  UserCircleIcon,
-} from "../icons";
+  ChevronDown,
+  FileText,
+  LayoutGrid,
+  List,
+  MoreHorizontal,
+  UserCircle,
+} from "lucide-react";
 import { useSidebar } from "../context/SidebarContext";
 import { useTipAuth } from "../context/TipAuthContext";
-import { isGuidesConfigured } from "../config/guides";
-import GuidesSidebarWidget from "./GuidesSidebarWidget";
+import { useTranslation } from "../i18n/useTranslation";
+import DocumentsSidebarWidget from "./DocumentsSidebarWidget";
 
 type NavItem = {
   name: string;
@@ -26,35 +26,39 @@ type NavItem = {
 const AppSidebar: React.FC = () => {
   const { isExpanded, isMobileOpen, isHovered, setIsHovered } = useSidebar();
   const { isAdmin } = useTipAuth();
+  const { t } = useTranslation();
   const location = useLocation();
 
   const navItems: NavItem[] = useMemo(() => {
     const items: NavItem[] = [
-      { icon: <GridIcon />, name: "Tableau de bord", path: "/" },
-      { icon: <ListIcon />, name: "Événements", path: "/evenements" },
+      { icon: <LayoutGrid className="size-6" strokeWidth={1.75} />, name: t("nav.dashboard"), path: "/" },
+      { icon: <List className="size-6" strokeWidth={1.75} />, name: t("nav.events"), path: "/evenements" },
+      {
+        icon: <FileText className="size-6" strokeWidth={1.75} />,
+        name: t("nav.documents"),
+        subItems: [
+          { name: t("nav.templates"), path: "/documents/templates" },
+          { name: t("nav.generation"), path: "/documents/generation" },
+        ],
+      },
     ];
 
-    if (isGuidesConfigured()) {
-      items.push({
-        icon: <PlugInIcon />,
-        name: "Guides procédures",
-        href: import.meta.env.VITE_GUIDES_URL,
-      });
-    }
-
-    items.push({ icon: <UserCircleIcon />, name: "Mon profil", path: "/profil" });
+    items.push({ icon: <UserCircle className="size-6" strokeWidth={1.75} />, name: t("nav.profile"), path: "/profil" });
 
     if (isAdmin) {
       items.push({
-        icon: <UserCircleIcon />,
-        name: "Administration",
+        icon: <UserCircle className="size-6" strokeWidth={1.75} />,
+        name: t("nav.admin"),
         adminOnly: true,
-        subItems: [{ name: "Utilisateurs", path: "/admin/utilisateurs" }],
+        subItems: [
+          { name: t("nav.users"), path: "/admin/utilisateurs" },
+          { name: t("nav.audit"), path: "/admin/audit" },
+        ],
       });
     }
 
     return items;
-  }, [isAdmin]);
+  }, [isAdmin, t]);
 
   const [openSubmenu, setOpenSubmenu] = useState<number | null>(null);
   const [subMenuHeight, setSubMenuHeight] = useState<Record<string, number>>(
@@ -72,11 +76,18 @@ const AppSidebar: React.FC = () => {
     let submenuMatched = false;
     navItems.forEach((nav, index) => {
       nav.subItems?.forEach((subItem) => {
-        if (subItem.path && isActive(subItem.path)) {
+        if (
+          subItem.path &&
+          (isActive(subItem.path) || location.pathname.startsWith(`${subItem.path}/`))
+        ) {
           setOpenSubmenu(index);
           submenuMatched = true;
         }
       });
+      if (nav.subItems && location.pathname.startsWith("/documents")) {
+        setOpenSubmenu(index);
+        submenuMatched = true;
+      }
     });
     if (!submenuMatched) {
       setOpenSubmenu(null);
@@ -124,10 +135,11 @@ const AppSidebar: React.FC = () => {
                 <span className="menu-item-text">{nav.name}</span>
               )}
               {(isExpanded || isHovered || isMobileOpen) && (
-                <ChevronDownIcon
-                  className={`ml-auto h-5 w-5 transition-transform duration-200 ${
+                <ChevronDown
+                  className={`ml-auto size-5 transition-transform duration-200 ${
                     openSubmenu === index ? "rotate-180 text-brand-500" : ""
                   }`}
+                  strokeWidth={1.75}
                 />
               )}
             </button>
@@ -259,16 +271,16 @@ const AppSidebar: React.FC = () => {
                 }`}
               >
                 {isExpanded || isHovered || isMobileOpen ? (
-                  "Menu"
+                  t("nav.menu")
                 ) : (
-                  <HorizontaLDots className="size-6" />
+                  <MoreHorizontal className="size-6" strokeWidth={1.75} />
                 )}
               </h2>
               {renderMenuItems(navItems)}
             </div>
           </div>
         </nav>
-        {isExpanded || isHovered || isMobileOpen ? <GuidesSidebarWidget /> : null}
+        {isExpanded || isHovered || isMobileOpen ? <DocumentsSidebarWidget /> : null}
       </div>
     </aside>
   );

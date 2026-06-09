@@ -18,6 +18,7 @@ def create_service_app(
         openapi_url=f"{settings.api_v1_prefix}/openapi.json",
         docs_url=f"{settings.api_v1_prefix}/docs",
         redoc_url=f"{settings.api_v1_prefix}/redoc",
+        redirect_slashes=False,
     )
 
     app.add_middleware(

@@ -23,7 +23,7 @@ BOOTSTRAP_ADMIN_CLERK_ID=
 
 | `BOOTSTRAP_ADMIN_CLERK_ID` | `CLERK_SECRET_KEY` | Résultat |
 |----------------------------|-------------------|----------|
-| vide | défini | Création Clerk + invitation email + insert PostgreSQL |
+| vide | défini | Création Clerk + invitation (email Clerk) + insert PostgreSQL |
 | `user_xxx` | défini | Insert PostgreSQL + sync `public_metadata.role` |
 | vide | absent | Échec — configurer Clerk ou fournir `CLERK_ID` |
 

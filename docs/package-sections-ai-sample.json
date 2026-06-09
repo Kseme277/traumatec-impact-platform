@@ -1,0 +1,1545 @@
+[
+  {
+    "filename": "01_AOA_Accord collaboration_responsable national v15112024.xlsx",
+    "document_role": "accord_collaboration",
+    "classifier": "rules",
+    "section_count": 0,
+    "replaceable_count": 0,
+    "sections": [],
+    "replacement_fields": [],
+    "package_type": "IEC_S"
+  },
+  {
+    "filename": "02_Modèle_Programme_Sem IEC_SEN.doc",
+    "document_role": "programme",
+    "classifier": "rules",
+    "section_count": 11,
+    "replaceable_count": 10,
+    "sections": [
+      {
+        "text": "24 octobre 2026\t        \t\tDakar, Sngal",
+        "location": "binary:utf8",
+        "section_kind": "lieu_line",
+        "highlighted": false,
+        "context_key": "lieu",
+        "strategy": "replace",
+        "note": ""
+      },
+      {
+        "text": "Bienvenue\rCher-re Participant-e au sminaire de lAO Alliance,\rNous avons le plaisir de vous accueillir au Sminaire de lAO AllianceInformation, ducation et Communication (IEC): Problmatique de Prise en Charge des  Fractures  lIntention des Agents de Sant Communautaire  Dakar, Sngal.\rL'AO Alliance (AOA) est une organisation de dveloppement  but non lucratif qui se consacre  amliorer les soins apports",
+        "location": "binary:utf8",
+        "section_kind": "event_header",
+        "highlighted": false,
+        "context_key": "title",
+        "strategy": "replace",
+        "note": ""
+      },
+      {
+        "text": "Barbara Rigassi\rPrsidente\rAO Alliance",
+        "location": "binary:utf8",
+        "section_kind": "event_header",
+        "highlighted": false,
+        "context_key": "title",
+        "strategy": "replace",
+        "note": ""
+      },
+      {
+        "text": "But du sminaire\rLe sminaire de lAO AllianceInformation, ducation et Communication a pour but d'instruire les diffrents groupes de pairs ducateurs sur les problmes de sant et socio-conomiques que posent actuellement les fractures au Sngal afin qu' leur tour ils puissent duquer la population sur la conduite  tenir en cas de fracture.\rAudience cible\rCe sminaire est destin aux agents de sant communaut",
+        "location": "binary:utf8",
+        "section_kind": "event_header",
+        "highlighted": false,
+        "context_key": "title",
+        "strategy": "replace",
+        "note": ""
+      },
+      {
+        "text": "Collge denseignants\rTous les enseignants choisis ont suivi une formation rpondant aux objectifs du sminaire.\r\rResponsable rgional de lenseignement\rPrnom Nom\t\t                          Nom de lhpital, Pays\r\rResponsable national de lenseignement\rPrnom Nom\t\t                          Nom de lhpital, Pays\r\rEnseignants rgionaux\rPrnom Nom\t\t                          Nom de lhpital, Pays\rPrnom Nom\t\t       ",
+        "location": "binary:utf8",
+        "section_kind": "event_header",
+        "highlighted": false,
+        "context_key": "title",
+        "strategy": "replace",
+        "note": ""
+      },
+      {
+        "text": "11111111111 111\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\rInformations gnrales\rLieu du sminaire\rNom de lhtel/lhpital, Dakar, Sngal\rBureau dinscription et de renseignements\rOuvert  partir du: date et heure\rProprit intellectuelle\u000bLe contenu des cours, les prsentations et tudes de cas sont la proprit intellectuelle des enseignants. Tous droits rservs.\rTout enregistrement, photographie ou reproduction des confrences, d",
+        "location": "binary:utf8",
+        "section_kind": "event_header",
+        "highlighted": false,
+        "context_key": "title",
+        "strategy": "replace",
+        "note": ""
+      },
+      {
+        "text": "Samedi 24 octobre 2026",
+        "location": "binary:utf8",
+        "section_kind": "date_line",
+        "highlighted": false,
+        "context_key": "start_date_long",
+        "strategy": "replace",
+        "note": ""
+      },
+      {
+        "text": "propos de lAO Alliance et de lAO Foundation  \rPrsentation des activits 2026",
+        "location": "binary:utf8",
+        "section_kind": "event_header",
+        "highlighted": false,
+        "context_key": "title",
+        "strategy": "replace",
+        "note": ""
+      },
+      {
+        "text": "Notes\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\rAO Alliance Foundation\u000bc/o Fiduciar Treuhand AG\rTheaterweg 11, \r7000 Chur\rSuisse",
+        "location": "binary:utf8",
+        "section_kind": "event_header",
+        "highlighted": false,
+        "context_key": "title",
+        "strategy": "replace",
+        "note": ""
+      },
+      {
+        "text": "Sminaire AO AllianceInformation, ducation et  \r Communication (IEC): Problmatique de Prise en Charge des   \r Fractures  lIntention des Agents de Sant Communautaire",
+        "location": "binary:utf8",
+        "section_kind": "event_header",
+        "highlighted": false,
+        "context_key": "title",
+        "strategy": "replace",
+        "note": ""
+      },
+      {
+        "text": "adresse@email",
+        "location": "binary:token",
+        "section_kind": "placeholder",
+        "highlighted": false,
+        "context_key": "contact_placeholder",
+        "strategy": "keep",
+        "note": ""
+      }
+    ],
+    "replacement_fields": [
+      {
+        "sample": "24 octobre 2026\t        \t\tDakar, Sngal",
+        "location": "binary:utf8",
+        "section_kind": "lieu_line",
+        "context_key": "lieu",
+        "strategy": "replace",
+        "highlighted": false,
+        "note": ""
+      },
+      {
+        "sample": "Bienvenue\rCher-re Participant-e au sminaire de lAO Alliance,\rNous avons le plaisir de vous accueillir au Sminaire de lAO AllianceInformation, ducation et Communication (IEC): Problmatique de Prise en Charge des  Fractures  lIntention des Agents de Sant Communautaire  Dakar, Sngal.\rL'AO Alliance (AOA) est une organisation de dveloppement  but non lucratif qui se consacre  amliorer les soins apports",
+        "location": "binary:utf8",
+        "section_kind": "event_header",
+        "context_key": "title",
+        "strategy": "replace",
+        "highlighted": false,
+        "note": ""
+      },
+      {
+        "sample": "Barbara Rigassi\rPrsidente\rAO Alliance",
+        "location": "binary:utf8",
+        "section_kind": "event_header",
+        "context_key": "title",
+        "strategy": "replace",
+        "highlighted": false,
+        "note": ""
+      },
+      {
+        "sample": "But du sminaire\rLe sminaire de lAO AllianceInformation, ducation et Communication a pour but d'instruire les diffrents groupes de pairs ducateurs sur les problmes de sant et socio-conomiques que posent actuellement les fractures au Sngal afin qu' leur tour ils puissent duquer la population sur la conduite  tenir en cas de fracture.\rAudience cible\rCe sminaire est destin aux agents de sant communaut",
+        "location": "binary:utf8",
+        "section_kind": "event_header",
+        "context_key": "title",
+        "strategy": "replace",
+        "highlighted": false,
+        "note": ""
+      },
+      {
+        "sample": "Collge denseignants\rTous les enseignants choisis ont suivi une formation rpondant aux objectifs du sminaire.\r\rResponsable rgional de lenseignement\rPrnom Nom\t\t                          Nom de lhpital, Pays\r\rResponsable national de lenseignement\rPrnom Nom\t\t                          Nom de lhpital, Pays\r\rEnseignants rgionaux\rPrnom Nom\t\t                          Nom de lhpital, Pays\rPrnom Nom\t\t       ",
+        "location": "binary:utf8",
+        "section_kind": "event_header",
+        "context_key": "title",
+        "strategy": "replace",
+        "highlighted": false,
+        "note": ""
+      },
+      {
+        "sample": "11111111111 111\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\rInformations gnrales\rLieu du sminaire\rNom de lhtel/lhpital, Dakar, Sngal\rBureau dinscription et de renseignements\rOuvert  partir du: date et heure\rProprit intellectuelle\u000bLe contenu des cours, les prsentations et tudes de cas sont la proprit intellectuelle des enseignants. Tous droits rservs.\rTout enregistrement, photographie ou reproduction des confrences, d",
+        "location": "binary:utf8",
+        "section_kind": "event_header",
+        "context_key": "title",
+        "strategy": "replace",
+        "highlighted": false,
+        "note": ""
+      },
+      {
+        "sample": "Samedi 24 octobre 2026",
+        "location": "binary:utf8",
+        "section_kind": "date_line",
+        "context_key": "start_date_long",
+        "strategy": "replace",
+        "highlighted": false,
+        "note": ""
+      },
+      {
+        "sample": "propos de lAO Alliance et de lAO Foundation  \rPrsentation des activits 2026",
+        "location": "binary:utf8",
+        "section_kind": "event_header",
+        "context_key": "title",
+        "strategy": "replace",
+        "highlighted": false,
+        "note": ""
+      },
+      {
+        "sample": "Notes\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\r\rAO Alliance Foundation\u000bc/o Fiduciar Treuhand AG\rTheaterweg 11, \r7000 Chur\rSuisse",
+        "location": "binary:utf8",
+        "section_kind": "event_header",
+        "context_key": "title",
+        "strategy": "replace",
+        "highlighted": false,
+        "note": ""
+      },
+      {
+        "sample": "Sminaire AO AllianceInformation, ducation et  \r Communication (IEC): Problmatique de Prise en Charge des   \r Fractures  lIntention des Agents de Sant Communautaire",
+        "location": "binary:utf8",
+        "section_kind": "event_header",
+        "context_key": "title",
+        "strategy": "replace",
+        "highlighted": false,
+        "note": ""
+      }
+    ],
+    "package_type": "IEC_S"
+  },
+  {
+    "filename": "03_AOA_Formulaire Budget prévisionnel_v20260423.xlsx",
+    "document_role": "budget",
+    "classifier": "rules",
+    "section_count": 0,
+    "replaceable_count": 0,
+    "sections": [],
+    "replacement_fields": [],
+    "package_type": "IEC_S"
+  },
+  {
+    "filename": "04_Formulaire pour coordonnees bancaires.docx",
+    "document_role": "coordonnees_bancaires",
+    "classifier": "rules",
+    "section_count": 2,
+    "replaceable_count": 2,
+    "sections": [
+      {
+        "text": "Séminaire AO Alliance—Information, Éducation et Communication (IEC): Problématique de Prise en Charge des Fractures à l´Intention des Agents de Santé Communautaire",
+        "location": "word/document.xml#p6",
+        "section_kind": "document_title",
+        "highlighted": false,
+        "context_key": "title",
+        "strategy": "replace",
+        "note": ""
+      },
+      {
+        "text": "24 octobre 2026",
+        "location": "word/document.xml#p10",
+        "section_kind": "date_line",
+        "highlighted": false,
+        "context_key": "start_date_long",
+        "strategy": "replace",
+        "note": ""
+      }
+    ],
+    "replacement_fields": [
+      {
+        "sample": "Séminaire AO Alliance—Information, Éducation et Communication (IEC): Problématique de Prise en Charge des Fractures à l´Intention des Agents de Santé Communautaire",
+        "location": "word/document.xml#p6",
+        "section_kind": "document_title",
+        "context_key": "title",
+        "strategy": "replace",
+        "highlighted": false,
+        "note": ""
+      },
+      {
+        "sample": "24 octobre 2026",
+        "location": "word/document.xml#p10",
+        "section_kind": "date_line",
+        "context_key": "start_date_long",
+        "strategy": "replace",
+        "highlighted": false,
+        "note": ""
+      }
+    ],
+    "package_type": "IEC_S"
+  },
+  {
+    "filename": "06_Rapport responsable national de l_evenement.docx",
+    "document_role": "rapport_national",
+    "classifier": "rules",
+    "section_count": 4,
+    "replaceable_count": 4,
+    "sections": [
+      {
+        "text": "Titre de l’événement : Séminaire AO Alliance—Information, Éducation et Communication (IEC): Problématique de Prise en Charge des Fractures à l´Intention des Agents de Santé Communautaire",
+        "location": "word/document.xml#p4",
+        "section_kind": "label_field",
+        "highlighted": false,
+        "context_key": "title",
+        "strategy": "replace",
+        "note": ""
+      },
+      {
+        "text": "Date : 24 ocobre 2026              Lieu de l’événement : Dakar, Sénégal",
+        "location": "word/document.xml#p5",
+        "section_kind": "date_lieu_combined",
+        "highlighted": false,
+        "context_key": "date_range",
+        "strategy": "replace",
+        "note": ""
+      },
+      {
+        "text": "Nombre de participants :      Responsable : Amadou Ndiasse Kassé",
+        "location": "word/document.xml#p6",
+        "section_kind": "label_field",
+        "highlighted": false,
+        "context_key": "responsible_person",
+        "strategy": "replace",
+        "note": ""
+      },
+      {
+        "text": "AO Alliance Foundationc/o Fiduciar Treuhand AG",
+        "location": "word/footer1.xml#p0",
+        "section_kind": "event_header",
+        "highlighted": false,
+        "context_key": "title",
+        "strategy": "replace",
+        "note": ""
+      }
+    ],
+    "replacement_fields": [
+      {
+        "sample": "Titre de l’événement : Séminaire AO Alliance—Information, Éducation et Communication (IEC): Problématique de Prise en Charge des Fractures à l´Intention des Agents de Santé Communautaire",
+        "location": "word/document.xml#p4",
+        "section_kind": "label_field",
+        "context_key": "title",
+        "strategy": "replace",
+        "highlighted": false,
+        "note": ""
+      },
+      {
+        "sample": "Date : 24 ocobre 2026              Lieu de l’événement : Dakar, Sénégal",
+        "location": "word/document.xml#p5",
+        "section_kind": "date_lieu_combined",
+        "context_key": "date_range",
+        "strategy": "replace",
+        "highlighted": false,
+        "note": ""
+      },
+      {
+        "sample": "Nombre de participants :      Responsable : Amadou Ndiasse Kassé",
+        "location": "word/document.xml#p6",
+        "section_kind": "label_field",
+        "context_key": "responsible_person",
+        "strategy": "replace",
+        "highlighted": false,
+        "note": ""
+      },
+      {
+        "sample": "AO Alliance Foundationc/o Fiduciar Treuhand AG",
+        "location": "word/footer1.xml#p0",
+        "section_kind": "event_header",
+        "context_key": "title",
+        "strategy": "replace",
+        "highlighted": false,
+        "note": ""
+      }
+    ],
+    "package_type": "IEC_S"
+  },
+  {
+    "filename": "07a_ Liste de présence d' Enseignants_Jour 1.docx",
+    "document_role": "presence_enseignants",
+    "classifier": "rules",
+    "section_count": 2,
+    "replaceable_count": 2,
+    "sections": [
+      {
+        "text": "Séminaire AO Alliance—Information, Éducation et Communication (IEC): Problématique de Prise en Charge des Fractures à l´Intention des Agents de Santé Communautaire",
+        "location": "word/header2.xml#p3",
+        "section_kind": "document_title",
+        "highlighted": false,
+        "context_key": "title",
+        "strategy": "replace",
+        "note": ""
+      },
+      {
+        "text": "Dakar, Sénégal 24 octobre 2026",
+        "location": "word/header2.xml#p5",
+        "section_kind": "lieu_line",
+        "highlighted": false,
+        "context_key": "lieu",
+        "strategy": "replace",
+        "note": ""
+      }
+    ],
+    "replacement_fields": [
+      {
+        "sample": "Séminaire AO Alliance—Information, Éducation et Communication (IEC): Problématique de Prise en Charge des Fractures à l´Intention des Agents de Santé Communautaire",
+        "location": "word/header2.xml#p3",
+        "section_kind": "document_title",
+        "context_key": "title",
+        "strategy": "replace",
+        "highlighted": false,
+        "note": ""
+      },
+      {
+        "sample": "Dakar, Sénégal 24 octobre 2026",
+        "location": "word/header2.xml#p5",
+        "section_kind": "lieu_line",
+        "context_key": "lieu",
+        "strategy": "replace",
+        "highlighted": false,
+        "note": ""
+      }
+    ],
+    "package_type": "IEC_S"
+  },
+  {
+    "filename": "08a_Liste de présence Participants_Jour 1.docx",
+    "document_role": "presence_participants",
+    "classifier": "rules",
+    "section_count": 2,
+    "replaceable_count": 2,
+    "sections": [
+      {
+        "text": "Séminaire AO Alliance—Information, Éducation et Communication (IEC): Problématique de Prise en Charge des Fractures à l´Intention des Agents de Santé Communautaire",
+        "location": "word/header2.xml#p3",
+        "section_kind": "document_title",
+        "highlighted": false,
+        "context_key": "title",
+        "strategy": "replace",
+        "note": ""
+      },
+      {
+        "text": "Dakar, Sénégal 24 octobre 2026",
+        "location": "word/header2.xml#p5",
+        "section_kind": "lieu_line",
+        "highlighted": false,
+        "context_key": "lieu",
+        "strategy": "replace",
+        "note": ""
+      }
+    ],
+    "replacement_fields": [
+      {
+        "sample": "Séminaire AO Alliance—Information, Éducation et Communication (IEC): Problématique de Prise en Charge des Fractures à l´Intention des Agents de Santé Communautaire",
+        "location": "word/header2.xml#p3",
+        "section_kind": "document_title",
+        "context_key": "title",
+        "strategy": "replace",
+        "highlighted": false,
+        "note": ""
+      },
+      {
+        "sample": "Dakar, Sénégal 24 octobre 2026",
+        "location": "word/header2.xml#p5",
+        "section_kind": "lieu_line",
+        "context_key": "lieu",
+        "strategy": "replace",
+        "highlighted": false,
+        "note": ""
+      }
+    ],
+    "package_type": "IEC_S"
+  },
+  {
+    "filename": "09_Liste définitive (enseignants et Participants).xlsx",
+    "document_role": "liste_definitive",
+    "classifier": "rules",
+    "section_count": 0,
+    "replaceable_count": 0,
+    "sections": [],
+    "replacement_fields": [],
+    "package_type": "IEC_S"
+  },
+  {
+    "filename": "10_Accusé de réception de paiement en espèces.docx",
+    "document_role": "accuse_paiement",
+    "classifier": "rules",
+    "section_count": 3,
+    "replaceable_count": 3,
+    "sections": [
+      {
+        "text": "Séminaire AO Alliance—Information, Éducation et Communication (IEC): Problématique de Prise en Charge des Fractures à l´Intention des Agents de Santé Communautaire",
+        "location": "word/document.xml#p4",
+        "section_kind": "document_title",
+        "highlighted": false,
+        "context_key": "title",
+        "strategy": "replace",
+        "note": ""
+      },
+      {
+        "text": "24 octobre 2026",
+        "location": "word/document.xml#p8",
+        "section_kind": "date_line",
+        "highlighted": false,
+        "context_key": "start_date_long",
+        "strategy": "replace",
+        "note": ""
+      },
+      {
+        "text": "Date :",
+        "location": "word/document.xml#p40",
+        "section_kind": "date_line",
+        "highlighted": false,
+        "context_key": "date_range",
+        "strategy": "replace",
+        "note": ""
+      }
+    ],
+    "replacement_fields": [
+      {
+        "sample": "Séminaire AO Alliance—Information, Éducation et Communication (IEC): Problématique de Prise en Charge des Fractures à l´Intention des Agents de Santé Communautaire",
+        "location": "word/document.xml#p4",
+        "section_kind": "document_title",
+        "context_key": "title",
+        "strategy": "replace",
+        "highlighted": false,
+        "note": ""
+      },
+      {
+        "sample": "24 octobre 2026",
+        "location": "word/document.xml#p8",
+        "section_kind": "date_line",
+        "context_key": "start_date_long",
+        "strategy": "replace",
+        "highlighted": false,
+        "note": ""
+      },
+      {
+        "sample": "Date :",
+        "location": "word/document.xml#p40",
+        "section_kind": "date_line",
+        "context_key": "date_range",
+        "strategy": "replace",
+        "highlighted": false,
+        "note": ""
+      }
+    ],
+    "package_type": "IEC_S"
+  },
+  {
+    "filename": "11_Formulaire report des dépenses et vérification finale du budget.xlsx",
+    "document_role": "rapport_depenses",
+    "classifier": "rules",
+    "section_count": 0,
+    "replaceable_count": 0,
+    "sections": [],
+    "replacement_fields": [],
+    "package_type": "IEC_S"
+  },
+  {
+    "filename": "14_AOA_ModèleBadge.doc",
+    "document_role": "badge",
+    "classifier": "rules",
+    "section_count": 0,
+    "replaceable_count": 0,
+    "sections": [],
+    "replacement_fields": [],
+    "package_type": "IEC_S"
+  },
+  {
+    "filename": "01_AOA_Accord collaboration_responsable national v15112024.xlsx",
+    "document_role": "accord_collaboration",
+    "classifier": "rules",
+    "section_count": 0,
+    "replaceable_count": 0,
+    "sections": [],
+    "replacement_fields": [],
+    "package_type": "OP_C"
+  },
+  {
+    "filename": "02_Modèle Programme_Op C_v2.docx",
+    "document_role": "programme",
+    "classifier": "rules",
+    "section_count": 19,
+    "replaceable_count": 14,
+    "sections": [
+      {
+        "text": "Cours AO Alliance—Principes du Traitement Chirurgical des",
+        "location": "word/document.xml#p5",
+        "section_kind": "document_title",
+        "highlighted": false,
+        "context_key": "title",
+        "strategy": "replace",
+        "note": ""
+      },
+      {
+        "text": "03 – 05 juin 2026          Mbour, Sénégal",
+        "location": "word/document.xml#p9",
+        "section_kind": "highlight",
+        "highlighted": true,
+        "context_key": "date_range",
+        "strategy": "replace",
+        "note": ""
+      },
+      {
+        "text": "Cher-ère Participant-e au cours de l’AO Alliance,",
+        "location": "word/document.xml#p28",
+        "section_kind": "highlight",
+        "highlighted": true,
+        "context_key": "title",
+        "strategy": "replace",
+        "note": ""
+      },
+      {
+        "text": "Nous avons le plaisir de vous accueillir au cours de l’AO Alliance—Principes du Traitement Chirurgical des Fractures de Membres les plus Courantes à Mbour, Sénégal.",
+        "location": "word/document.xml#p29",
+        "section_kind": "highlight",
+        "highlighted": true,
+        "context_key": "title",
+        "strategy": "replace",
+        "note": ""
+      },
+      {
+        "text": "L'AO Alliance (AOA) est une organisation de développement à but non lucratif qui se consacre à améliorer les soins apportés aux blessés dans plus de 30 pays à revenu faible et intermédiaire (PRFI) d'Afrique subsaharienne et d'Asie. Notre principe fondamental est d’investir dans les capacités locales pour créer un impact durable, en donnant les moyens aux chirurgiens et aux autres travailleurs de l",
+        "location": "word/document.xml#p30",
+        "section_kind": "document_title",
+        "highlighted": false,
+        "context_key": "title",
+        "strategy": "replace",
+        "note": ""
+      },
+      {
+        "text": "Prénom Nom",
+        "location": "word/document.xml#p58",
+        "section_kind": "participant_row",
+        "highlighted": true,
+        "context_key": "participant_name",
+        "strategy": "keep",
+        "note": ""
+      },
+      {
+        "text": "Le cours de l’AO Alliance—Principes du Traitement Chirurgical des Fractures de Membres les plus Courantes a pour but de présenter les principes de base pour le traitement des fractures et des lésions traumatiques de membres les plus courantes ainsi que les moyens de reconnaître parmi ces dernières celles qui nécessitent un traitement chirurgical spécifique afin de les prendre en charge ou de les t",
+        "location": "word/document.xml#p90",
+        "section_kind": "document_title",
+        "highlighted": false,
+        "context_key": "title",
+        "strategy": "replace",
+        "note": ""
+      },
+      {
+        "text": "Prénom Nom                                            Nom de l’hôpital, Pays",
+        "location": "word/document.xml#p122",
+        "section_kind": "participant_row",
+        "highlighted": true,
+        "context_key": "participant_name",
+        "strategy": "keep",
+        "note": ""
+      },
+      {
+        "text": "AO Alliance Foundationc/o Fiduciar Treuhand AG",
+        "location": "word/document.xml#p137",
+        "section_kind": "document_title",
+        "highlighted": false,
+        "context_key": "title",
+        "strategy": "replace",
+        "note": ""
+      },
+      {
+        "text": "Prénom/ Nom",
+        "location": "word/document.xml#p145",
+        "section_kind": "participant_row",
+        "highlighted": true,
+        "context_key": "participant_name",
+        "strategy": "keep",
+        "note": ""
+      },
+      {
+        "text": "Fonction",
+        "location": "word/document.xml#p146",
+        "section_kind": "participant_row",
+        "highlighted": true,
+        "context_key": "participant_name",
+        "strategy": "keep",
+        "note": ""
+      },
+      {
+        "text": "Courriel: adresse@emailTéléphone: +11 111 111 111 111",
+        "location": "word/document.xml#p147",
+        "section_kind": "placeholder",
+        "highlighted": true,
+        "context_key": "contact_placeholder",
+        "strategy": "keep",
+        "note": ""
+      },
+      {
+        "text": "Nom de l’hôtel/hôpital, Mbour, Sénégal",
+        "location": "word/document.xml#p176",
+        "section_kind": "highlight",
+        "highlighted": true,
+        "context_key": "lieu",
+        "strategy": "replace",
+        "note": ""
+      },
+      {
+        "text": "Ouvert à partir de: date et heure",
+        "location": "word/document.xml#p179",
+        "section_kind": "highlight",
+        "highlighted": true,
+        "context_key": "title",
+        "strategy": "replace",
+        "note": ""
+      },
+      {
+        "text": "L’AO Alliance se réserve le droit, pendant ses activités, de filmer, photographier et enregistrer. Les participants doivent s’attendre, dans le contexte des événements de l’AOA, à être filmés, photographiés ou enregistrés. L’AO Alliance assume que les participants sont d’accord que ces documents soient éventuellement utilisés à des fins publicitaires ou autres, et pourrait être vu par le public.",
+        "location": "word/document.xml#p183",
+        "section_kind": "document_title",
+        "highlighted": false,
+        "context_key": "title",
+        "strategy": "replace",
+        "note": ""
+      },
+      {
+        "text": "Mercredi 03 juin 2026",
+        "location": "word/document.xml#p256",
+        "section_kind": "highlight",
+        "highlighted": true,
+        "context_key": "date_range",
+        "strategy": "replace",
+        "note": ""
+      },
+      {
+        "text": "Jeudi 04 juin 2026",
+        "location": "word/document.xml#p443",
+        "section_kind": "highlight",
+        "highlighted": true,
+        "context_key": "date_range",
+        "strategy": "replace",
+        "note": ""
+      },
+      {
+        "text": "Vendredi 05 juin 2026",
+        "location": "word/document.xml#p595",
+        "section_kind": "highlight",
+        "highlighted": true,
+        "context_key": "date_range",
+        "strategy": "replace",
+        "note": ""
+      },
+      {
+        "text": "À propos de l’AO Alliance et de l’AO Foundation",
+        "location": "word/document.xml#p750",
+        "section_kind": "document_title",
+        "highlighted": false,
+        "context_key": "title",
+        "strategy": "replace",
+        "note": ""
+      }
+    ],
+    "replacement_fields": [
+      {
+        "sample": "Cours AO Alliance—Principes du Traitement Chirurgical des",
+        "location": "word/document.xml#p5",
+        "section_kind": "document_title",
+        "context_key": "title",
+        "strategy": "replace",
+        "highlighted": false,
+        "note": ""
+      },
+      {
+        "sample": "03 – 05 juin 2026          Mbour, Sénégal",
+        "location": "word/document.xml#p9",
+        "section_kind": "highlight",
+        "context_key": "date_range",
+        "strategy": "replace",
+        "highlighted": true,
+        "note": ""
+      },
+      {
+        "sample": "Cher-ère Participant-e au cours de l’AO Alliance,",
+        "location": "word/document.xml#p28",
+        "section_kind": "highlight",
+        "context_key": "title",
+        "strategy": "replace",
+        "highlighted": true,
+        "note": ""
+      },
+      {
+        "sample": "Nous avons le plaisir de vous accueillir au cours de l’AO Alliance—Principes du Traitement Chirurgical des Fractures de Membres les plus Courantes à Mbour, Sénégal.",
+        "location": "word/document.xml#p29",
+        "section_kind": "highlight",
+        "context_key": "title",
+        "strategy": "replace",
+        "highlighted": true,
+        "note": ""
+      },
+      {
+        "sample": "L'AO Alliance (AOA) est une organisation de développement à but non lucratif qui se consacre à améliorer les soins apportés aux blessés dans plus de 30 pays à revenu faible et intermédiaire (PRFI) d'Afrique subsaharienne et d'Asie. Notre principe fondamental est d’investir dans les capacités locales pour créer un impact durable, en donnant les moyens aux chirurgiens et aux autres travailleurs de l",
+        "location": "word/document.xml#p30",
+        "section_kind": "document_title",
+        "context_key": "title",
+        "strategy": "replace",
+        "highlighted": false,
+        "note": ""
+      },
+      {
+        "sample": "Prénom Nom",
+        "location": "word/document.xml#p58",
+        "section_kind": "participant_row",
+        "context_key": "participant_name",
+        "strategy": "keep",
+        "highlighted": true,
+        "note": ""
+      },
+      {
+        "sample": "Le cours de l’AO Alliance—Principes du Traitement Chirurgical des Fractures de Membres les plus Courantes a pour but de présenter les principes de base pour le traitement des fractures et des lésions traumatiques de membres les plus courantes ainsi que les moyens de reconnaître parmi ces dernières celles qui nécessitent un traitement chirurgical spécifique afin de les prendre en charge ou de les t",
+        "location": "word/document.xml#p90",
+        "section_kind": "document_title",
+        "context_key": "title",
+        "strategy": "replace",
+        "highlighted": false,
+        "note": ""
+      },
+      {
+        "sample": "Prénom Nom                                            Nom de l’hôpital, Pays",
+        "location": "word/document.xml#p122",
+        "section_kind": "participant_row",
+        "context_key": "participant_name",
+        "strategy": "keep",
+        "highlighted": true,
+        "note": ""
+      },
+      {
+        "sample": "AO Alliance Foundationc/o Fiduciar Treuhand AG",
+        "location": "word/document.xml#p137",
+        "section_kind": "document_title",
+        "context_key": "title",
+        "strategy": "replace",
+        "highlighted": false,
+        "note": ""
+      },
+      {
+        "sample": "Prénom/ Nom",
+        "location": "word/document.xml#p145",
+        "section_kind": "participant_row",
+        "context_key": "participant_name",
+        "strategy": "keep",
+        "highlighted": true,
+        "note": ""
+      },
+      {
+        "sample": "Fonction",
+        "location": "word/document.xml#p146",
+        "section_kind": "participant_row",
+        "context_key": "participant_name",
+        "strategy": "keep",
+        "highlighted": true,
+        "note": ""
+      },
+      {
+        "sample": "Courriel: adresse@emailTéléphone: +11 111 111 111 111",
+        "location": "word/document.xml#p147",
+        "section_kind": "placeholder",
+        "context_key": "contact_placeholder",
+        "strategy": "keep",
+        "highlighted": true,
+        "note": ""
+      },
+      {
+        "sample": "Nom de l’hôtel/hôpital, Mbour, Sénégal",
+        "location": "word/document.xml#p176",
+        "section_kind": "highlight",
+        "context_key": "lieu",
+        "strategy": "replace",
+        "highlighted": true,
+        "note": ""
+      },
+      {
+        "sample": "Ouvert à partir de: date et heure",
+        "location": "word/document.xml#p179",
+        "section_kind": "highlight",
+        "context_key": "title",
+        "strategy": "replace",
+        "highlighted": true,
+        "note": ""
+      },
+      {
+        "sample": "L’AO Alliance se réserve le droit, pendant ses activités, de filmer, photographier et enregistrer. Les participants doivent s’attendre, dans le contexte des événements de l’AOA, à être filmés, photographiés ou enregistrés. L’AO Alliance assume que les participants sont d’accord que ces documents soient éventuellement utilisés à des fins publicitaires ou autres, et pourrait être vu par le public.",
+        "location": "word/document.xml#p183",
+        "section_kind": "document_title",
+        "context_key": "title",
+        "strategy": "replace",
+        "highlighted": false,
+        "note": ""
+      },
+      {
+        "sample": "Mercredi 03 juin 2026",
+        "location": "word/document.xml#p256",
+        "section_kind": "highlight",
+        "context_key": "date_range",
+        "strategy": "replace",
+        "highlighted": true,
+        "note": ""
+      },
+      {
+        "sample": "Jeudi 04 juin 2026",
+        "location": "word/document.xml#p443",
+        "section_kind": "highlight",
+        "context_key": "date_range",
+        "strategy": "replace",
+        "highlighted": true,
+        "note": ""
+      },
+      {
+        "sample": "Vendredi 05 juin 2026",
+        "location": "word/document.xml#p595",
+        "section_kind": "highlight",
+        "context_key": "date_range",
+        "strategy": "replace",
+        "highlighted": true,
+        "note": ""
+      },
+      {
+        "sample": "À propos de l’AO Alliance et de l’AO Foundation",
+        "location": "word/document.xml#p750",
+        "section_kind": "document_title",
+        "context_key": "title",
+        "strategy": "replace",
+        "highlighted": false,
+        "note": ""
+      }
+    ],
+    "package_type": "OP_C"
+  },
+  {
+    "filename": "03_AOA_Formulaire Budget prévisionnel_v20250506.xlsx",
+    "document_role": "budget",
+    "classifier": "rules",
+    "section_count": 0,
+    "replaceable_count": 0,
+    "sections": [],
+    "replacement_fields": [],
+    "package_type": "OP_C"
+  },
+  {
+    "filename": "04_Formulaire pour coordonnees bancaires.docx",
+    "document_role": "coordonnees_bancaires",
+    "classifier": "rules",
+    "section_count": 2,
+    "replaceable_count": 2,
+    "sections": [
+      {
+        "text": "Cours AOA—Principes du Traitement Chirurgical des Fractures de Membres les plus Courantes",
+        "location": "word/document.xml#p6",
+        "section_kind": "document_title",
+        "highlighted": false,
+        "context_key": "title",
+        "strategy": "replace",
+        "note": ""
+      },
+      {
+        "text": "03 – 05 juin 2026",
+        "location": "word/document.xml#p10",
+        "section_kind": "date_line",
+        "highlighted": false,
+        "context_key": "start_date_long",
+        "strategy": "replace",
+        "note": ""
+      }
+    ],
+    "replacement_fields": [
+      {
+        "sample": "Cours AOA—Principes du Traitement Chirurgical des Fractures de Membres les plus Courantes",
+        "location": "word/document.xml#p6",
+        "section_kind": "document_title",
+        "context_key": "title",
+        "strategy": "replace",
+        "highlighted": false,
+        "note": ""
+      },
+      {
+        "sample": "03 – 05 juin 2026",
+        "location": "word/document.xml#p10",
+        "section_kind": "date_line",
+        "context_key": "start_date_long",
+        "strategy": "replace",
+        "highlighted": false,
+        "note": ""
+      }
+    ],
+    "package_type": "OP_C"
+  },
+  {
+    "filename": "06_Rapport responsable national de l_evenement.docx",
+    "document_role": "rapport_national",
+    "classifier": "rules",
+    "section_count": 4,
+    "replaceable_count": 4,
+    "sections": [
+      {
+        "text": "Titre de l’événement : Cours AOA—Principes du Traitement Chirurgical des Fractures de Membres les plus Courantes",
+        "location": "word/document.xml#p4",
+        "section_kind": "label_field",
+        "highlighted": false,
+        "context_key": "title",
+        "strategy": "replace",
+        "note": ""
+      },
+      {
+        "text": "Date : 03 - 05 juin 2026              Lieu de l’événement : Mbour, Sénégal",
+        "location": "word/document.xml#p5",
+        "section_kind": "date_lieu_combined",
+        "highlighted": false,
+        "context_key": "date_range",
+        "strategy": "replace",
+        "note": ""
+      },
+      {
+        "text": "Nombre de participants :      Responsable : Amadou Ndiasse Kassé",
+        "location": "word/document.xml#p6",
+        "section_kind": "label_field",
+        "highlighted": false,
+        "context_key": "responsible_person",
+        "strategy": "replace",
+        "note": ""
+      },
+      {
+        "text": "AO Alliance Foundationc/o Fiduciar Treuhand AG",
+        "location": "word/footer1.xml#p0",
+        "section_kind": "event_header",
+        "highlighted": false,
+        "context_key": "title",
+        "strategy": "replace",
+        "note": ""
+      }
+    ],
+    "replacement_fields": [
+      {
+        "sample": "Titre de l’événement : Cours AOA—Principes du Traitement Chirurgical des Fractures de Membres les plus Courantes",
+        "location": "word/document.xml#p4",
+        "section_kind": "label_field",
+        "context_key": "title",
+        "strategy": "replace",
+        "highlighted": false,
+        "note": ""
+      },
+      {
+        "sample": "Date : 03 - 05 juin 2026              Lieu de l’événement : Mbour, Sénégal",
+        "location": "word/document.xml#p5",
+        "section_kind": "date_lieu_combined",
+        "context_key": "date_range",
+        "strategy": "replace",
+        "highlighted": false,
+        "note": ""
+      },
+      {
+        "sample": "Nombre de participants :      Responsable : Amadou Ndiasse Kassé",
+        "location": "word/document.xml#p6",
+        "section_kind": "label_field",
+        "context_key": "responsible_person",
+        "strategy": "replace",
+        "highlighted": false,
+        "note": ""
+      },
+      {
+        "sample": "AO Alliance Foundationc/o Fiduciar Treuhand AG",
+        "location": "word/footer1.xml#p0",
+        "section_kind": "event_header",
+        "context_key": "title",
+        "strategy": "replace",
+        "highlighted": false,
+        "note": ""
+      }
+    ],
+    "package_type": "OP_C"
+  },
+  {
+    "filename": "07a_ Liste de présence_Enseignants_Jour1.docx",
+    "document_role": "presence_enseignants",
+    "classifier": "rules",
+    "section_count": 3,
+    "replaceable_count": 3,
+    "sections": [
+      {
+        "text": "Cours AOA—Principes du Traitement Chirurgical des Fractures de Membres les plus Courantes",
+        "location": "word/header2.xml#p2",
+        "section_kind": "document_title",
+        "highlighted": false,
+        "context_key": "title",
+        "strategy": "replace",
+        "note": ""
+      },
+      {
+        "text": "Mbour, Sénégal 03 – 05 juin 2026",
+        "location": "word/header2.xml#p4",
+        "section_kind": "lieu_line",
+        "highlighted": false,
+        "context_key": "lieu",
+        "strategy": "replace",
+        "note": ""
+      },
+      {
+        "text": "Liste Enseignants (03 juin, Jour 1)",
+        "location": "word/header2.xml#p6",
+        "section_kind": "event_header",
+        "highlighted": false,
+        "context_key": "weekday_date",
+        "strategy": "replace",
+        "note": ""
+      }
+    ],
+    "replacement_fields": [
+      {
+        "sample": "Cours AOA—Principes du Traitement Chirurgical des Fractures de Membres les plus Courantes",
+        "location": "word/header2.xml#p2",
+        "section_kind": "document_title",
+        "context_key": "title",
+        "strategy": "replace",
+        "highlighted": false,
+        "note": ""
+      },
+      {
+        "sample": "Mbour, Sénégal 03 – 05 juin 2026",
+        "location": "word/header2.xml#p4",
+        "section_kind": "lieu_line",
+        "context_key": "lieu",
+        "strategy": "replace",
+        "highlighted": false,
+        "note": ""
+      },
+      {
+        "sample": "Liste Enseignants (03 juin, Jour 1)",
+        "location": "word/header2.xml#p6",
+        "section_kind": "event_header",
+        "context_key": "weekday_date",
+        "strategy": "replace",
+        "highlighted": false,
+        "note": ""
+      }
+    ],
+    "package_type": "OP_C"
+  },
+  {
+    "filename": "07b_ Liste de présence_Enseignants_Jour2.docx",
+    "document_role": "presence_enseignants",
+    "classifier": "rules",
+    "section_count": 3,
+    "replaceable_count": 3,
+    "sections": [
+      {
+        "text": "Cours AOA—Principes du Traitement Chirurgical des Fractures de Membres les plus Courantes",
+        "location": "word/header2.xml#p2",
+        "section_kind": "document_title",
+        "highlighted": false,
+        "context_key": "title",
+        "strategy": "replace",
+        "note": ""
+      },
+      {
+        "text": "Mbour, Sénégal 03 – 05 juin 2026",
+        "location": "word/header2.xml#p4",
+        "section_kind": "lieu_line",
+        "highlighted": false,
+        "context_key": "lieu",
+        "strategy": "replace",
+        "note": ""
+      },
+      {
+        "text": "Liste Enseignants (04 juin, Jour 2)",
+        "location": "word/header2.xml#p6",
+        "section_kind": "event_header",
+        "highlighted": false,
+        "context_key": "weekday_date",
+        "strategy": "replace",
+        "note": ""
+      }
+    ],
+    "replacement_fields": [
+      {
+        "sample": "Cours AOA—Principes du Traitement Chirurgical des Fractures de Membres les plus Courantes",
+        "location": "word/header2.xml#p2",
+        "section_kind": "document_title",
+        "context_key": "title",
+        "strategy": "replace",
+        "highlighted": false,
+        "note": ""
+      },
+      {
+        "sample": "Mbour, Sénégal 03 – 05 juin 2026",
+        "location": "word/header2.xml#p4",
+        "section_kind": "lieu_line",
+        "context_key": "lieu",
+        "strategy": "replace",
+        "highlighted": false,
+        "note": ""
+      },
+      {
+        "sample": "Liste Enseignants (04 juin, Jour 2)",
+        "location": "word/header2.xml#p6",
+        "section_kind": "event_header",
+        "context_key": "weekday_date",
+        "strategy": "replace",
+        "highlighted": false,
+        "note": ""
+      }
+    ],
+    "package_type": "OP_C"
+  },
+  {
+    "filename": "07c_ Liste de présence_Enseignants_Jour3.docx",
+    "document_role": "presence_enseignants",
+    "classifier": "rules",
+    "section_count": 3,
+    "replaceable_count": 3,
+    "sections": [
+      {
+        "text": "Cours AOA—Principes du Traitement Chirurgical des Fractures de Membres les plus Courantes",
+        "location": "word/header2.xml#p2",
+        "section_kind": "document_title",
+        "highlighted": false,
+        "context_key": "title",
+        "strategy": "replace",
+        "note": ""
+      },
+      {
+        "text": "Mbour, Sénégal 03 – 05 juin 2026",
+        "location": "word/header2.xml#p4",
+        "section_kind": "lieu_line",
+        "highlighted": false,
+        "context_key": "lieu",
+        "strategy": "replace",
+        "note": ""
+      },
+      {
+        "text": "Liste Enseignants (05 juin, Jour 3)",
+        "location": "word/header2.xml#p6",
+        "section_kind": "event_header",
+        "highlighted": false,
+        "context_key": "weekday_date",
+        "strategy": "replace",
+        "note": ""
+      }
+    ],
+    "replacement_fields": [
+      {
+        "sample": "Cours AOA—Principes du Traitement Chirurgical des Fractures de Membres les plus Courantes",
+        "location": "word/header2.xml#p2",
+        "section_kind": "document_title",
+        "context_key": "title",
+        "strategy": "replace",
+        "highlighted": false,
+        "note": ""
+      },
+      {
+        "sample": "Mbour, Sénégal 03 – 05 juin 2026",
+        "location": "word/header2.xml#p4",
+        "section_kind": "lieu_line",
+        "context_key": "lieu",
+        "strategy": "replace",
+        "highlighted": false,
+        "note": ""
+      },
+      {
+        "sample": "Liste Enseignants (05 juin, Jour 3)",
+        "location": "word/header2.xml#p6",
+        "section_kind": "event_header",
+        "context_key": "weekday_date",
+        "strategy": "replace",
+        "highlighted": false,
+        "note": ""
+      }
+    ],
+    "package_type": "OP_C"
+  },
+  {
+    "filename": "08a_Liste de présence Participants_Jour1.docx",
+    "document_role": "presence_participants",
+    "classifier": "rules",
+    "section_count": 3,
+    "replaceable_count": 3,
+    "sections": [
+      {
+        "text": "Cours AOA—Principes du Traitement Chirurgical des Fractures de Membres les plus Courantes",
+        "location": "word/header2.xml#p2",
+        "section_kind": "document_title",
+        "highlighted": false,
+        "context_key": "title",
+        "strategy": "replace",
+        "note": ""
+      },
+      {
+        "text": "Mbour, Sénégal 03 – 05 juin 2026",
+        "location": "word/header2.xml#p4",
+        "section_kind": "lieu_line",
+        "highlighted": false,
+        "context_key": "lieu",
+        "strategy": "replace",
+        "note": ""
+      },
+      {
+        "text": "Liste Participants (03 juin, Jour 1)",
+        "location": "word/header2.xml#p6",
+        "section_kind": "event_header",
+        "highlighted": false,
+        "context_key": "weekday_date",
+        "strategy": "replace",
+        "note": ""
+      }
+    ],
+    "replacement_fields": [
+      {
+        "sample": "Cours AOA—Principes du Traitement Chirurgical des Fractures de Membres les plus Courantes",
+        "location": "word/header2.xml#p2",
+        "section_kind": "document_title",
+        "context_key": "title",
+        "strategy": "replace",
+        "highlighted": false,
+        "note": ""
+      },
+      {
+        "sample": "Mbour, Sénégal 03 – 05 juin 2026",
+        "location": "word/header2.xml#p4",
+        "section_kind": "lieu_line",
+        "context_key": "lieu",
+        "strategy": "replace",
+        "highlighted": false,
+        "note": ""
+      },
+      {
+        "sample": "Liste Participants (03 juin, Jour 1)",
+        "location": "word/header2.xml#p6",
+        "section_kind": "event_header",
+        "context_key": "weekday_date",
+        "strategy": "replace",
+        "highlighted": false,
+        "note": ""
+      }
+    ],
+    "package_type": "OP_C"
+  },
+  {
+    "filename": "08b_Liste de présence Participants_Jour2.docx",
+    "document_role": "presence_participants",
+    "classifier": "rules",
+    "section_count": 3,
+    "replaceable_count": 3,
+    "sections": [
+      {
+        "text": "Cours AOA—Principes du Traitement Chirurgical des Fractures de Membres les plus Courantes",
+        "location": "word/header2.xml#p2",
+        "section_kind": "document_title",
+        "highlighted": false,
+        "context_key": "title",
+        "strategy": "replace",
+        "note": ""
+      },
+      {
+        "text": "Mbour, Sénégal 03 – 05 juin 2026",
+        "location": "word/header2.xml#p4",
+        "section_kind": "lieu_line",
+        "highlighted": false,
+        "context_key": "lieu",
+        "strategy": "replace",
+        "note": ""
+      },
+      {
+        "text": "Liste Participants (04 juin, Jour 2)",
+        "location": "word/header2.xml#p6",
+        "section_kind": "event_header",
+        "highlighted": false,
+        "context_key": "weekday_date",
+        "strategy": "replace",
+        "note": ""
+      }
+    ],
+    "replacement_fields": [
+      {
+        "sample": "Cours AOA—Principes du Traitement Chirurgical des Fractures de Membres les plus Courantes",
+        "location": "word/header2.xml#p2",
+        "section_kind": "document_title",
+        "context_key": "title",
+        "strategy": "replace",
+        "highlighted": false,
+        "note": ""
+      },
+      {
+        "sample": "Mbour, Sénégal 03 – 05 juin 2026",
+        "location": "word/header2.xml#p4",
+        "section_kind": "lieu_line",
+        "context_key": "lieu",
+        "strategy": "replace",
+        "highlighted": false,
+        "note": ""
+      },
+      {
+        "sample": "Liste Participants (04 juin, Jour 2)",
+        "location": "word/header2.xml#p6",
+        "section_kind": "event_header",
+        "context_key": "weekday_date",
+        "strategy": "replace",
+        "highlighted": false,
+        "note": ""
+      }
+    ],
+    "package_type": "OP_C"
+  },
+  {
+    "filename": "08c_Liste de présence Participants_Jour3.docx",
+    "document_role": "presence_participants",
+    "classifier": "rules",
+    "section_count": 3,
+    "replaceable_count": 3,
+    "sections": [
+      {
+        "text": "Cours AOA—Principes du Traitement Chirurgical des Fractures de Membres les plus Courantes",
+        "location": "word/header2.xml#p2",
+        "section_kind": "document_title",
+        "highlighted": false,
+        "context_key": "title",
+        "strategy": "replace",
+        "note": ""
+      },
+      {
+        "text": "Mbour, Sénégal 03 – 05 juin 2026",
+        "location": "word/header2.xml#p4",
+        "section_kind": "lieu_line",
+        "highlighted": false,
+        "context_key": "lieu",
+        "strategy": "replace",
+        "note": ""
+      },
+      {
+        "text": "Liste Participants (05 juin, Jour 3)",
+        "location": "word/header2.xml#p6",
+        "section_kind": "event_header",
+        "highlighted": false,
+        "context_key": "weekday_date",
+        "strategy": "replace",
+        "note": ""
+      }
+    ],
+    "replacement_fields": [
+      {
+        "sample": "Cours AOA—Principes du Traitement Chirurgical des Fractures de Membres les plus Courantes",
+        "location": "word/header2.xml#p2",
+        "section_kind": "document_title",
+        "context_key": "title",
+        "strategy": "replace",
+        "highlighted": false,
+        "note": ""
+      },
+      {
+        "sample": "Mbour, Sénégal 03 – 05 juin 2026",
+        "location": "word/header2.xml#p4",
+        "section_kind": "lieu_line",
+        "context_key": "lieu",
+        "strategy": "replace",
+        "highlighted": false,
+        "note": ""
+      },
+      {
+        "sample": "Liste Participants (05 juin, Jour 3)",
+        "location": "word/header2.xml#p6",
+        "section_kind": "event_header",
+        "context_key": "weekday_date",
+        "strategy": "replace",
+        "highlighted": false,
+        "note": ""
+      }
+    ],
+    "package_type": "OP_C"
+  },
+  {
+    "filename": "09_Liste définitive (enseignants et Participants) (2).xlsx",
+    "document_role": "liste_definitive",
+    "classifier": "rules",
+    "section_count": 0,
+    "replaceable_count": 0,
+    "sections": [],
+    "replacement_fields": [],
+    "package_type": "OP_C"
+  },
+  {
+    "filename": "10_Accusé de réception de paiement en espèces_v2.docx",
+    "document_role": "accuse_paiement",
+    "classifier": "rules",
+    "section_count": 3,
+    "replaceable_count": 3,
+    "sections": [
+      {
+        "text": "Cours AOA—Principes du Traitement Chirurgical des Fractures de Membres les plus Courantes",
+        "location": "word/document.xml#p4",
+        "section_kind": "document_title",
+        "highlighted": false,
+        "context_key": "title",
+        "strategy": "replace",
+        "note": ""
+      },
+      {
+        "text": "03 – 05 juin 2026",
+        "location": "word/document.xml#p8",
+        "section_kind": "date_line",
+        "highlighted": false,
+        "context_key": "start_date_long",
+        "strategy": "replace",
+        "note": ""
+      },
+      {
+        "text": "Date:",
+        "location": "word/document.xml#p40",
+        "section_kind": "date_line",
+        "highlighted": false,
+        "context_key": "date_range",
+        "strategy": "replace",
+        "note": ""
+      }
+    ],
+    "replacement_fields": [
+      {
+        "sample": "Cours AOA—Principes du Traitement Chirurgical des Fractures de Membres les plus Courantes",
+        "location": "word/document.xml#p4",
+        "section_kind": "document_title",
+        "context_key": "title",
+        "strategy": "replace",
+        "highlighted": false,
+        "note": ""
+      },
+      {
+        "sample": "03 – 05 juin 2026",
+        "location": "word/document.xml#p8",
+        "section_kind": "date_line",
+        "context_key": "start_date_long",
+        "strategy": "replace",
+        "highlighted": false,
+        "note": ""
+      },
+      {
+        "sample": "Date:",
+        "location": "word/document.xml#p40",
+        "section_kind": "date_line",
+        "context_key": "date_range",
+        "strategy": "replace",
+        "highlighted": false,
+        "note": ""
+      }
+    ],
+    "package_type": "OP_C"
+  },
+  {
+    "filename": "11_Formulaire report des dépenses et vérification finale du budget_v2.xlsx",
+    "document_role": "rapport_depenses",
+    "classifier": "rules",
+    "section_count": 0,
+    "replaceable_count": 0,
+    "sections": [],
+    "replacement_fields": [],
+    "package_type": "OP_C"
+  },
+  {
+    "filename": "14_AOA_ModèleBadge.doc",
+    "document_role": "badge",
+    "classifier": "rules",
+    "section_count": 0,
+    "replaceable_count": 0,
+    "sections": [],
+    "replacement_fields": [],
+    "package_type": "OP_C"
+  }
+]

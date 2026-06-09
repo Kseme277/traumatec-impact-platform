@@ -1,64 +1,88 @@
+import { useEffect } from "react";
 import { Link } from "react-router";
 import PageMeta from "../../components/common/PageMeta";
+import Button from "../../components/ui/button/Button";
+import { CalenderIcon, CheckCircleIcon, ListIcon, TaskIcon } from "../../icons";
 import { useTipAuth } from "../../context/TipAuthContext";
-import GuidesDocCard from "./GuidesDocCard";
-import { roleLabel } from "../auth/types";
-
-function MetricCard({
-  label,
-  value,
-  hint,
-}: {
-  label: string;
-  value: string;
-  hint?: string;
-}) {
-  return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-5 dark:border-slate-800 dark:bg-slate-900">
-      <p className="text-sm text-slate-500 dark:text-slate-400">{label}</p>
-      <p className="mt-2 text-2xl font-semibold text-slate-900 dark:text-slate-100">{value}</p>
-      {hint && <p className="mt-1 text-xs text-slate-400">{hint}</p>}
-    </div>
-  );
-}
+import { useTranslation } from "../../i18n/useTranslation";
+import EventStatCard from "../events/EventStatCard";
+import EventsBiDashboardSection from "../events/EventsBiDashboardSection";
+import EventsDashboardCalendar from "../events/EventsDashboardCalendar";
+import { useEvents } from "../events/useEvents";
+import DocumentsModuleCard from "../documents/DocumentsModuleCard";
 
 export default function DashboardPreparateur() {
+  const { t } = useTranslation();
   const { tipUser } = useTipAuth();
+  const { stats, loadStats, isStatsLoading } = useEvents();
+
+  useEffect(() => {
+    void loadStats();
+  }, [loadStats]);
 
   return (
     <>
-      <PageMeta title="Tableau de bord | TIP" description="Traumatec Impact Platform — Processing Team" />
+      <PageMeta title={t("dashboard.preparateurMeta")} description={t("dashboard.metaDesc")} />
       <div className="mb-6">
-        <h1 className="text-2xl font-semibold text-slate-900 dark:text-slate-100">
-          Bonjour, {tipUser?.prenom}
+        <h1 className="text-2xl font-semibold text-gray-800 dark:text-white/90">
+          {t("dashboard.greeting")}, {tipUser?.prenom}
         </h1>
-        <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-          Espace {roleLabel("preparateur")} — préparez vos paquets documentaires
-        </p>
+        <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{t("dashboard.preparateurSpace")}</p>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4 md:gap-6 mb-6">
-        <MetricCard label="Événements" value="—" hint="Sprint 1 — import Excel" />
-        <MetricCard label="Prêts à générer" value="—" hint="Certificats + participants" />
-        <MetricCard label="Générations (7 j)" value="—" hint="Historique DocGen" />
-        <MetricCard label="En cours" value="—" hint="Jobs actifs" />
+      <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4 md:gap-6">
+        <EventStatCard
+          label={t("nav.events")}
+          value={isStatsLoading ? "—" : (stats?.total ?? 0)}
+          icon={<ListIcon className="size-6 text-brand-500 dark:text-brand-400" />}
+          iconBgClassName="bg-brand-50 dark:bg-brand-500/15"
+        />
+        <EventStatCard
+          label={t("events.open")}
+          value={isStatsLoading ? "—" : (stats?.open_count ?? stats?.active ?? 0)}
+          icon={<CalenderIcon className="size-6 text-warning-600 dark:text-warning-500" />}
+          iconBgClassName="bg-warning-50 dark:bg-warning-500/15"
+        />
+        <EventStatCard
+          label={t("events.finished")}
+          value={
+            isStatsLoading ? "—" : (stats?.closed_count ?? 0) + (stats?.cancelled_count ?? 0)
+          }
+          icon={<CheckCircleIcon className="size-6 text-success-600 dark:text-success-500" />}
+          iconBgClassName="bg-success-50 dark:bg-success-500/15"
+        />
+        <EventStatCard
+          label={t("events.distinctTypes")}
+          value={isStatsLoading ? "—" : Object.keys(stats?.by_type ?? {}).length}
+          icon={<TaskIcon className="size-6 text-info-600 dark:text-blue-light-500" />}
+          iconBgClassName="bg-blue-light-50 dark:bg-blue-light-500/15"
+        />
+      </div>
+
+      <EventsBiDashboardSection stats={stats} isLoading={isStatsLoading} />
+
+      <div className="mb-6">
+        <EventsDashboardCalendar
+          calendar={stats?.calendar ?? []}
+          calendarYear={stats?.calendar_year}
+          isLoading={isStatsLoading}
+        />
       </div>
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
         <div className="xl:col-span-2 space-y-6">
-          <div className="rounded-2xl border border-slate-200 bg-white p-6 dark:border-slate-800 dark:bg-slate-900">
-            <h2 className="text-lg font-semibold text-slate-900 dark:text-slate-100">Actions rapides</h2>
+          <div className="rounded-2xl border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-white/[0.03]">
+            <h2 className="text-lg font-semibold text-gray-800 dark:text-white/90">
+              {t("dashboard.quickActions")}
+            </h2>
             <div className="mt-4 flex flex-wrap gap-3">
-              <Link
-                to="/evenements"
-                className="inline-flex h-10 items-center rounded-lg border border-slate-200 px-4 text-sm font-medium text-slate-700 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
-              >
-                Voir les événements
+              <Link to="/evenements">
+                <Button size="sm">{t("dashboard.viewEvents")}</Button>
               </Link>
             </div>
           </div>
         </div>
-        <GuidesDocCard />
+        <DocumentsModuleCard />
       </div>
     </>
   );

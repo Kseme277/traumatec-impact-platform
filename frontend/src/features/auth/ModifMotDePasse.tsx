@@ -2,8 +2,14 @@ import { FormEvent, useState } from "react";
 import { Link } from "react-router";
 import { useUser } from "@clerk/clerk-react";
 import { isClerkAPIResponseError } from "@clerk/clerk-react/errors";
+import ComponentCard from "../../components/common/ComponentCard";
+import Label from "../../components/form/Label";
+import Input from "../../components/form/input/InputField";
+import Button from "../../components/ui/button/Button";
+import { useTranslation } from "../../i18n/useTranslation";
 
 export default function ModifMotDePasse() {
+  const { t } = useTranslation();
   const { user, isLoaded } = useUser();
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
@@ -18,12 +24,12 @@ export default function ModifMotDePasse() {
     setSuccess(null);
 
     if (newPassword.length < 8) {
-      setError("Le nouveau mot de passe doit contenir au moins 8 caractères.");
+      setError(t("profile.newPasswordMin8"));
       return;
     }
 
     if (newPassword !== confirmPassword) {
-      setError("Les mots de passe ne correspondent pas.");
+      setError(t("auth.passwordsMismatch"));
       return;
     }
 
@@ -32,15 +38,15 @@ export default function ModifMotDePasse() {
     setIsSubmitting(true);
     try {
       await user.updatePassword({ currentPassword, newPassword });
-      setSuccess("Mot de passe mis à jour avec succès.");
+      setSuccess(t("profile.passwordUpdated"));
       setCurrentPassword("");
       setNewPassword("");
       setConfirmPassword("");
     } catch (err) {
       if (isClerkAPIResponseError(err)) {
-        setError(err.errors[0]?.longMessage ?? err.errors[0]?.message ?? "Échec de la mise à jour");
+        setError(err.errors[0]?.longMessage ?? err.errors[0]?.message ?? t("profile.updatePasswordFailed"));
       } else {
-        setError("Impossible de modifier le mot de passe.");
+        setError(t("profile.changePasswordFailed"));
       }
     } finally {
       setIsSubmitting(false);
@@ -48,82 +54,79 @@ export default function ModifMotDePasse() {
   };
 
   return (
-    <div className="mx-auto max-w-lg rounded-2xl border border-slate-200 bg-white p-8 dark:border-slate-800 dark:bg-slate-900">
-      <div className="mb-6">
-        <Link to="/profil" className="text-sm text-brand-500 hover:underline">
-          ← Retour au profil
-        </Link>
-        <h1 className="mt-3 text-xl font-semibold text-slate-900 dark:text-slate-100">
-          Modifier mon mot de passe
-        </h1>
-        <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
-          Utilisez un mot de passe fort d&apos;au moins 8 caractères.
-        </p>
-      </div>
-
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <div>
-          <label htmlFor="current" className="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300">
-            Mot de passe actuel
-          </label>
-          <input
-            id="current"
-            type="password"
-            required
-            value={currentPassword}
-            onChange={(e) => setCurrentPassword(e.target.value)}
-            className="h-11 w-full rounded-lg border border-slate-200 px-4 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
-          />
-        </div>
-
-        <div>
-          <label htmlFor="new" className="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300">
-            Nouveau mot de passe
-          </label>
-          <input
-            id="new"
-            type="password"
-            required
-            value={newPassword}
-            onChange={(e) => setNewPassword(e.target.value)}
-            className="h-11 w-full rounded-lg border border-slate-200 px-4 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
-          />
-        </div>
-
-        <div>
-          <label htmlFor="confirm" className="mb-2 block text-sm font-medium text-slate-700 dark:text-slate-300">
-            Confirmer le mot de passe
-          </label>
-          <input
-            id="confirm"
-            type="password"
-            required
-            value={confirmPassword}
-            onChange={(e) => setConfirmPassword(e.target.value)}
-            className="h-11 w-full rounded-lg border border-slate-200 px-4 text-sm outline-none focus:border-brand-500 focus:ring-2 focus:ring-brand-500/20 dark:border-slate-700 dark:bg-slate-950 dark:text-slate-100"
-          />
-        </div>
-
-        {error && (
-          <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 dark:border-red-900/50 dark:bg-red-950/30 dark:text-red-300">
-            {error}
+    <div className="mx-auto max-w-3xl">
+      <ComponentCard title={t("profile.securityTitle")} desc={t("profile.securityDesc")}>
+        <form onSubmit={handleSubmit} className="space-y-6">
+          <div>
+            <Label htmlFor="current-password">{t("profile.currentPassword")}</Label>
+            <Input
+              id="current-password"
+              type="password"
+              name="current-password"
+              autoComplete="current-password"
+              value={currentPassword}
+              onChange={(e) => setCurrentPassword(e.target.value)}
+              placeholder={t("profile.currentPassword")}
+            />
           </div>
-        )}
 
-        {success && (
-          <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700 dark:border-emerald-900/50 dark:bg-emerald-950/30 dark:text-emerald-300">
-            {success}
+          <div>
+            <Label htmlFor="new-password">{t("auth.newPassword")}</Label>
+            <Input
+              id="new-password"
+              type="password"
+              name="new-password"
+              autoComplete="new-password"
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+              placeholder={t("auth.newPassword")}
+            />
           </div>
-        )}
 
-        <button
-          type="submit"
-          disabled={!isLoaded || isSubmitting}
-          className="h-11 w-full rounded-lg bg-brand-500 text-sm font-semibold text-white transition hover:bg-brand-600 focus:outline-none focus:ring-2 focus:ring-brand-500 focus:ring-offset-2 disabled:opacity-60 dark:focus:ring-offset-slate-900"
-        >
-          {isSubmitting ? "Enregistrement..." : "Enregistrer"}
-        </button>
-      </form>
+          <div>
+            <Label htmlFor="confirm-password">{t("auth.confirmPassword")}</Label>
+            <Input
+              id="confirm-password"
+              type="password"
+              name="confirm-password"
+              autoComplete="new-password"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              placeholder={t("auth.confirmPassword")}
+            />
+          </div>
+
+          {error && (
+            <div
+              role="alert"
+              className="rounded-lg border border-error-200 bg-error-50 px-4 py-3 text-sm text-error-700 dark:border-error-900/50 dark:bg-error-950/30 dark:text-error-300"
+            >
+              {error}
+            </div>
+          )}
+
+          {success && (
+            <div
+              role="status"
+              className="rounded-lg border border-success-200 bg-success-50 px-4 py-3 text-sm text-success-700 dark:border-success-900/50 dark:bg-success-950/30 dark:text-success-300"
+            >
+              {success}
+            </div>
+          )}
+
+          <div className="flex flex-wrap items-center justify-between gap-3 border-t border-gray-100 pt-6 dark:border-gray-800">
+            <Link
+              to="/profil"
+              className="text-sm text-brand-500 hover:underline focus:outline-none focus:ring-2 focus:ring-brand-500/30 rounded"
+            >
+              {t("profile.backToProfile")}
+            </Link>
+            <Button type="submit" size="sm" disabled={!isLoaded || isSubmitting}>
+              {isSubmitting ? t("common.saving") : t("common.save")}
+            </Button>
+          </div>
+        </form>
+      </ComponentCard>
     </div>
   );
 }
