@@ -24,6 +24,10 @@ class BaseServiceSettings(BaseSettings):
     db_schema: str = "public"
 
     redis_url: str = "redis://localhost:6379/0"
+    cache_enabled: bool = True
+    cache_ttl_seconds: int = 900
+    cache_ttl_stats_seconds: int = 600
+    cache_ttl_correlation_seconds: int = 1800
     cors_origins: Annotated[list[str], NoDecode] = [
         "http://localhost:5173",
         "http://localhost:8080",

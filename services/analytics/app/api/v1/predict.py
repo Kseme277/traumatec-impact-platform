@@ -1,3 +1,4 @@
+import asyncio
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, status
@@ -10,6 +11,7 @@ from app.ml.predictor import get_predictor
 from app.schemas.correlation import CorrelationDatasetResponse
 from app.schemas.predict import PredictEventRequest, PredictEventResponse
 from app.services.correlation import build_correlation_dataset
+from tip_common.redis_cache import cached_call
 from tip_common.security import AuthenticatedUser, get_current_user
 
 router = APIRouter()
@@ -64,14 +66,14 @@ def _merge_request_with_row(payload: PredictEventRequest, row: dict | None) -> d
     return base
 
 
-@router.get("/correlation-dataset", response_model=CorrelationDatasetResponse)
-async def correlation_dataset(
-    _: AuthenticatedUser = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
-    limit: int = 80,
-) -> CorrelationDatasetResponse:
-    """Jeu de points ML pour scatter plots et matrices de corrélation."""
-    cap = min(max(limit, 5), 200)
+def _predict_request_cacheable(payload: PredictEventRequest) -> bool:
+    if payload.event_id is None:
+        return False
+    overrides = payload.model_dump(exclude={"event_id"}, exclude_none=True)
+    return len(overrides) == 0
+
+
+async def _build_correlation_dataset(db: AsyncSession, cap: int) -> CorrelationDatasetResponse:
     settings = get_settings()
     predictor = get_predictor(settings.models_dir)
 
@@ -89,16 +91,38 @@ async def correlation_dataset(
         {"limit": cap},
     )
     rows = [dict(r) for r in result.mappings().all()]
-    predictions = [predictor.predict(row) for row in rows]
+    predictions = await asyncio.to_thread(
+        lambda: [predictor.predict(row) for row in rows],
+    )
     payload = build_correlation_dataset(rows, predictions)
     return CorrelationDatasetResponse(**payload)
 
 
-@router.post("/predict-event", response_model=PredictEventResponse)
-async def predict_event(
-    payload: PredictEventRequest,
+@router.get("/correlation-dataset", response_model=CorrelationDatasetResponse)
+async def correlation_dataset(
     _: AuthenticatedUser = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
+    limit: int = 80,
+) -> CorrelationDatasetResponse:
+    """Jeu de points ML pour scatter plots et matrices de corrélation."""
+    cap = min(max(limit, 5), 200)
+    settings = get_settings()
+
+    return await cached_call(
+        redis_url=settings.redis_url,
+        namespace="analytics:correlation",
+        key_parts={"limit": cap},
+        ttl_seconds=settings.cache_ttl_correlation_seconds,
+        enabled=settings.cache_enabled,
+        factory=lambda: _build_correlation_dataset(db, cap),
+        serialize=lambda response: response.model_dump(mode="json"),
+        deserialize=lambda data: CorrelationDatasetResponse.model_validate(data),
+    )
+
+
+async def _predict_event_impl(
+    payload: PredictEventRequest,
+    db: AsyncSession,
 ) -> PredictEventResponse:
     settings = get_settings()
     predictor = get_predictor(settings.models_dir)
@@ -120,10 +144,34 @@ async def predict_event(
             detail="Budget insuffisant — renseignez amount_chf ou importez Projects.xlsx",
         )
 
-    result = predictor.predict(merged)
+    result = await asyncio.to_thread(predictor.predict, merged)
     return PredictEventResponse(
         risk_score=float(result["risk_score"]),
         predicted_participants=int(result["predicted_participants"]),
         event_id=event_id,
         event_title=title,
     )
+
+
+@router.post("/predict-event", response_model=PredictEventResponse)
+async def predict_event(
+    payload: PredictEventRequest,
+    _: AuthenticatedUser = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> PredictEventResponse:
+    settings = get_settings()
+    cacheable = settings.cache_enabled and _predict_request_cacheable(payload)
+
+    if cacheable and payload.event_id is not None:
+        return await cached_call(
+            redis_url=settings.redis_url,
+            namespace="analytics:predict",
+            key_parts={"event_id": str(payload.event_id)},
+            ttl_seconds=settings.cache_ttl_seconds,
+            enabled=True,
+            factory=lambda: _predict_event_impl(payload, db),
+            serialize=lambda response: response.model_dump(mode="json"),
+            deserialize=lambda data: PredictEventResponse.model_validate(data),
+        )
+
+    return await _predict_event_impl(payload, db)

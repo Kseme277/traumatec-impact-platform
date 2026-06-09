@@ -28,18 +28,18 @@ from app.services.template_files import (
     get_template_or_404,
     replace_template_file,
 )
+from tip_common.redis_cache import cached_call
 from tip_common.security import AuthenticatedUser, get_current_user, require_admin
 
 router = APIRouter()
 
 
-@router.get("/", response_model=list[PackageTemplateResponse])
-async def list_templates(
-    theme: str | None = Query(default=None, description="pbo | operatory | iec"),
-    package_type: str | None = Query(default=None, description="ORP_S, OP_C, …"),
-    bundle_id: UUID | None = Query(default=None),
-    _: AuthenticatedUser = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
+async def _list_templates_impl(
+    db: AsyncSession,
+    *,
+    theme: str | None,
+    package_type: str | None,
+    bundle_id: UUID | None,
 ) -> list[PackageTemplate]:
     query = select(PackageTemplate).where(PackageTemplate.is_active.is_(True))
     result = await db.execute(query)
@@ -73,6 +73,36 @@ async def list_templates(
         key=lambda t: (t.placeholders or {}).get("package_file_order", 0),
     )
     return items
+
+
+@router.get("/", response_model=list[PackageTemplateResponse])
+async def list_templates(
+    theme: str | None = Query(default=None, description="pbo | operatory | iec"),
+    package_type: str | None = Query(default=None, description="ORP_S, OP_C, …"),
+    bundle_id: UUID | None = Query(default=None),
+    _: AuthenticatedUser = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> list[PackageTemplateResponse]:
+    settings = get_settings()
+    key_parts = {
+        "theme": theme,
+        "package_type": package_type,
+        "bundle_id": str(bundle_id) if bundle_id else None,
+    }
+    async def _load() -> list[PackageTemplateResponse]:
+        items = await _list_templates_impl(db, theme=theme, package_type=package_type, bundle_id=bundle_id)
+        return [PackageTemplateResponse.model_validate(item) for item in items]
+
+    return await cached_call(
+        redis_url=settings.redis_url,
+        namespace="catalog:templates",
+        key_parts=key_parts,
+        ttl_seconds=settings.cache_ttl_seconds,
+        enabled=settings.cache_enabled,
+        factory=_load,
+        serialize=lambda items: [item.model_dump(mode="json") for item in items],
+        deserialize=lambda data: [PackageTemplateResponse.model_validate(item) for item in data],
+    )
 
 
 @router.post("/{template_id}/analyze-fields")

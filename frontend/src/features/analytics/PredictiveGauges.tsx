@@ -14,7 +14,6 @@ import {
   sortOptionValue,
   type EventSortField,
 } from "../events/eventSort";
-import { eventMatchesSearch } from "../events/eventDates";
 import { useTranslation } from "../../i18n/useTranslation";
 import type { Evenement } from "../events/types";
 
@@ -102,7 +101,11 @@ export default function PredictiveGauges({
       setIsLoadingEvents(true);
       try {
         const token = await getToken();
-        const response = await fetchEvents(token, { sort_by: sortBy, sort_dir: sortDir });
+        const response = await fetchEvents(token, {
+          sort_by: sortBy,
+          sort_dir: sortDir,
+          ...(search ? { q: search } : {}),
+        });
         if (cancelled) return;
         const items = response.items;
         setEvents(items);
@@ -121,7 +124,7 @@ export default function PredictiveGauges({
     return () => {
       cancelled = true;
     };
-  }, [controlledId, getToken, sortBy, sortDir, t]);
+  }, [controlledId, getToken, search, sortBy, sortDir, t]);
 
   const runPrediction = useCallback(
     async (eventId: string) => {
@@ -153,10 +156,7 @@ export default function PredictiveGauges({
 
   const sortOptions = useMemo(() => buildSortSelectOptions(t), [t]);
 
-  const filteredEvents = useMemo(
-    () => events.filter((event) => eventMatchesSearch(event, search)),
-    [events, search],
-  );
+  const filteredEvents = events;
 
   const eventOptions = useMemo(
     () =>

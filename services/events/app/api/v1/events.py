@@ -10,6 +10,7 @@ from app.services.project_status import (
     normalize_project_status,
     project_status_filter_values,
 )
+from app.core.config import get_settings
 from app.core.database import get_db
 from app.models.event import Event
 from app.schemas.event import (
@@ -22,11 +23,20 @@ from app.schemas.event import (
     EventUpdate,
     InferredEventPackage,
 )
-from tip_common.package_types import describe_inferred_event_package
 from tip_common.audit import record_audit_event
+from tip_common.package_types import describe_inferred_event_package
+from tip_common.redis_cache import cached_call, invalidate_prefix
 from tip_common.security import AuthenticatedUser, get_current_user, require_admin
 
 router = APIRouter()
+
+
+async def _invalidate_events_cache() -> None:
+    settings = get_settings()
+    if not settings.cache_enabled:
+        return
+    await invalidate_prefix(settings.redis_url, "tip:events:")
+    await invalidate_prefix(settings.redis_url, "tip:analytics:")
 
 
 def _event_payload_for_classify(event: Event) -> dict:
@@ -125,21 +135,17 @@ def _apply_event_sort(query, sort_by: str | None, sort_dir: str | None):
     return query.order_by(column.desc().nullslast(), Event.created_at.desc())
 
 
-@router.get("/", response_model=EventListResponse)
-async def list_events(
-    q: str | None = Query(default=None, description="Recherche texte"),
-    status_filter: str | None = Query(default=None, alias="status"),
-    project_status: str | None = Query(default=None, description="Statut AO Alliance (Open, Closed, Cancelled)"),
-    event_type: str | None = Query(default=None),
-    country: str | None = Query(default=None),
-    sort_by: str | None = Query(default="start_date", description="Colonne de tri"),
-    sort_dir: str | None = Query(default="desc", description="asc ou desc"),
-    upcoming: bool | None = Query(
-        default=None,
-        description="Si true, uniquement les événements dont la date de fin (ou début) n'est pas passée",
-    ),
-    _: AuthenticatedUser = Depends(get_current_user),
-    db: AsyncSession = Depends(get_db),
+async def _list_events_impl(
+    db: AsyncSession,
+    *,
+    q: str | None,
+    status_filter: str | None,
+    project_status: str | None,
+    event_type: str | None,
+    country: str | None,
+    sort_by: str | None,
+    sort_dir: str | None,
+    upcoming: bool | None,
 ) -> EventListResponse:
     query = _apply_event_sort(select(Event), sort_by, sort_dir)
     count_query = select(func.count()).select_from(Event)
@@ -185,11 +191,56 @@ async def list_events(
     )
 
 
-@router.get("/stats", response_model=DashboardStatsResponse)
-async def dashboard_stats(
+@router.get("/", response_model=EventListResponse)
+async def list_events(
+    q: str | None = Query(default=None, description="Recherche texte"),
+    status_filter: str | None = Query(default=None, alias="status"),
+    project_status: str | None = Query(default=None, description="Statut AO Alliance (Open, Closed, Cancelled)"),
+    event_type: str | None = Query(default=None),
+    country: str | None = Query(default=None),
+    sort_by: str | None = Query(default="start_date", description="Colonne de tri"),
+    sort_dir: str | None = Query(default="desc", description="asc ou desc"),
+    upcoming: bool | None = Query(
+        default=None,
+        description="Si true, uniquement les événements dont la date de fin (ou début) n'est pas passée",
+    ),
     _: AuthenticatedUser = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
-) -> DashboardStatsResponse:
+) -> EventListResponse:
+    settings = get_settings()
+    key_parts = {
+        "q": q,
+        "status": status_filter,
+        "project_status": project_status,
+        "event_type": event_type,
+        "country": country,
+        "sort_by": sort_by,
+        "sort_dir": sort_dir,
+        "upcoming": upcoming,
+    }
+    return await cached_call(
+        redis_url=settings.redis_url,
+        namespace="events:list",
+        key_parts=key_parts,
+        ttl_seconds=settings.cache_ttl_seconds,
+        enabled=settings.cache_enabled,
+        factory=lambda: _list_events_impl(
+            db,
+            q=q,
+            status_filter=status_filter,
+            project_status=project_status,
+            event_type=event_type,
+            country=country,
+            sort_by=sort_by,
+            sort_dir=sort_dir,
+            upcoming=upcoming,
+        ),
+        serialize=lambda response: response.model_dump(mode="json"),
+        deserialize=lambda data: EventListResponse.model_validate(data),
+    )
+
+
+async def _dashboard_stats_impl(db: AsyncSession) -> DashboardStatsResponse:
     result = await db.execute(select(Event))
     events = result.scalars().all()
 
@@ -308,6 +359,25 @@ async def dashboard_stats(
     )
 
 
+@router.get("/stats", response_model=DashboardStatsResponse)
+async def dashboard_stats(
+    _: AuthenticatedUser = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> DashboardStatsResponse:
+    settings = get_settings()
+    current_year = datetime.now(timezone.utc).year
+    return await cached_call(
+        redis_url=settings.redis_url,
+        namespace="events:stats",
+        key_parts={"year": current_year},
+        ttl_seconds=settings.cache_ttl_stats_seconds,
+        enabled=settings.cache_enabled,
+        factory=lambda: _dashboard_stats_impl(db),
+        serialize=lambda response: response.model_dump(mode="json"),
+        deserialize=lambda data: DashboardStatsResponse.model_validate(data),
+    )
+
+
 @router.post("/", response_model=EventResponse, status_code=status.HTTP_201_CREATED)
 async def create_event(
     payload: EventCreate,
@@ -338,6 +408,7 @@ async def create_event(
     )
     await db.commit()
     await db.refresh(event)
+    await _invalidate_events_cache()
     return event
 
 
@@ -375,6 +446,7 @@ async def update_event(
     )
     await db.commit()
     await db.refresh(event)
+    await _invalidate_events_cache()
     return _event_to_response(event)
 
 
@@ -399,6 +471,7 @@ async def close_event(
     )
     await db.commit()
     await db.refresh(event)
+    await _invalidate_events_cache()
     return event
 
 
@@ -421,3 +494,4 @@ async def delete_event(
     )
     await db.delete(event)
     await db.commit()
+    await _invalidate_events_cache()

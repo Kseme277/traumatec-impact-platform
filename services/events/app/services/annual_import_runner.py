@@ -10,7 +10,9 @@ from app.models.event import AnnualImport, Event
 from app.services.excel_import import parse_projects_workbook
 from app.services.import_jobs import ImportJobStatus, import_job_store
 from app.services.project_status import tip_status_from_project_status
+from app.core.config import get_settings
 from tip_common.audit import record_audit_event
+from tip_common.redis_cache import invalidate_prefix
 
 BATCH_SIZE = 100
 
@@ -133,6 +135,11 @@ async def run_annual_import_job(
                 },
             )
             await audit_db.commit()
+
+        settings = get_settings()
+        if settings.cache_enabled:
+            await invalidate_prefix(settings.redis_url, "tip:events:")
+            await invalidate_prefix(settings.redis_url, "tip:analytics:")
 
         await import_job_store.update(
             job_id,

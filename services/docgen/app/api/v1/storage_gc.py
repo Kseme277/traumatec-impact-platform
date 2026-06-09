@@ -15,6 +15,7 @@ from app.schemas.storage_gc import (
 )
 from app.services.generation_analytics import get_generation_analytics
 from app.services.storage_garbage_collector import get_zip_inventory, run_storage_garbage_collection
+from tip_common.redis_cache import cached_call
 from tip_common.security import AuthenticatedUser, require_admin
 from tip_common.storage import get_object_storage
 from tip_common.system_settings import (
@@ -53,10 +54,24 @@ async def get_storage_gc_analytics(
     _: AuthenticatedUser = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ) -> StorageGcAnalyticsResponse:
-    settings = await get_gc_settings(db)
-    retention_days = int(settings["retention_days"])
-    raw = await get_generation_analytics(db, retention_days)
-    return StorageGcAnalyticsResponse.model_validate(raw)
+    app_settings = get_settings()
+    gc_settings = await get_gc_settings(db)
+    retention_days = int(gc_settings["retention_days"])
+
+    async def _load() -> StorageGcAnalyticsResponse:
+        raw = await get_generation_analytics(db, retention_days)
+        return StorageGcAnalyticsResponse.model_validate(raw)
+
+    return await cached_call(
+        redis_url=app_settings.redis_url,
+        namespace="docgen:storage-analytics",
+        key_parts={"retention_days": retention_days},
+        ttl_seconds=app_settings.cache_ttl_stats_seconds,
+        enabled=app_settings.cache_enabled,
+        factory=_load,
+        serialize=lambda response: response.model_dump(mode="json"),
+        deserialize=lambda data: StorageGcAnalyticsResponse.model_validate(data),
+    )
 
 
 @router.get("/config", response_model=StorageGcConfigResponse)
