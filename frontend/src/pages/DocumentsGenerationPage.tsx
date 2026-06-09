@@ -5,6 +5,7 @@ import AdminBreadcrumb from "../components/common/AdminBreadcrumb";
 import ComponentCard from "../components/common/ComponentCard";
 import PageMeta from "../components/common/PageMeta";
 import AuthLoadingScreen from "../components/auth/AuthLoadingScreen";
+import TipAnimatedLogo from "../components/brand/TipAnimatedLogo";
 import Label from "../components/form/Label";
 import Input from "../components/form/input/InputField";
 import Select from "../components/form/Select";
@@ -678,10 +679,7 @@ export default function DocumentsGenerationPage() {
                     aria-live="polite"
                     aria-busy="true"
                   >
-                    <div
-                      className="size-5 shrink-0 animate-spin rounded-full border-2 border-brand-500/30 border-t-brand-500"
-                      aria-hidden="true"
-                    />
+                    <TipAnimatedLogo size="xs" iconOnly animate className="shrink-0" />
                     <span>{t("documents.loadingThemeSuggestion")}</span>
                   </div>
                 ) : (

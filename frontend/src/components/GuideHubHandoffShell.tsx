@@ -1,4 +1,5 @@
 import type { ReactNode } from "react";
+import TipAnimatedLogo from "./brand/TipAnimatedLogo";
 
 type GuideHubHandoffShellProps = {
   title: string;
@@ -37,10 +38,7 @@ export function GuideHubHandoffShell({
           >
             <div className="flex items-center gap-3.5">
               {!error ? (
-                <div
-                  className="size-5 shrink-0 animate-spin rounded-full border-2 border-gray-200 border-t-brand-500"
-                  aria-hidden
-                />
+                <TipAnimatedLogo size="xs" iconOnly animate className="shrink-0" />
               ) : null}
               <p
                 role="status"

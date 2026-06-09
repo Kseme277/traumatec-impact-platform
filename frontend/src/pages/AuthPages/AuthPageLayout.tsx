@@ -1,4 +1,5 @@
 import React from "react";
+import TipAnimatedLogo from "../../components/brand/TipAnimatedLogo";
 import GridShape from "../../components/common/GridShape";
 import { Link } from "react-router";
 import ThemeTogglerTwo from "../../components/common/ThemeTogglerTwo";
@@ -17,17 +18,16 @@ export default function AuthLayout({
             {/* <!-- ===== Common Grid Shape Start ===== --> */}
             <GridShape />
             <div className="flex flex-col items-center max-w-xs">
-              <Link to="/" className="block mb-4">
-                <img
-                  width={231}
-                  height={48}
-                  src="/images/logo/auth-logo.svg"
-                  alt="Traumatec Impact Platform"
+              <Link to="/" className="mb-4 block">
+                <TipAnimatedLogo
+                  size="lg"
+                  variant="onDark"
+                  showWordmark
+                  showPlatformName
+                  showSlogan
+                  animate
                 />
               </Link>
-              <p className="text-center text-gray-400 dark:text-white/60">
-                Plateforme de préparation des dossiers AO Alliance
-              </p>
             </div>
           </div>
         </div>

@@ -1,3 +1,4 @@
+import TipAnimatedLogo from "../../components/brand/TipAnimatedLogo";
 import PageMeta from "../../components/common/PageMeta";
 import { useTipAuth } from "../../context/TipAuthContext";
 import { useTranslation } from "../../i18n/useTranslation";
@@ -10,7 +11,8 @@ export default function Home() {
 
   if (isLoading || !tipUser) {
     return (
-      <div className="flex min-h-[40vh] items-center justify-center">
+      <div className="flex min-h-[40vh] flex-col items-center justify-center gap-4">
+        <TipAnimatedLogo size="lg" showWordmark showPlatformName showSlogan animate />
         <p className="text-sm text-slate-500">{t("dashboard.loading")}</p>
       </div>
     );

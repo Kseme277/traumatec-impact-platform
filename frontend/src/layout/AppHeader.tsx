@@ -1,6 +1,7 @@
 import { useState } from "react";
 
 import { Link } from "react-router";
+import TipAnimatedLogo from "../components/brand/TipAnimatedLogo";
 import { useSidebar } from "../context/SidebarContext";
 import { ThemeToggleButton } from "../components/common/ThemeToggleButton";
 import GlobalSearch from "../components/header/GlobalSearch";
@@ -68,16 +69,7 @@ const AppHeader: React.FC = () => {
           </button>
 
           <Link to="/" className="lg:hidden">
-            <img
-              className="dark:hidden"
-              src="./images/logo/logo.svg"
-              alt="Logo"
-            />
-            <img
-              className="hidden dark:block"
-              src="./images/logo/logo-dark.svg"
-              alt="Logo"
-            />
+            <TipAnimatedLogo size="sm" showWordmark animate />
           </Link>
 
           <button

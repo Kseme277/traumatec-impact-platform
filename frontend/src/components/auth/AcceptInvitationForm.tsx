@@ -2,6 +2,7 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router";
 import { useAuth, useSignIn, useSignUp } from "@clerk/clerk-react";
 import { isClerkAPIResponseError } from "@clerk/clerk-react/errors";
+import TipAnimatedLogo from "../brand/TipAnimatedLogo";
 import { useTranslation } from "../../i18n/useTranslation";
 import { ChevronLeftIcon, EyeCloseIcon, EyeIcon } from "../../icons";
 import Label from "../form/Label";
@@ -155,7 +156,7 @@ export default function AcceptInvitationForm() {
   if (isSigningOut || !authLoaded || !sessionReady) {
     return (
       <div className="flex flex-1 flex-col items-center justify-center gap-2 px-6">
-        <div className="h-8 w-8 animate-spin rounded-full border-2 border-brand-500 border-t-transparent" />
+        <TipAnimatedLogo size="xs" iconOnly animate />
         <p className="text-center text-sm text-gray-500 dark:text-gray-400">
           {isSigningOut ? t("auth.signingOutForInvitation") : t("auth.activating")}
         </p>

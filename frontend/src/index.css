@@ -824,3 +824,117 @@ input:-webkit-autofill:focus {
   caret-color: rgb(255 255 255 / 0.9);
   -webkit-box-shadow: 0 0 0 1000px rgb(17 24 39) inset;
 }
+
+/* Logo TIP — tracé vectoriel animé (couleurs brand du site) */
+@keyframes tip-logo-stroke {
+  50% {
+    stroke-dashoffset: 0;
+  }
+}
+
+@keyframes tip-logo-fill {
+  0%,
+  48% {
+    fill-opacity: 0;
+    stroke-opacity: 1;
+  }
+  58%,
+  100% {
+    fill-opacity: 1;
+    stroke-opacity: 0.4;
+  }
+}
+
+.tip-logo--default .tip-logo-path {
+  stroke: var(--color-brand-500);
+  fill: var(--color-brand-500);
+}
+
+.tip-logo--on-dark .tip-logo-path {
+  stroke: var(--color-brand-300);
+  fill: var(--color-brand-300);
+}
+
+.tip-logo__svg {
+  overflow: visible;
+  filter: drop-shadow(0 2px 8px rgb(70 95 255 / 0.28));
+}
+
+.tip-logo {
+  overflow: visible;
+}
+
+.tip-logo--default .tip-logo__platform {
+  color: rgb(70 95 255 / 0.1);
+}
+
+.dark .tip-logo--default .tip-logo__platform {
+  color: rgb(117 146 255 / 0.14);
+}
+
+.tip-logo--on-dark .tip-logo__platform {
+  color: rgb(255 255 255 / 0.08);
+}
+
+.tip-logo--default .tip-logo__slogan {
+  color: rgb(70 95 255 / 0.72);
+}
+
+.dark .tip-logo--default .tip-logo__slogan {
+  color: rgb(117 146 255 / 0.78);
+}
+
+.tip-logo--on-dark .tip-logo__slogan {
+  color: rgb(255 255 255 / 0.55);
+}
+
+.tip-logo-path {
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  paint-order: stroke fill;
+}
+
+.tip-logo-path--short,
+.tip-logo-path--long,
+.tip-logo-path--letter-t,
+.tip-logo-path--letter-i,
+.tip-logo-path--letter-p {
+  animation:
+    tip-logo-stroke 3.5s ease-in-out infinite,
+    tip-logo-fill 3.5s ease-in-out infinite;
+}
+
+.tip-logo-path--long {
+  animation-delay: 0.12s, 0.12s;
+}
+
+.tip-logo-path--letter-t {
+  animation-delay: 0.35s, 0.35s;
+}
+
+.tip-logo-path--letter-i {
+  animation-delay: 0.5s, 0.5s;
+}
+
+.tip-logo-path--letter-p {
+  animation-delay: 0.65s, 0.65s;
+}
+
+.tip-logo-path--static {
+  stroke-dashoffset: 0;
+  fill-opacity: 1;
+  stroke-opacity: 0.35;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tip-logo-path--short,
+  .tip-logo-path--long,
+  .tip-logo-path--letter-t,
+  .tip-logo-path--letter-i,
+  .tip-logo-path--letter-p {
+    animation: none;
+    stroke-dashoffset: 0;
+    fill-opacity: 1;
+    stroke-opacity: 0.4;
+  }
+}

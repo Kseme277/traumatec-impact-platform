@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate } from "react-router";
 import { useAuth, useSignIn } from "@clerk/clerk-react";
 import { isClerkAPIResponseError } from "@clerk/clerk-react/errors";
 import { mapClerkSignInError } from "../../features/auth/clerkErrors";
+import TipAnimatedLogo from "../brand/TipAnimatedLogo";
 import { useTranslation } from "../../i18n/useTranslation";
 import { ChevronLeftIcon, EyeCloseIcon, EyeIcon } from "../../icons";
 import Label from "../form/Label";
@@ -94,6 +95,9 @@ export default function SignInForm() {
       <div className="flex flex-col justify-center flex-1 w-full max-w-md mx-auto">
         <div>
           <div className="mb-5 sm:mb-8">
+            <div className="mb-6 flex justify-center lg:hidden">
+              <TipAnimatedLogo size="md" showWordmark showPlatformName showSlogan animate />
+            </div>
             <h1 className="mb-2 font-semibold text-gray-800 text-title-sm dark:text-white/90 sm:text-title-md">
               {t("auth.signIn")}
             </h1>

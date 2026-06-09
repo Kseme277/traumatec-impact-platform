@@ -2,6 +2,7 @@ import { useAuth } from "@clerk/clerk-react";
 import { Bell, CheckCircle2, Loader2, XCircle } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import { Link } from "react-router";
+import TipAnimatedLogo from "../components/brand/TipAnimatedLogo";
 import PageMeta from "../components/common/PageMeta";
 import Badge from "../components/ui/badge/Badge";
 import { fetchRecentGenerationJobs, type GenerationNotification } from "../api/docgen";
@@ -70,9 +71,9 @@ export default function NotificationsPage() {
       </div>
 
       {isLoading && items.length === 0 ? (
-        <div className="flex items-center gap-2 text-sm text-gray-500">
-          <Loader2 className="size-4 animate-spin" />
-          {t("common.loading")}
+        <div className="flex flex-col items-start gap-3 py-8">
+          <TipAnimatedLogo size="md" showWordmark showPlatformName animate />
+          <p className="text-sm text-gray-500">{t("common.loading")}</p>
         </div>
       ) : null}
 
