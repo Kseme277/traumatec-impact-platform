@@ -8,8 +8,7 @@ import os
 import re
 from typing import Any
 
-import httpx
-
+from tip_common.nvidia_client import nvidia_chat_completion
 from tip_common.package_types import (
     ALL_PACKAGE_TYPES,
     PACKAGE_TYPE_SPECS,
@@ -18,23 +17,6 @@ from tip_common.package_types import (
 )
 
 logger = logging.getLogger(__name__)
-
-def _nvidia_chat_completions_url() -> str:
-    explicit = os.getenv("NVIDIA_API_URL", "").strip().rstrip("/")
-    if explicit:
-        return explicit
-    base = os.getenv("NVIDIA_API_BASE_URL", "https://integrate.api.nvidia.com/v1").strip().rstrip("/")
-    return f"{base}/chat/completions"
-
-
-NVIDIA_MODEL = os.getenv(
-    "NVIDIA_CLASSIFIER_MODEL",
-    "meta/llama-3.3-70b-instruct",
-)
-NVIDIA_TEMPERATURE = float(os.getenv("NVIDIA_CLASSIFIER_TEMPERATURE", "0.2"))
-NVIDIA_TOP_P = float(os.getenv("NVIDIA_CLASSIFIER_TOP_P", "0.7"))
-NVIDIA_MAX_TOKENS = int(os.getenv("NVIDIA_CLASSIFIER_MAX_TOKENS", "256"))
-
 
 def _rules_fallback(event: dict[str, Any]) -> dict | None:
     result = describe_inferred_event_package(
@@ -91,27 +73,13 @@ async def classify_event_package(
         '"preparation_theme":"pbo|operatory|iec","confidence":0.9}'
     )
 
-    try:
-        async with httpx.AsyncClient(timeout=60.0) as client:
-            response = await client.post(
-                _nvidia_chat_completions_url(),
-                headers={
-                    "Authorization": f"Bearer {key}",
-                    "Content-Type": "application/json",
-                },
-                json={
-                    "model": NVIDIA_MODEL,
-                    "messages": [{"role": "user", "content": prompt}],
-                    "temperature": NVIDIA_TEMPERATURE,
-                    "top_p": NVIDIA_TOP_P,
-                    "max_tokens": NVIDIA_MAX_TOKENS,
-                    "stream": False,
-                },
-            )
-            response.raise_for_status()
-            content = response.json()["choices"][0]["message"]["content"]
-    except Exception as exc:
-        logger.warning("NVIDIA classifier → règles métier : %s", exc)
+    content, error = await nvidia_chat_completion(
+        messages=[{"role": "user", "content": prompt}],
+        timeout=60.0,
+        api_key=key,
+    )
+    if not content:
+        logger.warning("NVIDIA classifier → règles métier : %s", error)
         return rules
 
     match = re.search(r"\{[^{}]+\}", content)
@@ -165,27 +133,13 @@ async def enrich_event_fields_with_ai(event: dict[str, Any]) -> dict[str, str] |
         '"lieu_complet":"…"} — laisse vide si inconnu.'
     )
 
-    try:
-        async with httpx.AsyncClient(timeout=30.0) as client:
-            response = await client.post(
-                _nvidia_chat_completions_url(),
-                headers={
-                    "Authorization": f"Bearer {key}",
-                    "Content-Type": "application/json",
-                },
-                json={
-                    "model": NVIDIA_MODEL,
-                    "messages": [{"role": "user", "content": prompt}],
-                    "temperature": NVIDIA_TEMPERATURE,
-                    "top_p": NVIDIA_TOP_P,
-                    "max_tokens": 200,
-                    "stream": False,
-                },
-            )
-            response.raise_for_status()
-            content = response.json()["choices"][0]["message"]["content"]
-    except Exception as exc:
-        logger.warning("NVIDIA enrichissement contexte → ignoré : %s", exc)
+    content, error = await nvidia_chat_completion(
+        messages=[{"role": "user", "content": prompt}],
+        max_tokens=200,
+        timeout=30.0,
+    )
+    if not content:
+        logger.warning("NVIDIA enrichissement contexte → ignoré : %s", error)
         return None
 
     match = re.search(r"\{[^{}]+\}", content)

@@ -20,11 +20,7 @@ async def format_event_labels_with_ai(event: dict[str, Any]) -> dict[str, Any]:
     if not key:
         return {}
 
-    import httpx
-
-    from tip_common.template_field_analyzer import _nvidia_url
-
-    model = os.getenv("NVIDIA_CLASSIFIER_MODEL", "meta/llama-3.3-70b-instruct")
+    from tip_common.nvidia_client import nvidia_chat_completion
     payload_event = {
         "project_number": event.get("project_number"),
         "title": event.get("title"),
@@ -51,23 +47,14 @@ async def format_event_labels_with_ai(event: dict[str, Any]) -> dict[str, Any]:
         '"date_single_formatted":"…","header_lieu_date":"…","responsible_formatted":"…"}'
     )
 
-    try:
-        async with httpx.AsyncClient(timeout=45.0) as client:
-            response = await client.post(
-                _nvidia_url(),
-                headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"},
-                json={
-                    "model": model,
-                    "messages": [{"role": "user", "content": prompt}],
-                    "temperature": 0.15,
-                    "max_tokens": 800,
-                    "stream": False,
-                },
-            )
-            response.raise_for_status()
-            content = response.json()["choices"][0]["message"]["content"]
-    except Exception as exc:
-        logger.warning("Formatage IA titres : %s", exc)
+    content, error = await nvidia_chat_completion(
+        messages=[{"role": "user", "content": prompt}],
+        temperature=0.15,
+        max_tokens=800,
+        timeout=45.0,
+    )
+    if not content:
+        logger.warning("Formatage IA titres : %s", error)
         return {}
 
     match = re.search(r"\{.*\}", content, re.DOTALL)

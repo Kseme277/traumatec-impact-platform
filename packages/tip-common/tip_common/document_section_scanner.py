@@ -392,11 +392,8 @@ async def _nvidia_classify_batch(
     if not key or not sections:
         return None
 
-    import httpx
-
-    from tip_common.template_field_analyzer import CONTEXT_KEYS, _nvidia_url
-
-    model = os.getenv("NVIDIA_CLASSIFIER_MODEL", "meta/llama-3.3-70b-instruct")
+    from tip_common.nvidia_client import nvidia_chat_completion
+    from tip_common.template_field_analyzer import CONTEXT_KEYS
     lines = [f"[{s.location}] {s.text[:220]}" for s in sections]
     prompt = (
         "Analyse EXHAUSTIVE d'un modèle AO Alliance. Liste TOUTES les sections à remplacer par les données événement.\n"
@@ -413,23 +410,14 @@ async def _nvidia_classify_batch(
         'JSON : {"sections":[{"sample":"…","context_key":"title","strategy":"replace","format_hint":"…"}]}'
     )
 
-    try:
-        async with httpx.AsyncClient(timeout=120.0) as client:
-            response = await client.post(
-                _nvidia_url(),
-                headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"},
-                json={
-                    "model": model,
-                    "messages": [{"role": "user", "content": prompt}],
-                    "temperature": 0.05,
-                    "max_tokens": 3500,
-                    "stream": False,
-                },
-            )
-            response.raise_for_status()
-            content = response.json()["choices"][0]["message"]["content"]
-    except Exception as exc:
-        logger.warning("NVIDIA batch %s %s : %s", filename, batch_index, exc)
+    content, error = await nvidia_chat_completion(
+        messages=[{"role": "user", "content": prompt}],
+        temperature=0.05,
+        max_tokens=3500,
+        timeout=120.0,
+    )
+    if not content:
+        logger.warning("NVIDIA batch %s %s : %s", filename, batch_index, error)
         return None
 
     match = re.search(r"\{.*\}", content, re.DOTALL)

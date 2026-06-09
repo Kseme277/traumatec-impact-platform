@@ -197,9 +197,8 @@ async def _nvidia_analyze_fields(
     if not key or not samples:
         return None
 
-    import httpx
+    from tip_common.nvidia_client import nvidia_chat_completion
 
-    model = os.getenv("NVIDIA_CLASSIFIER_MODEL", "meta/llama-3.3-70b-instruct")
     samples_text = "\n".join(f"- {s}" for s in samples[:10])
     prompt = (
         "Tu analyses un modèle documentaire AO Alliance pour la génération automatique.\n"
@@ -212,23 +211,14 @@ async def _nvidia_analyze_fields(
         '"strategy":"replace|keep|review","note":"…"}]}'
     )
 
-    try:
-        async with httpx.AsyncClient(timeout=45.0) as client:
-            response = await client.post(
-                _nvidia_url(),
-                headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"},
-                json={
-                    "model": model,
-                    "messages": [{"role": "user", "content": prompt}],
-                    "temperature": 0.15,
-                    "max_tokens": 600,
-                    "stream": False,
-                },
-            )
-            response.raise_for_status()
-            content = response.json()["choices"][0]["message"]["content"]
-    except Exception as exc:
-        logger.warning("NVIDIA analyse template %s → règles : %s", filename, exc)
+    content, error = await nvidia_chat_completion(
+        messages=[{"role": "user", "content": prompt}],
+        temperature=0.15,
+        max_tokens=600,
+        timeout=45.0,
+    )
+    if not content:
+        logger.warning("NVIDIA analyse template %s → règles : %s", filename, error)
         return None
 
     match = re.search(r"\{.*\}", content, re.DOTALL)
