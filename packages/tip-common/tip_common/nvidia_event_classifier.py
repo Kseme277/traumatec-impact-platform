@@ -14,9 +14,12 @@ from tip_common.package_types import (
     PACKAGE_TYPE_SPECS,
     _event_duration_days,
     describe_inferred_event_package,
+    list_package_candidates_for_event,
+    normalize_package_type,
 )
 
 logger = logging.getLogger(__name__)
+
 
 def _rules_fallback(event: dict[str, Any]) -> dict | None:
     result = describe_inferred_event_package(
@@ -25,6 +28,7 @@ def _rules_fallback(event: dict[str, Any]) -> dict | None:
         title=event.get("title"),
         start_date=event.get("start_date"),
         end_date=event.get("end_date"),
+        metadata_json=event.get("metadata_json"),
     )
     if result:
         result["classifier"] = "rules"
@@ -33,6 +37,45 @@ def _rules_fallback(event: dict[str, Any]) -> dict | None:
 
 def _generation_use_ai() -> bool:
     return os.getenv("DOCGEN_GENERATION_USE_AI", "").lower() in ("1", "true", "yes")
+
+
+def _apply_ai_choice(
+    event: dict[str, Any],
+    rules: dict | None,
+    package_type: str,
+    *,
+    confidence: float,
+    preparation_theme: str | None = None,
+) -> dict | None:
+    canonical = normalize_package_type(package_type) or package_type
+    if canonical not in PACKAGE_TYPE_SPECS:
+        return rules
+    spec = PACKAGE_TYPE_SPECS[canonical]
+    theme = preparation_theme or event.get("preparation_theme") or spec.preparation_theme
+    candidates = list_package_candidates_for_event(
+        preparation_theme=theme,
+        event_type=event.get("event_type"),
+        title=event.get("title"),
+        start_date=event.get("start_date"),
+        end_date=event.get("end_date"),
+        metadata_json=event.get("metadata_json"),
+    )
+    for item in candidates:
+        item["suggested"] = item["package_type"] == canonical
+        if item["suggested"]:
+            item["score"] = confidence
+    return {
+        "package_type": canonical,
+        "package_label": spec.label,
+        "activity_kind": spec.activity_kind,
+        "activity_label": spec.activity_label,
+        "preparation_theme": theme,
+        "duration_days": _event_duration_days(event.get("start_date"), event.get("end_date")),
+        "expected_package_days": spec.duration_days,
+        "package_candidates": candidates,
+        "classifier": "nvidia",
+        "confidence": confidence,
+    }
 
 
 async def classify_event_package(
@@ -49,7 +92,6 @@ async def classify_event_package(
     if use_ai is None:
         use_ai = _generation_use_ai()
 
-    # Génération doc : règles métier si thème ou type déjà déductibles (évite 60s+ NVIDIA).
     if not use_ai and rules and rules.get("package_type"):
         return rules
 
@@ -57,20 +99,34 @@ async def classify_event_package(
     if not key:
         return rules
 
-    types_help = ", ".join(
-        f"{code} ({spec.activity_label} {spec.label}, thème {spec.preparation_theme}, {spec.duration_days}j)"
-        for code, spec in PACKAGE_TYPE_SPECS.items()
+    candidates = list_package_candidates_for_event(
+        preparation_theme=event.get("preparation_theme"),
+        event_type=event.get("event_type"),
+        title=event.get("title"),
+        start_date=event.get("start_date"),
+        end_date=event.get("end_date"),
+        metadata_json=event.get("metadata_json"),
     )
+    if not candidates:
+        return rules
+
+    choices_help = "\n".join(
+        f"- {c['package_type']} ({c['package_label']}, thème {c.get('preparation_theme') or 'faculty'}, "
+        f"{c['expected_package_days']}j)"
+        for c in candidates
+    )
+    valid_codes = "|".join(c["package_type"] for c in candidates)
     prompt = (
-        "Tu classes des événements AO Alliance vers un type de paquet documentaire.\n"
-        f"Types valides : {types_help}\n\n"
+        "Tu classes des événements AO Alliance vers UN type de paquet documentaire.\n"
+        "Choisis UNIQUEMENT parmi les options suivantes (format + thème) :\n"
+        f"{choices_help}\n\n"
         f"Activité : {event.get('event_type') or '—'}\n"
         f"Titre : {event.get('title') or '—'}\n"
         f"Thème TIP : {event.get('preparation_theme') or '—'}\n"
         f"Début : {event.get('start_date') or '—'}\n"
         f"Fin : {event.get('end_date') or '—'}\n\n"
-        'Réponds UNIQUEMENT en JSON : {"package_type":"ORP_S|ORP_C|OP_C|NONOP_C|IEC_S|FET",'
-        '"preparation_theme":"pbo|operatory|iec","confidence":0.9}'
+        f'Réponds UNIQUEMENT en JSON : {{"package_type":"{valid_codes}",'
+        '"preparation_theme":"pbo|operatory|iec|null","confidence":0.9}'
     )
 
     content, error = await nvidia_chat_completion(
@@ -92,22 +148,19 @@ async def classify_event_package(
         return rules
 
     package_type = str(parsed.get("package_type", "")).upper().replace("-", "_")
-    if package_type not in ALL_PACKAGE_TYPES:
+    allowed = {c["package_type"] for c in candidates}
+    if package_type not in allowed:
         return rules
 
-    spec = PACKAGE_TYPE_SPECS[package_type]
-    theme = parsed.get("preparation_theme") or event.get("preparation_theme") or spec.preparation_theme
-    return {
-        "package_type": package_type,
-        "package_label": spec.label,
-        "activity_kind": spec.activity_kind,
-        "activity_label": spec.activity_label,
-        "preparation_theme": theme,
-        "duration_days": _event_duration_days(event.get("start_date"), event.get("end_date")),
-        "expected_package_days": spec.duration_days,
-        "classifier": "nvidia",
-        "confidence": float(parsed.get("confidence", 0.5)),
-    }
+    theme_raw = parsed.get("preparation_theme")
+    theme = None if theme_raw in (None, "", "null") else str(theme_raw)
+    return _apply_ai_choice(
+        event,
+        rules,
+        package_type,
+        confidence=float(parsed.get("confidence", 0.5)),
+        preparation_theme=theme,
+    )
 
 
 async def enrich_event_fields_with_ai(event: dict[str, Any]) -> dict[str, str] | None:

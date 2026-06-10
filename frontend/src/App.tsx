@@ -20,6 +20,9 @@ import EvenementsPage from "./pages/EvenementsPage";
 import EvenementDetailPage from "./pages/EvenementDetailPage";
 import EvenementCreatePage from "./pages/EvenementCreatePage";
 import EvenementEditPage from "./pages/EvenementEditPage";
+import CertificatesPage from "./pages/CertificatesPage";
+import EventParticipantsPage from "./pages/EventParticipantsPage";
+import ParticipantDetailPage from "./pages/ParticipantDetailPage";
 import ProtectedRoute from "./features/auth/ProtectedRoute";
 import SignIn from "./pages/AuthPages/SignIn";
 import ResetPassword from "./pages/AuthPages/ResetPassword";
@@ -60,6 +63,9 @@ export default function App() {
             <Route path="/evenements/nouveau" element={<EvenementCreatePage />} />
             <Route path="/evenements/:id" element={<EvenementDetailPage />} />
             <Route path="/evenements/:id/modifier" element={<EvenementEditPage />} />
+            <Route path="/certificats" element={<CertificatesPage />} />
+            <Route path="/certificats/participants/:participantId" element={<ParticipantDetailPage />} />
+            <Route path="/evenements/:id/participants" element={<EventParticipantsPage />} />
             <Route path="/documents/templates" element={<DocumentsTemplatesPage />} />
             <Route path="/documents/generation" element={<DocumentsGenerationPage />} />
             <Route path="/notifications" element={<NotificationsPage />} />

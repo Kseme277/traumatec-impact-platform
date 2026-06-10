@@ -78,7 +78,7 @@ async def _list_templates_impl(
 @router.get("/", response_model=list[PackageTemplateResponse])
 async def list_templates(
     theme: str | None = Query(default=None, description="pbo | operatory | iec"),
-    package_type: str | None = Query(default=None, description="ORP_S, OP_C, …"),
+    package_type: str | None = Query(default=None, description="OP_S, PBO_S, IEC_S, OP_C, …"),
     bundle_id: UUID | None = Query(default=None),
     _: AuthenticatedUser = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),

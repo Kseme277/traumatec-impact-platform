@@ -22,20 +22,29 @@ import { fetchEvent, updateEvent } from "../api/events";
 import { fetchPackageBundles, fetchTemplates } from "../api/catalog";
 import type { PackageBundle, PackageTemplate } from "../features/documents/types";
 import { templateFileExtension } from "../features/documents/templateFileExtension";
-import { filterTemplatesByPackageDuration } from "../features/documents/templateDurationFilter";
+import {
+  effectiveListDays,
+  filterTemplatesByPackageDuration,
+} from "../features/documents/templateDurationFilter";
 import { useEvents } from "../features/events/useEvents";
-import type { Evenement, PreparationTheme } from "../features/events/types";
+import type { Evenement, EvenementFilters, PreparationTheme } from "../features/events/types";
 import { statusColor, statusLabel, themeLabel } from "../features/events/types";
 import {
+  distinctEventTypeFilterOptions,
+  eventMatchesEventTypeFilter,
   eventMatchesSearch,
   formatEventDateRange,
   isGeneratableEvent,
   isUpcomingEvent,
 } from "../features/events/eventDates";
+import { isEventOpen } from "../features/events/projectStatus";
+import type { PackageCandidate } from "../features/events/types";
 import {
+  inferActivityKind,
   isPreparationTheme,
+  packageTypeLabel,
   suggestPreparationTheme,
-  themeRequiredOptions,
+  themeFormOptionsForEvent,
 } from "../features/events/themeOptions";
 import {
   downloadGenerationZip,
@@ -66,11 +75,10 @@ function isValidResponsibleEmail(email: string): boolean {
 function eventOptionLabel(event: Evenement): string {
   const dates = formatEventDateRange(event);
   const shortTitle = event.title.length > 36 ? `${event.title.slice(0, 36)}…` : event.title;
-  const activity =
-    event.inferred_package?.activity_label ||
-    event.inferred_package?.package_type ||
-    event.event_type ||
-    "";
+  const pkgCode = event.inferred_package?.package_type;
+  const activity = pkgCode
+    ? (event.inferred_package?.package_label || pkgCode)
+    : (event.event_type || "");
   const parts = [event.project_number];
   if (activity) parts.push(activity);
   parts.push(shortTitle, dates);
@@ -97,9 +105,14 @@ export default function DocumentsGenerationPage() {
   const [responsibleEmail, setResponsibleEmail] = useState("");
   const [responsiblePhone, setResponsiblePhone] = useState("");
 
+  const generationEventFilters = useMemo<EvenementFilters>(
+    () => ({ upcoming: true, project_status: "Open" }),
+    [],
+  );
+
   useEffect(() => {
-    void loadEvents({ upcoming: true });
-  }, [loadEvents]);
+    void loadEvents(generationEventFilters);
+  }, [generationEventFilters, loadEvents]);
 
   useEffect(() => {
     if (!selectedEventId) {
@@ -148,7 +161,10 @@ export default function DocumentsGenerationPage() {
           active ? { bundleId: active.id } : { packageType },
         );
         if (!cancelled) {
-          const maxDays = detail.inferred_package?.expected_package_days ?? 3;
+          const maxDays = effectiveListDays(
+            detail.inferred_package?.duration_days ?? 1,
+            detail.inferred_package?.expected_package_days ?? 3,
+          );
           setEventPackageFiles(filterTemplatesByPackageDuration(files, maxDays));
         }
       } catch {
@@ -174,28 +190,21 @@ export default function DocumentsGenerationPage() {
     [events],
   );
 
-  const eventTypeOptions = useMemo(() => {
-    const types = new Set<string>();
-    for (const event of generatableEvents) {
-      const label =
-        event.inferred_package?.activity_label ||
-        event.inferred_package?.package_type ||
-        event.event_type;
-      if (label) types.add(label);
+  const eventTypeOptions = useMemo(
+    () => distinctEventTypeFilterOptions(generatableEvents),
+    [generatableEvents],
+  );
+
+  useEffect(() => {
+    if (!eventTypeFilter) return;
+    if (!eventTypeOptions.some((option) => option.value === eventTypeFilter)) {
+      setEventTypeFilter("");
     }
-    return [...types].sort((a, b) => a.localeCompare(b, localeTag)).map((value) => ({ value, label: value }));
-  }, [generatableEvents, localeTag]);
+  }, [eventTypeFilter, eventTypeOptions]);
 
   const filteredGeneratableEvents = useMemo(() => {
     return generatableEvents.filter((event) => {
-      if (eventTypeFilter) {
-        const activity =
-          event.inferred_package?.activity_label ||
-          event.inferred_package?.package_type ||
-          event.event_type ||
-          "";
-        if (activity !== eventTypeFilter) return false;
-      }
+      if (!eventMatchesEventTypeFilter(event, eventTypeFilter)) return false;
       return eventMatchesSearch(event, eventSearchQuery);
     });
   }, [eventSearchQuery, eventTypeFilter, generatableEvents]);
@@ -275,6 +284,9 @@ export default function DocumentsGenerationPage() {
   );
 
   const selectedIsGeneratable = selectedEvent ? isGeneratableEvent(selectedEvent) : false;
+  const inferredPackage = eventDetail?.inferred_package ?? selectedEvent?.inferred_package ?? null;
+  const packageCandidates = inferredPackage?.package_candidates ?? [];
+  const isFacultyEvent = selectedEvent ? inferActivityKind(selectedEvent) === "faculty" : false;
   const suggestedTheme = themeSourceEvent ? suggestPreparationTheme(themeSourceEvent) : "";
   const effectiveTheme =
     selectedEvent?.preparation_theme
@@ -283,13 +295,36 @@ export default function DocumentsGenerationPage() {
     selectedEvent && selectedIsGeneratable && !selectedEvent.preparation_theme,
   );
   const needsTheme = Boolean(
-    showThemePanel && !themeInferenceLoading && !isPreparationTheme(themeDraft),
+    showThemePanel
+    && !themeInferenceLoading
+    && !isFacultyEvent
+    && !isPreparationTheme(themeDraft)
+    && packageCandidates.length === 0,
   );
   const needsContact = Boolean(
     selectedEvent && selectedIsGeneratable && (!responsibleEmail.trim() || !responsiblePhone.trim()),
   );
   const contactEmailInvalid = Boolean(responsibleEmail.trim() && !isValidResponsibleEmail(responsibleEmail));
-  const inferredPackage = eventDetail?.inferred_package ?? selectedEvent?.inferred_package ?? null;
+  const themeSelectOptions = useMemo(() => {
+    if (!selectedEvent) return [];
+    return themeFormOptionsForEvent(selectedEvent, t).filter((opt) => opt.value !== "");
+  }, [selectedEvent, t]);
+
+  const applyPackageCandidate = async (candidate: PackageCandidate) => {
+    if (!selectedEvent) return;
+    const override = candidate.package_type === "NONOP_C" ? "NONOP_C" : null;
+    const updated = await update(selectedEvent.id, {
+      preparation_theme: (candidate.preparation_theme as PreparationTheme | null) || null,
+      package_type_override: override,
+    });
+    if (updated) {
+      setEventDetail(updated);
+      if (candidate.preparation_theme && isPreparationTheme(candidate.preparation_theme)) {
+        setThemeDraft(candidate.preparation_theme);
+      }
+      await loadEvents(generationEventFilters);
+    }
+  };
 
   const classifierLabel = (classifier?: string | null): string => {
     if (classifier === "nvidia") return t("documents.classifierNvidia");
@@ -323,7 +358,7 @@ export default function DocumentsGenerationPage() {
         responsible_phone: phone,
       });
       setEventDetail(updated);
-      await loadEvents({ upcoming: true });
+      await loadEvents(generationEventFilters);
       return updated;
     } catch (err) {
       const message = err instanceof ApiError ? err.message : t("profile.saveFailed");
@@ -344,7 +379,7 @@ export default function DocumentsGenerationPage() {
         const updated = await updateEvent(token, selectedEvent.id, {
           preparation_theme: themeDraft,
         });
-        await loadEvents({ upcoming: true });
+        await loadEvents(generationEventFilters);
         return updated;
       } catch (err) {
         const message = err instanceof ApiError ? err.message : t("profile.saveFailed");
@@ -354,7 +389,7 @@ export default function DocumentsGenerationPage() {
     }
     const updated = await update(selectedEvent.id, { preparation_theme: themeDraft });
     if (updated) {
-      await loadEvents({ upcoming: true });
+      await loadEvents(generationEventFilters);
     }
     return updated;
   };
@@ -406,7 +441,10 @@ export default function DocumentsGenerationPage() {
 
     let eventForGeneration = selectedEvent;
 
-    if (!eventForGeneration.preparation_theme) {
+    const canGenerateWithoutTheme =
+      isFacultyEvent
+      || eventForGeneration.inferred_package?.package_type === "FET";
+    if (!eventForGeneration.preparation_theme && !canGenerateWithoutTheme) {
       const updated = await saveTheme({ quiet: true });
       if (!updated?.preparation_theme) {
         return;
@@ -476,9 +514,9 @@ export default function DocumentsGenerationPage() {
                   />
                 </div>
                 <div>
-                  <Label>{t("documents.filterActivity")}</Label>
+                  <Label>{t("documents.filterEventType")}</Label>
                   <Select
-                    placeholder={t("documents.allActivities")}
+                    placeholder={t("documents.allEventTypes")}
                     options={eventTypeOptions}
                     value={eventTypeFilter}
                     onChange={(value) => setEventTypeFilter(value)}
@@ -508,11 +546,13 @@ export default function DocumentsGenerationPage() {
                       {excludedReady.slice(0, 5).map((e) => (
                         <li key={e.id}>
                           {e.project_number} —{" "}
-                          {!e.start_date && !e.end_date
-                            ? t("documents.missingDates")
-                            : !isUpcomingEvent(e)
-                              ? t("documents.pastDates")
-                              : t("documents.notReady")}
+                          {!isEventOpen(e.project_status)
+                            ? t("documents.projectNotOpen")
+                            : !e.start_date && !e.end_date
+                              ? t("documents.missingDates")
+                              : !isUpcomingEvent(e)
+                                ? t("documents.pastDates")
+                                : t("documents.notReady")}
                           {" · "}
                           <Link to={`/evenements/${e.id}/modifier`} className="text-brand-500 hover:underline">
                             {t("common.edit")}
@@ -560,7 +600,7 @@ export default function DocumentsGenerationPage() {
                   <div className="mt-4 rounded-lg border border-brand-100 bg-brand-50/30 p-3 dark:border-brand-500/20 dark:bg-brand-500/5">
                     <div className="flex flex-wrap items-center gap-2">
                       <p className="text-sm font-medium text-gray-800 dark:text-white/90">
-                        {t("events.inferredPackage")} : {inferredPackage.package_label} ({inferredPackage.package_type})
+                        {t("events.inferredPackage")} : {packageTypeLabel(inferredPackage.package_type, t)} ({inferredPackage.package_type})
                       </p>
                       <Badge color={inferredPackage.classifier === "nvidia" ? "primary" : "light"} size="sm">
                         {classifierLabel(inferredPackage.classifier)}
@@ -684,34 +724,49 @@ export default function DocumentsGenerationPage() {
                   </div>
                 ) : (
                   <>
-                    {suggestedTheme && (
-                      <p className="mt-2 text-sm text-brand-600 dark:text-brand-400">
-                        {t("documents.themeSuggested")} : {themeLabel(suggestedTheme)}
-                        {inferredPackage?.classifier === "nvidia" && (
-                          <span className="ml-1 text-xs text-gray-500">
-                            ({t("documents.classifierNvidia")})
-                          </span>
-                        )}
-                      </p>
+                    <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">
+                      {t("events.suggestThemePick")}
+                      {inferredPackage?.classifier === "nvidia" && (
+                        <span className="ml-1 text-xs text-brand-500">
+                          ({t("documents.classifierNvidia")})
+                        </span>
+                      )}
+                    </p>
+                    {packageCandidates.length > 0 ? (
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        {packageCandidates.map((candidate) => (
+                          <Button
+                            key={candidate.package_type}
+                            size="sm"
+                            variant={candidate.suggested ? "primary" : "outline"}
+                            disabled={isSubmitting}
+                            onClick={() => void applyPackageCandidate(candidate)}
+                          >
+                            {packageTypeLabel(candidate.package_type, t)}
+                            {candidate.suggested ? ` (${t("events.suggestedPackage")})` : ""}
+                          </Button>
+                        ))}
+                      </div>
+                    ) : (
+                      <div className="mt-4 max-w-md">
+                        <Label>{t("events.theme")}</Label>
+                        <Select
+                          placeholder={t("events.chooseTheme")}
+                          options={isFacultyEvent ? [] : themeSelectOptions}
+                          value={themeDraft}
+                          onChange={(value) => setThemeDraft(value as PreparationTheme | "")}
+                        />
+                        <div className="mt-4 flex flex-wrap gap-3">
+                          <Button
+                            size="sm"
+                            disabled={isSubmitting || (!isFacultyEvent && !isPreparationTheme(themeDraft))}
+                            onClick={() => void handleSaveThemeOnly()}
+                          >
+                            {isSubmitting ? t("common.saving") : t("documents.saveTheme")}
+                          </Button>
+                        </div>
+                      </div>
                     )}
-                    <div className="mt-4 max-w-md">
-                      <Label>{t("events.theme")}</Label>
-                      <Select
-                        placeholder={t("events.chooseTheme")}
-                        options={themeRequiredOptions}
-                        value={themeDraft}
-                        onChange={(value) => setThemeDraft(value as PreparationTheme | "")}
-                      />
-                    </div>
-                    <div className="mt-4 flex flex-wrap gap-3">
-                      <Button
-                        size="sm"
-                        disabled={isSubmitting || !isPreparationTheme(themeDraft)}
-                        onClick={() => void handleSaveThemeOnly()}
-                      >
-                        {isSubmitting ? t("common.saving") : t("documents.saveTheme")}
-                      </Button>
-                    </div>
                   </>
                 )}
               </div>
@@ -747,7 +802,7 @@ export default function DocumentsGenerationPage() {
                   !selectedIsGeneratable ||
                   needsContact ||
                   contactEmailInvalid ||
-                  (showThemePanel && !isPreparationTheme(themeDraft))
+                  (showThemePanel && needsTheme)
                 }
                 onClick={() => void handleGenerate()}
               >

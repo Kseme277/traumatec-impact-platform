@@ -2,6 +2,8 @@ import { ApiError, parseApiDetail } from "./client";
 import { getApiToken } from "../lib/clerkToken";
 import type {
   PackageBundle,
+  PackageImportJobStart,
+  PackageImportProgress,
   PackageUploadResult,
   Parcours,
   PackageTemplate,
@@ -14,10 +16,13 @@ type GetTokenFn = ReturnType<typeof useAuth>["getToken"];
 
 const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "/api";
 const FETCH_TIMEOUT_MS = 15_000;
+const BOOTSTRAP_TIMEOUT_MS = 600_000;
+const PACKAGE_UPLOAD_TIMEOUT_MS = 120_000;
+const PACKAGE_IMPORT_POLL_INTERVAL_MS = 800;
 
-function withTimeout(signal?: AbortSignal): AbortSignal {
+function withTimeout(ms = FETCH_TIMEOUT_MS, signal?: AbortSignal): AbortSignal {
   const controller = new AbortController();
-  const timeout = window.setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+  const timeout = window.setTimeout(() => controller.abort(), ms);
   if (signal) {
     signal.addEventListener("abort", () => {
       window.clearTimeout(timeout);
@@ -69,11 +74,11 @@ export function fetchPackageBundles(token: string | null, packageType?: string) 
   return fetchJson<PackageBundle[]>(`/v1/packages/bundles${q}`, token);
 }
 
-export async function uploadPackageZip(
+async function startPackageZipUpload(
   token: string | null,
   file: File,
   options?: { packageType?: string; notes?: string; activate?: boolean },
-): Promise<PackageUploadResult> {
+): Promise<PackageImportJobStart> {
   const formData = new FormData();
   formData.append("file", file);
   if (options?.packageType) formData.append("package_type", options.packageType);
@@ -87,6 +92,7 @@ export async function uploadPackageZip(
     method: "POST",
     headers,
     body: formData,
+    signal: withTimeout(PACKAGE_UPLOAD_TIMEOUT_MS),
   });
 
   if (!response.ok) {
@@ -98,7 +104,71 @@ export async function uploadPackageZip(
     }
     throw new ApiError(detail, response.status);
   }
-  return response.json() as Promise<PackageUploadResult>;
+  return response.json() as Promise<PackageImportJobStart>;
+}
+
+export async function fetchPackageImportProgress(jobId: string): Promise<PackageImportProgress> {
+  const response = await fetch(`${API_BASE}/v1/packages/import-jobs/${jobId}`);
+
+  if (!response.ok) {
+    let detail = "Suivi d'import impossible";
+    try {
+      detail = parseApiDetail(await response.json(), detail);
+    } catch {
+      /* ignore */
+    }
+    throw new ApiError(detail, response.status);
+  }
+  return response.json() as Promise<PackageImportProgress>;
+}
+
+function wait(ms: number): Promise<void> {
+  return new Promise((resolve) => {
+    window.setTimeout(resolve, ms);
+  });
+}
+
+export async function uploadPackageZip(
+  token: string | null,
+  file: File,
+  options?: {
+    packageType?: string;
+    notes?: string;
+    activate?: boolean;
+    onProgress?: (progress: PackageImportProgress) => void;
+  },
+): Promise<PackageUploadResult> {
+  options?.onProgress?.({
+    job_id: "",
+    status: "pending",
+    phase: "upload",
+    processed: 0,
+    total: 0,
+    percent: 0,
+    message: "Envoi du fichier ZIP…",
+    filename: file.name,
+    current_file: null,
+    use_ai: true,
+    result: null,
+    error: null,
+  });
+
+  const start = await startPackageZipUpload(token, file, options);
+
+  for (;;) {
+    const progress = await fetchPackageImportProgress(start.job_id);
+    options?.onProgress?.(progress);
+
+    if (progress.status === "completed" && progress.result) {
+      return progress.result;
+    }
+
+    if (progress.status === "failed") {
+      throw new ApiError(progress.error ?? progress.message ?? "Import ZIP impossible", 500);
+    }
+
+    await wait(PACKAGE_IMPORT_POLL_INTERVAL_MS);
+  }
 }
 
 export async function bootstrapSystemPackages(
@@ -113,7 +183,7 @@ export async function bootstrapSystemPackages(
     method: "POST",
     headers,
     body: new URLSearchParams({ force: String(force) }),
-    signal: withTimeout(),
+    signal: withTimeout(BOOTSTRAP_TIMEOUT_MS),
   });
 
   if (!response.ok) {

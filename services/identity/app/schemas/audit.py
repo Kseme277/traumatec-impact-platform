@@ -7,6 +7,8 @@ from pydantic import BaseModel, Field
 class AuditLogResponse(BaseModel):
     id: UUID
     actor_id: int | None
+    actor_name: str | None = None
+    actor_email: str | None = None
     action: str
     entity_type: str | None
     entity_id: str | None
@@ -14,6 +16,13 @@ class AuditLogResponse(BaseModel):
     created_at: datetime
 
     model_config = {"from_attributes": True}
+
+
+class AuditLogListResponse(BaseModel):
+    items: list[AuditLogResponse]
+    total: int
+    page: int
+    page_size: int
 
 
 class AuditExportConfigResponse(BaseModel):

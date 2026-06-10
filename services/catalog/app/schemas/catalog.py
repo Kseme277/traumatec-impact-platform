@@ -50,6 +50,26 @@ class PackageUploadResponse(BaseModel):
     analysis: dict
 
 
+class PackageImportJobStartResponse(BaseModel):
+    job_id: UUID
+    filename: str
+
+
+class PackageImportJobProgressResponse(BaseModel):
+    job_id: UUID
+    status: str
+    phase: str
+    processed: int
+    total: int
+    percent: int
+    message: str
+    filename: str
+    current_file: str | None = None
+    use_ai: bool = False
+    result: dict | None = None
+    error: str | None = None
+
+
 class EventProfileResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 

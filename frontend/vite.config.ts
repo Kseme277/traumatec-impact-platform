@@ -28,15 +28,16 @@ function proxyTo(port: number, extra?: Partial<ProxyOptions>): ProxyOptions {
 function directApiProxies(): Record<string, ProxyOptions> {
   return {
     "/api/v1/generations": proxyTo(8004, { timeout: 300_000 }),
+    "/api/v1/certificates": proxyTo(8004, { timeout: 300_000 }),
     "/api/v1/analytics": proxyTo(8005),
     "/api/v1/parcours": proxyTo(8003),
-    "/api/v1/packages": proxyTo(8003),
+    "/api/v1/packages": proxyTo(8003, { timeout: 600_000 }),
     "/api/v1/profiles": proxyTo(8003),
     "/api/v1/templates": proxyTo(8003),
     "/api/v1/certificate-sets": proxyTo(8003),
     "/api/v1/imports": proxyTo(8002, { timeout: 600_000 }),
     "/api/v1/events": proxyTo(8002),
-    "/api/v1/participants": proxyTo(8002),
+    "/api/v1/participants": proxyTo(8002, { timeout: 600_000 }),
     "/api/v1/users": proxyTo(8001),
     "/api/v1/auth": proxyTo(8001),
     "/api/v1/audit": proxyTo(8001),

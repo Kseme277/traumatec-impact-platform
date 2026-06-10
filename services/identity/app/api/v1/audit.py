@@ -12,6 +12,7 @@ from app.schemas.audit import (
     AuditExportConfigResponse,
     AuditExportConfigUpdate,
     AuditExportFileResponse,
+    AuditLogListResponse,
     AuditLogResponse,
 )
 from app.services.audit_service import (
@@ -20,25 +21,28 @@ from app.services.audit_service import (
     get_export_config,
     get_export_file,
     list_export_files,
-    list_recent_logs,
+    list_logs_paginated,
     run_scheduled_export,
-    search_logs,
 )
 
 router = APIRouter()
 
 
-@router.get("/events", response_model=list[AuditLogResponse])
+@router.get("/events", response_model=AuditLogListResponse)
 async def list_audit_events(
-    q: str | None = Query(default=None, min_length=1, max_length=120),
+    q: str | None = Query(default=None, max_length=120),
+    page: int = Query(default=1, ge=1),
+    page_size: int = Query(default=20, ge=1, le=100),
     _: Utilisateur = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
-) -> list[AuditLogResponse]:
-    if q:
-        logs = await search_logs(db, query=q, limit=20)
-    else:
-        logs = await list_recent_logs(db)
-    return [AuditLogResponse.model_validate(log) for log in logs]
+) -> AuditLogListResponse:
+    items, total = await list_logs_paginated(db, page=page, page_size=page_size, query=q)
+    return AuditLogListResponse(
+        items=[AuditLogResponse.model_validate(item) for item in items],
+        total=total,
+        page=page,
+        page_size=page_size,
+    )
 
 
 @router.get("/exports", response_model=list[AuditExportFileResponse])

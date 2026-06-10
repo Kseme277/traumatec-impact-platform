@@ -3,11 +3,20 @@ import { apiFetch } from "./client";
 export interface AuditLog {
   id: string;
   actor_id: number | null;
+  actor_name: string | null;
+  actor_email: string | null;
   action: string;
   entity_type: string | null;
   entity_id: string | null;
   payload: Record<string, unknown> | null;
   created_at: string;
+}
+
+export interface AuditLogListResponse {
+  items: AuditLog[];
+  total: number;
+  page: number;
+  page_size: number;
 }
 
 export interface AuditExportFile {
@@ -27,9 +36,16 @@ export interface AuditExportConfig {
   updated_at: string;
 }
 
-export function fetchAuditEvents(token: string | null, query?: string) {
-  const q = query?.trim() ? `?q=${encodeURIComponent(query.trim())}` : "";
-  return apiFetch<AuditLog[]>(`/v1/audit/events${q}`, token);
+export function fetchAuditEvents(
+  token: string | null,
+  options?: { q?: string; page?: number; page_size?: number },
+) {
+  const params = new URLSearchParams();
+  if (options?.q?.trim()) params.set("q", options.q.trim());
+  if (options?.page) params.set("page", String(options.page));
+  if (options?.page_size) params.set("page_size", String(options.page_size));
+  const query = params.toString() ? `?${params}` : "";
+  return apiFetch<AuditLogListResponse>(`/v1/audit/events${query}`, token);
 }
 
 export function fetchAuditExports(token: string | null) {

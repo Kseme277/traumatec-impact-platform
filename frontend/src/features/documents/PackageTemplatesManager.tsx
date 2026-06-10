@@ -29,11 +29,13 @@ import {
 import { ApiError } from "../../api/client";
 import { getApiToken } from "../../lib/clerkToken";
 import { useTranslation } from "../../i18n/useTranslation";
-import type { PackageBundle, PackageTemplate, TemplateEditorConfig } from "./types";
+import type { PackageBundle, PackageImportProgress, PackageTemplate, TemplateEditorConfig } from "./types";
+import PackageImportProgressBar from "./PackageImportProgressBar";
 import {
   ACTIVITY_KINDS,
   FALLBACK_PACKAGE_TYPES,
   activityTabForKind,
+  canonicalPackageType,
   findPackageType,
   mergePackageCatalog,
   type ActivityKind,
@@ -70,6 +72,7 @@ export default function PackageTemplatesManager({ isAdmin }: PackageTemplatesMan
   const [isTemplatesLoading, setIsTemplatesLoading] = useState(false);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<PackageImportProgress | null>(null);
   const [isBootstrapping, setIsBootstrapping] = useState(false);
   const [isEditorLoading, setIsEditorLoading] = useState(false);
   const [isDownloadingZip, setIsDownloadingZip] = useState(false);
@@ -106,7 +109,7 @@ export default function PackageTemplatesManager({ isAdmin }: PackageTemplatesMan
     [templates, typeInfo?.duration_days],
   );
   const typeBundles = useMemo(
-    () => bundles.filter((b) => b.package_type === selectedType),
+    () => bundles.filter((b) => canonicalPackageType(b.package_type) === selectedType),
     [bundles, selectedType],
   );
   const activeBundle = typeBundles.find((b) => b.is_active) ?? null;
@@ -141,7 +144,7 @@ export default function PackageTemplatesManager({ isAdmin }: PackageTemplatesMan
   const syncTypeData = useCallback(
     async (token: string | null, packageType: string, bundlesList: PackageBundle[]) => {
       const active =
-        bundlesList.find((b) => b.package_type === packageType && b.is_active) ?? null;
+        bundlesList.find((b) => canonicalPackageType(b.package_type) === packageType && b.is_active) ?? null;
       let files = await loadTemplatesForType(token, active, packageType);
 
       if (files.length === 0 && isAdmin && !bootstrapAttemptedRef.current) {
@@ -151,7 +154,7 @@ export default function PackageTemplatesManager({ isAdmin }: PackageTemplatesMan
           await bootstrapSystemPackages(token);
           bundlesList = await loadBundles(token);
           const newActive =
-            bundlesList.find((b) => b.package_type === packageType && b.is_active) ?? null;
+            bundlesList.find((b) => canonicalPackageType(b.package_type) === packageType && b.is_active) ?? null;
           files = await loadTemplatesForType(token, newActive, packageType);
         } catch (err) {
           if (err instanceof ApiError) {
@@ -235,21 +238,24 @@ export default function PackageTemplatesManager({ isAdmin }: PackageTemplatesMan
       return;
     }
     setIsUploading(true);
+    setUploadProgress(null);
     try {
       const token = await getApiToken(getToken);
       const result = await uploadPackageZip(token, file, {
         packageType: selectedType,
         activate: true,
+        onProgress: setUploadProgress,
       });
       await showSuccess(t("documents.packageUploadDone"), result.message);
       const updatedBundles = await loadBundles(token);
       const newActive =
-        updatedBundles.find((b) => b.package_type === selectedType && b.is_active) ?? null;
+        updatedBundles.find((b) => canonicalPackageType(b.package_type) === selectedType && b.is_active) ?? null;
       await loadTemplatesForType(token, newActive, selectedType);
     } catch (err) {
       await showError(t("common.error"), err instanceof ApiError ? err.message : t("documents.packageUploadFailed"));
     } finally {
       setIsUploading(false);
+      setUploadProgress(null);
       if (zipInputRef.current) zipInputRef.current.value = "";
     }
   };
@@ -262,7 +268,7 @@ export default function PackageTemplatesManager({ isAdmin }: PackageTemplatesMan
       await showSuccess(t("documents.packageActivated"), bundle.label);
       const updatedBundles = await loadBundles(token);
       const newActive =
-        updatedBundles.find((b) => b.package_type === selectedType && b.is_active) ?? null;
+        updatedBundles.find((b) => canonicalPackageType(b.package_type) === selectedType && b.is_active) ?? null;
       await loadTemplatesForType(token, newActive, selectedType);
     } catch (err) {
       await showError(t("common.error"), err instanceof ApiError ? err.message : t("documents.packageActivateFailed"));
@@ -286,7 +292,7 @@ export default function PackageTemplatesManager({ isAdmin }: PackageTemplatesMan
       await showSuccess(t("documents.bundleDeleted"), bundle.label);
       const updatedBundles = await loadBundles(token);
       const newActive =
-        updatedBundles.find((b) => b.package_type === selectedType && b.is_active) ?? null;
+        updatedBundles.find((b) => canonicalPackageType(b.package_type) === selectedType && b.is_active) ?? null;
       await loadTemplatesForType(token, newActive, selectedType);
     } catch (err) {
       await showError(t("common.error"), err instanceof ApiError ? err.message : t("documents.bundleDeleteFailed"));
@@ -385,7 +391,13 @@ export default function PackageTemplatesManager({ isAdmin }: PackageTemplatesMan
       await loadBundles(token);
       await loadTemplatesForType(token, activeBundle, selectedType);
     } catch (err) {
-      await showError(t("common.error"), err instanceof ApiError ? err.message : t("documents.bootstrapFailed"));
+      const message =
+        err instanceof ApiError
+          ? err.message
+          : err instanceof DOMException && err.name === "AbortError"
+            ? t("documents.bootstrapTimeout")
+            : t("documents.bootstrapFailed");
+      await showError(t("common.error"), message);
     } finally {
       setIsBootstrapping(false);
     }
@@ -498,6 +510,8 @@ export default function PackageTemplatesManager({ isAdmin }: PackageTemplatesMan
           </Button>
         )}
       </div>
+
+      {uploadProgress && <PackageImportProgressBar progress={uploadProgress} />}
 
       {loadError ? (
         <p className="rounded-lg border border-error-200 bg-error-50 px-4 py-3 text-sm text-error-700 dark:border-error-500/30 dark:bg-error-500/10 dark:text-error-300">

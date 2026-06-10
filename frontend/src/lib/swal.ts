@@ -33,6 +33,16 @@ export function showSuccess(title: string, text?: string) {
   });
 }
 
+export function showWarning(title: string, text?: string) {
+  return Swal.fire({
+    title,
+    text,
+    icon: "warning",
+    confirmButtonColor: brandColor,
+    confirmButtonText: "OK",
+  });
+}
+
 export function showError(title: string, text?: string) {
   return Swal.fire({
     title,

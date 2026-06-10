@@ -279,6 +279,7 @@ services:
       - ./packages/tip-common/tip_common:/packages/tip-common/tip_common
       - ./package-zips:/app/package-zips:ro
       - ./Packages:/app/Packages:ro
+      - ./scripts:/app/scripts:ro
     ports:
       - "${CATALOG_PORT:-8003}:8003"
     depends_on:
@@ -329,6 +330,9 @@ services:
       NVIDIA_CLASSIFIER_TEMPERATURE: ${NVIDIA_CLASSIFIER_TEMPERATURE:-0.2}
       NVIDIA_CLASSIFIER_TOP_P: ${NVIDIA_CLASSIFIER_TOP_P:-0.7}
       NVIDIA_CLASSIFIER_MAX_TOKENS: ${NVIDIA_CLASSIFIER_MAX_TOKENS:-256}
+      DOCGEN_INTERNAL_URL: http://docgen:8004
+      ONLYOFFICE_PUBLIC_URL: ${ONLYOFFICE_PUBLIC_URL:-http://localhost:9980}
+      ONLYOFFICE_FILE_SECRET: ${ONLYOFFICE_FILE_SECRET:-change-me-onlyoffice-file-secret}
       PYTHONPATH: /packages/tip-common
     volumes:
       - ./services/docgen/app:/app/app

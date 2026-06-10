@@ -13,6 +13,10 @@ class Settings(BaseServiceSettings):
     generations_dir: Path = Path("/app/storage/generations")
     uploads_dir: Path = Path("/app/storage/uploads")
     zip_name_pattern: str = "{project_number}_{event_name}_{city}_{country}_{date}"
+    docgen_internal_url: str = "http://docgen:8004"
+    onlyoffice_public_url: str = "http://localhost:9980"
+    onlyoffice_file_secret: str = "change-me-onlyoffice-file-secret"
+    onlyoffice_token_ttl_seconds: int = 7200
 
 
 @lru_cache

@@ -2,38 +2,34 @@
 
 ## Types supportés
 
-| Type ZIP / dossier | Événement | Thème TIP |
-|--------------------|-----------|-----------|
-| `ORP_S` | ORP S (1 jour) | `pbo` |
-| `OP_C` | Op C | `operatory` |
-| `ORP_C` | ORP C (3 jours) | `pbo` |
-| `IEC_S` | IEC S | `iec` |
-| `NONOP_C` | NonOp C | `operatory` |
-| `FET` | Faculty Education Training (copie identique de `OP_C`) | `operatory` |
+| Type ZIP / dossier | Format | Durée | Thème TIP |
+|--------------------|--------|-------|-----------|
+| `OP_S` | Séminaire Op S | 1 jour | `operatory` |
+| `PBO_S` | Séminaire PBO S | 1 jour | `pbo` |
+| `IEC_S` | Séminaire IEC S | 1 jour | `iec` |
+| `FET` | Faculty Education Training | 2 jours | — |
+| `OP_C` | Cours Op C | 3 jours | `operatory` |
+| `ORP_C` | Cours PBO / ORP C | 3 jours | `pbo` |
+| `NONOP_C` | Cours NonOp C | 3 jours | `operatory` |
+
+> `ORP_S` est un ancien code équivalent à `PBO_S` (rétrocompatibilité).
+
+À l'import ZIP, les fichiers de listes `07*` / `08*` dont le jour dépasse la durée du paquet sont exclus automatiquement (1j pour séminaires, 2j pour FET, 3j pour cours).
 
 ## Import (recommandé)
 
-1. **Admin → Documents → Templates → Importer un paquet ZIP**
-2. Chaque upload crée une **nouvelle version** (v1, v2, …) pour le type détecté
-3. La version importée devient **active** par défaut ; les anciennes restent archivées
-
-## Analyse automatique
-
-À l'import, le système :
-- lit les fichiers du ZIP et **classifie** chaque document (`01_` accord, `02_` programme, listes, etc.)
-- **détecte le type** de paquet via le fichier `02_*` programme
-- extrait les **zones surlignées** des `.docx` et construit un modèle de remplacement (`replacement_model` dans `analysis_json`)
+1. **Admin → Documents → Templates → Charger paquets système**
+2. Ou : `python3 scripts/bootstrap_packages_db.py` (depuis le conteneur catalog ou en local avec BDD)
+3. Chaque import crée une **nouvelle version** (v1, v2, …) ; la version importée devient **active**
 
 ## Créer des ZIP depuis ces dossiers (optionnel)
 
 ```bash
 python3 scripts/build_package_zips.py
-# → package-zips/ORP_S.zip, OP_C.zip, …
+# → package-zips/OP_S.zip, PBO_S.zip, IEC_S.zip, OP_C.zip, …
 ```
 
-Le bouton **Charger paquets système** importe aussi directement depuis `Packages/{TYPE}/` sans ZIP manuel.
-
-### FET = copie OP_C
+### FET = copie OP_C (listes J1–J2 conservées à l'import)
 
 ```bash
 rsync -a --delete Packages/OP_C/ Packages/FET/
@@ -41,12 +37,6 @@ rsync -a --delete Packages/OP_C/ Packages/FET/
 
 ## API
 
-- `POST /api/v1/packages/upload` — multipart `file` (.zip), optionnel `package_type`, `activate`
+- `POST /api/v1/packages/bootstrap?force=true` — import depuis `Packages/`
+- `POST /api/v1/packages/upload` — multipart `file` (.zip)
 - `GET /api/v1/packages/bundles` — liste des versions
-- `POST /api/v1/packages/bundles/{id}/activate` — activer une version
-
-## Migration base
-
-```bash
-psql -U tip -d tip -f database/migrations/013_package_bundles.sql
-```

@@ -139,12 +139,16 @@ export default function GlobalSearch() {
             if (next.filter((r) => r.kind === "user").length >= 5) break;
           }
 
-          const logs = await fetchAuditEvents(token, trimmed);
-          for (const log of logs.slice(0, 5)) {
+          const logsResponse = await fetchAuditEvents(token, { q: trimmed, page_size: 5 });
+          for (const log of logsResponse.items) {
             next.push({
               id: `audit-${log.id}`,
               title: log.action,
-              subtitle: [log.entity_type, log.entity_id].filter(Boolean).join(" · ") || log.created_at,
+              subtitle: [
+                log.actor_name,
+                log.entity_type,
+                log.entity_id,
+              ].filter(Boolean).join(" · ") || log.created_at,
               path: "/admin/audit",
               category: t("search.categoryAudit"),
               keywords: [],

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation } from "react-router";
 
 import {
+  Award,
   Bell,
   ChevronDown,
   FileText,
@@ -47,6 +48,12 @@ const AppSidebar: React.FC = () => {
         name: t("nav.events"),
         path: "/evenements",
         tourId: "nav-events",
+      },
+      {
+        icon: <Award className="size-6" strokeWidth={1.75} />,
+        name: t("nav.certificates"),
+        path: "/certificats",
+        tourId: "nav-certificates",
       },
       {
         icon: <TrendingUp className="size-6" strokeWidth={1.75} />,

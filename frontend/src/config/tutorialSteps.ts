@@ -31,6 +31,13 @@ export const TUTORIAL_STEPS: TutorialStepConfig[] = [
     route: "/evenements",
   },
   {
+    id: "participants",
+    target: "nav-certificates",
+    titleKey: "tutorial.steps.participants.title",
+    bodyKey: "tutorial.steps.participants.body",
+    route: "/certificats",
+  },
+  {
     id: "documents",
     target: "nav-documents",
     titleKey: "tutorial.steps.documents.title",

@@ -14,6 +14,7 @@ from tip_common.package_types import (
     PACKAGE_TYPE_SPECS,
     detect_package_type_from_folder,
     infer_document_type,
+    normalize_package_type,
     package_file_order,
     package_type_public_dict,
 )
@@ -186,6 +187,7 @@ def analyze_package_zip(
             f"(programme trouvé : {programme or 'aucun'})."
         )
 
+    detected_type = normalize_package_type(detected_type) or detected_type
     spec = PACKAGE_TYPE_SPECS[detected_type]
     analyzed_files: list[AnalyzedFile] = []
     for index, (filename, data) in enumerate(

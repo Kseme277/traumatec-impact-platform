@@ -1,5 +1,5 @@
 import { useAuth } from "@clerk/clerk-react";
-import { Download, Play } from "lucide-react";
+import { Download, Play, Search } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 import AdminBreadcrumb from "../../components/common/AdminBreadcrumb";
 import ComponentCard from "../../components/common/ComponentCard";
@@ -25,6 +25,7 @@ import { usePagination } from "../../hooks/usePagination";
 import { showError, showSuccess } from "../../lib/swal";
 
 const EXPORTS_PAGE_SIZE = 5;
+const EVENTS_PAGE_SIZE = 15;
 
 function formatBytes(size: number): string {
   if (size < 1024) return `${size} B`;
@@ -38,7 +39,12 @@ export default function AuditPage() {
   const [config, setConfig] = useState<AuditExportConfig | null>(null);
   const [exports, setExports] = useState<AuditExportFile[]>([]);
   const [events, setEvents] = useState<AuditLog[]>([]);
+  const [eventsTotal, setEventsTotal] = useState(0);
+  const [eventsPage, setEventsPage] = useState(1);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [appliedQuery, setAppliedQuery] = useState("");
   const [isLoading, setIsLoading] = useState(true);
+  const [isEventsLoading, setIsEventsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isRunning, setIsRunning] = useState(false);
 
@@ -52,18 +58,17 @@ export default function AuditPage() {
     rangeEnd: exportsRangeEnd,
   } = usePagination(exports, EXPORTS_PAGE_SIZE, String(exports.length));
 
-  const load = useCallback(async () => {
+  const eventsTotalPages = Math.max(1, Math.ceil(eventsTotal / EVENTS_PAGE_SIZE));
+  const eventsRangeStart = eventsTotal === 0 ? 0 : (eventsPage - 1) * EVENTS_PAGE_SIZE + 1;
+  const eventsRangeEnd = Math.min(eventsPage * EVENTS_PAGE_SIZE, eventsTotal);
+
+  const loadConfigAndExports = useCallback(async () => {
     setIsLoading(true);
     try {
       const token = await getToken();
-      const [cfg, files, logs] = await Promise.all([
-        fetchAuditConfig(token),
-        fetchAuditExports(token),
-        fetchAuditEvents(token),
-      ]);
+      const [cfg, files] = await Promise.all([fetchAuditConfig(token), fetchAuditExports(token)]);
       setConfig(cfg);
       setExports(files);
-      setEvents(logs);
     } catch (err) {
       await showError("Audit", err instanceof ApiError ? err.message : "Chargement impossible");
     } finally {
@@ -71,9 +76,36 @@ export default function AuditPage() {
     }
   }, [getToken]);
 
+  const loadEvents = useCallback(async () => {
+    setIsEventsLoading(true);
+    try {
+      const token = await getToken();
+      const response = await fetchAuditEvents(token, {
+        q: appliedQuery || undefined,
+        page: eventsPage,
+        page_size: EVENTS_PAGE_SIZE,
+      });
+      setEvents(response.items);
+      setEventsTotal(response.total);
+    } catch (err) {
+      await showError(t("audit.eventsTitle"), err instanceof ApiError ? err.message : "Chargement impossible");
+    } finally {
+      setIsEventsLoading(false);
+    }
+  }, [appliedQuery, eventsPage, getToken, t]);
+
   useEffect(() => {
-    void load();
-  }, [load]);
+    void loadConfigAndExports();
+  }, [loadConfigAndExports]);
+
+  useEffect(() => {
+    void loadEvents();
+  }, [loadEvents]);
+
+  const handleSearch = () => {
+    setEventsPage(1);
+    setAppliedQuery(searchQuery.trim());
+  };
 
   const handleSaveConfig = async () => {
     if (!config) return;
@@ -99,7 +131,7 @@ export default function AuditPage() {
       const token = await getToken();
       await runAuditExport(token);
       await showSuccess(t("audit.runNow"), "");
-      await load();
+      await loadConfigAndExports();
     } catch (err) {
       await showError(t("audit.runNow"), err instanceof ApiError ? err.message : "Erreur");
     } finally {
@@ -219,37 +251,85 @@ export default function AuditPage() {
       </div>
 
       <div className="mt-6">
-        <ComponentCard title={t("audit.eventsTitle")}>
-          {events.length === 0 ? (
+        <ComponentCard title={t("audit.eventsTitle")} desc={t("audit.eventsDesc")}>
+          <div className="mb-4 flex flex-wrap gap-3">
+            <div className="min-w-[220px] flex-1">
+              <Input
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder={t("audit.searchPlaceholder")}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter") handleSearch();
+                }}
+              />
+            </div>
+            <Button size="sm" variant="outline" onClick={() => handleSearch()}>
+              <Search className="mr-2 size-4" />
+              {t("common.search")}
+            </Button>
+          </div>
+
+          {isEventsLoading ? (
+            <p className="text-sm text-gray-500 dark:text-gray-400">{t("common.loading")}</p>
+          ) : events.length === 0 ? (
             <p className="text-sm text-gray-500 dark:text-gray-400">{t("audit.noEvents")}</p>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="min-w-full text-left text-sm">
-                <thead>
-                  <tr className="border-b border-gray-100 text-theme-xs uppercase text-gray-500 dark:border-gray-800 dark:text-gray-400">
-                    <th className="px-3 py-2">{t("audit.created")}</th>
-                    <th className="px-3 py-2">Action</th>
-                    <th className="px-3 py-2">Entité</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
-                  {events.map((event) => (
-                    <tr key={event.id}>
-                      <td className="whitespace-nowrap px-3 py-2 text-gray-600 dark:text-gray-300">
-                        {formatDate(event.created_at)}
-                      </td>
-                      <td className="px-3 py-2 font-mono text-theme-xs text-gray-800 dark:text-white/90">
-                        {event.action}
-                      </td>
-                      <td className="px-3 py-2 text-gray-600 dark:text-gray-300">
-                        {event.entity_type ?? "—"}
-                        {event.entity_id ? ` #${event.entity_id}` : ""}
-                      </td>
+            <>
+              <div className="overflow-x-auto">
+                <table className="min-w-full text-left text-sm">
+                  <thead>
+                    <tr className="border-b border-gray-100 text-theme-xs uppercase text-gray-500 dark:border-gray-800 dark:text-gray-400">
+                      <th className="px-3 py-2">{t("audit.created")}</th>
+                      <th className="px-3 py-2">{t("audit.actor")}</th>
+                      <th className="px-3 py-2">{t("audit.actionLabel")}</th>
+                      <th className="px-3 py-2">{t("audit.entityLabel")}</th>
+                      <th className="px-3 py-2">{t("audit.details")}</th>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
+                    {events.map((event) => (
+                      <tr key={event.id}>
+                        <td className="whitespace-nowrap px-3 py-2 text-gray-600 dark:text-gray-300">
+                          {formatDate(event.created_at)}
+                        </td>
+                        <td className="px-3 py-2 text-gray-800 dark:text-white/90">
+                          <p className="font-medium">
+                            {event.actor_name ?? (event.actor_id ? `#${event.actor_id}` : "—")}
+                          </p>
+                          {event.actor_email && (
+                            <p className="text-theme-xs text-gray-500 dark:text-gray-400">
+                              {event.actor_email}
+                            </p>
+                          )}
+                        </td>
+                        <td className="px-3 py-2 text-theme-xs text-gray-800 dark:text-white/90">
+                          {(() => {
+                            const key = `audit.actions.${event.action.replace(/\./g, "_")}`;
+                            const label = t(key);
+                            return label !== key ? label : event.action;
+                          })()}
+                        </td>
+                        <td className="px-3 py-2 text-gray-600 dark:text-gray-300">
+                          {event.entity_type ?? "—"}
+                          {event.entity_id ? ` #${event.entity_id}` : ""}
+                        </td>
+                        <td className="max-w-xs truncate px-3 py-2 text-theme-xs text-gray-500 dark:text-gray-400">
+                          {event.payload ? JSON.stringify(event.payload) : "—"}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+              <DataTablePagination
+                page={eventsPage}
+                totalPages={eventsTotalPages}
+                totalItems={eventsTotal}
+                rangeStart={eventsRangeStart}
+                rangeEnd={eventsRangeEnd}
+                onPageChange={setEventsPage}
+              />
+            </>
           )}
         </ComponentCard>
       </div>

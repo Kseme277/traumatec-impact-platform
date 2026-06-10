@@ -74,7 +74,7 @@ async function ensureEventReadyForGeneration(
   if (!isGeneratableEvent(event)) {
     return {
       event,
-      error: "Cet événement n'est pas éligible (dates passées ou statut incompatible).",
+      error: "Cet événement n'est pas éligible (projet non Open, dates passées ou statut incompatible).",
     };
   }
 

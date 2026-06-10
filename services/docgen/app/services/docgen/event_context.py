@@ -6,7 +6,7 @@ import re
 from datetime import date
 from typing import Any
 
-from tip_common.package_types import PACKAGE_TYPE_SPECS
+from tip_common.package_types import PACKAGE_TYPE_SPECS, effective_list_days
 
 
 def _parse_iso(value: str | date | None) -> date | None:
@@ -56,7 +56,13 @@ async def enrich_event_context(
         spec = PACKAGE_TYPE_SPECS[pkg]
         enriched["package_type"] = pkg
         enriched["package_label"] = spec.label
-        enriched["package_duration_days"] = spec.duration_days
+        enriched["package_duration_days"] = effective_list_days(
+            start_date=enriched.get("start_date"),
+            end_date=enriched.get("end_date"),
+            package_type=pkg,
+            package_max_days=spec.duration_days,
+        )
+        enriched["package_max_days"] = spec.duration_days
         enriched["activity_label"] = spec.activity_label
         if not enriched.get("preparation_theme"):
             enriched["preparation_theme"] = spec.preparation_theme

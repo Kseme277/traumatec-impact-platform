@@ -53,6 +53,18 @@ class EventUpdate(BaseModel):
     start_date: date | None = None
     end_date: date | None = None
     status: EventStatus | None = None
+    package_type_override: str | None = Field(default=None, max_length=32)
+
+
+class PackageCandidate(BaseModel):
+    package_type: str
+    package_label: str
+    preparation_theme: str | None = None
+    activity_kind: str
+    activity_label: str
+    expected_package_days: int
+    suggested: bool = False
+    score: float = 0.0
 
 
 class InferredEventPackage(BaseModel):
@@ -63,6 +75,7 @@ class InferredEventPackage(BaseModel):
     preparation_theme: str | None = None
     duration_days: int
     expected_package_days: int
+    package_candidates: list[PackageCandidate] = []
     classifier: str = "rules"
     confidence: float | None = None
 

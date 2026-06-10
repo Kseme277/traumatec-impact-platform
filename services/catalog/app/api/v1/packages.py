@@ -1,3 +1,5 @@
+import asyncio
+import os
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile, status
@@ -8,9 +10,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import get_settings
 from app.core.database import get_db
 from app.models.catalog import PackageBundle
+from app.core.database import AsyncSessionLocal
 from app.schemas.catalog import (
     PackageBundleResponse,
-    PackageUploadResponse,
+    PackageImportJobProgressResponse,
+    PackageImportJobStartResponse,
 )
 from app.services.package_import import (
     activate_package_bundle,
@@ -18,8 +22,8 @@ from app.services.package_import import (
     delete_package_bundle,
     export_bundle_zip,
     export_package_type_zip,
-    import_package_zip,
 )
+from app.services.package_import_jobs import package_import_job_store, run_package_import_job
 from tip_common.package_types import list_package_types_by_activity
 from tip_common.security import AuthenticatedUser, get_current_user, require_admin
 
@@ -49,48 +53,66 @@ async def list_package_bundles(
     return list(result.scalars().all())
 
 
-@router.post("/upload", response_model=PackageUploadResponse)
+def _upload_scan_use_ai() -> bool:
+    return os.getenv("CATALOG_IMPORT_SCAN_USE_AI", "true").strip().lower() not in ("0", "false", "no")
+
+
+@router.post(
+    "/upload",
+    response_model=PackageImportJobStartResponse,
+    status_code=status.HTTP_202_ACCEPTED,
+)
 async def upload_package_zip(
     file: UploadFile = File(...),
     package_type: str | None = Form(default=None),
     notes: str | None = Form(default=None),
     activate: bool = Form(default=True),
     user: AuthenticatedUser = Depends(require_admin),
-    db: AsyncSession = Depends(get_db),
-) -> PackageUploadResponse:
+) -> PackageImportJobStartResponse:
+    if not file.filename or not file.filename.lower().endswith(".zip"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Fichier ZIP requis (.zip).",
+        )
+
     raw = await file.read()
-    settings = get_settings()
+    if not raw:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Fichier ZIP vide.")
+
+    use_ai = _upload_scan_use_ai()
+    job = await package_import_job_store.create(
+        filename=file.filename,
+        uploaded_by_id=user.id,
+        use_ai=use_ai,
+    )
     hint = package_type.upper().replace("-", "_") if package_type else None
-    try:
-        summary = await import_package_zip(
-            db,
-            settings,
+
+    asyncio.create_task(
+        run_package_import_job(
+            AsyncSessionLocal,
+            job_id=job.id,
             zip_bytes=raw,
-            filename=file.filename or "paquet.zip",
-            uploaded_by_id=user.id,
+            filename=file.filename,
             package_type_hint=hint,
             notes=notes,
             activate=activate,
+            uploaded_by_id=user.id,
+            use_ai=use_ai,
         )
-    except ValueError as exc:
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail=str(exc)) from exc
-    except Exception as exc:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail=f"Échec import ZIP : {exc}",
-        ) from exc
-
-    bundle = await db.get(PackageBundle, UUID(summary["bundle_id"]))
-    if bundle is None:
-        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Bundle introuvable")
-    return PackageUploadResponse(
-        bundle=PackageBundleResponse.model_validate(bundle),
-        message=(
-            f"Paquet {summary['package_type']} v{summary['version']} importé "
-            f"({summary['file_count']} fichiers)."
-        ),
-        analysis=summary["analysis"],
     )
+
+    return PackageImportJobStartResponse(job_id=job.id, filename=file.filename)
+
+
+@router.get("/import-jobs/{job_id}", response_model=PackageImportJobProgressResponse)
+async def get_package_import_job(job_id: UUID) -> PackageImportJobProgressResponse:
+    """Suivi d'import paquet — sans auth JWT (imports longs, analyse IA)."""
+    job = await package_import_job_store.get(job_id)
+    if not job:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Import introuvable")
+
+    progress = package_import_job_store.to_progress(job)
+    return PackageImportJobProgressResponse(**progress)
 
 
 @router.post("/bootstrap")

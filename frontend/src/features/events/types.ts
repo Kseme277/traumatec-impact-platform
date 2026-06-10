@@ -1,6 +1,17 @@
 export type EventStatus = "imported" | "in_progress" | "ready" | "generated" | "error";
 export type PreparationTheme = "operatory" | "pbo" | "iec";
 
+export interface PackageCandidate {
+  package_type: string;
+  package_label: string;
+  preparation_theme: PreparationTheme | null;
+  activity_kind: string;
+  activity_label: string;
+  expected_package_days: number;
+  suggested?: boolean;
+  score?: number;
+}
+
 export interface InferredEventPackage {
   package_type: string;
   package_label: string;
@@ -9,6 +20,7 @@ export interface InferredEventPackage {
   preparation_theme: PreparationTheme | null;
   duration_days: number;
   expected_package_days: number;
+  package_candidates?: PackageCandidate[];
   classifier?: "rules" | "nvidia" | string;
   confidence?: number | null;
 }
@@ -55,6 +67,7 @@ export interface EvenementPayload {
   start_date?: string | null;
   end_date?: string | null;
   status?: EventStatus;
+  package_type_override?: string | null;
 }
 
 export interface EvenementListResponse {
@@ -191,8 +204,16 @@ export function statusColor(status: EventStatus): "primary" | "success" | "warni
   return colors[status];
 }
 
-export function themeLabel(theme: PreparationTheme | null): string {
+export function themeLabel(
+  theme: PreparationTheme | null,
+  t?: (key: string) => string,
+): string {
   if (!theme) return "—";
+  if (t) {
+    const key = `packages.themes.${theme}`;
+    const translated = t(key);
+    if (translated !== key) return translated;
+  }
   const labels: Record<PreparationTheme, string> = {
     operatory: "Operatory",
     pbo: "PBO",

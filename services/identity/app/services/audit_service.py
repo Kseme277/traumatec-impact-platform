@@ -3,12 +3,13 @@ import logging
 from datetime import datetime, timedelta, timezone
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import cast, func, or_, select, String
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings, get_settings
 from app.core.database import AsyncSessionLocal
 from app.models.audit import AuditExportConfig, AuditExportFile, AuditLog
+from app.models.utilisateur import Utilisateur
 from tip_common.storage import AUDIT_EXPORTS_PREFIX, get_object_storage
 
 logger = logging.getLogger(__name__)
@@ -52,41 +53,78 @@ async def list_export_files(db: AsyncSession, *, limit: int = 50) -> list[AuditE
     return list(result.scalars().all())
 
 
-async def list_recent_logs(db: AsyncSession, *, limit: int = 100) -> list[AuditLog]:
-    result = await db.execute(
-        select(AuditLog).order_by(AuditLog.created_at.desc()).limit(limit)
+def _audit_log_filters(query: str | None):
+    if not query or not query.strip():
+        return None
+    needle = f"%{query.strip()}%"
+    return or_(
+        AuditLog.action.ilike(needle),
+        AuditLog.entity_type.ilike(needle),
+        AuditLog.entity_id.ilike(needle),
+        cast(AuditLog.actor_id, String).ilike(needle),
+        Utilisateur.nom.ilike(needle),
+        Utilisateur.prenom.ilike(needle),
+        Utilisateur.email.ilike(needle),
+        cast(AuditLog.payload, String).ilike(needle),
     )
-    return list(result.scalars().all())
 
 
-async def search_logs(db: AsyncSession, *, query: str, limit: int = 10) -> list[AuditLog]:
-    needle = query.strip().lower()
-    if not needle:
-        return []
+def _audit_log_to_dict(log: AuditLog, utilisateur: Utilisateur | None) -> dict:
+    actor_name = None
+    actor_email = None
+    if utilisateur is not None:
+        actor_name = f"{utilisateur.prenom} {utilisateur.nom}".strip() or None
+        actor_email = utilisateur.email
+    return {
+        "id": log.id,
+        "actor_id": log.actor_id,
+        "actor_name": actor_name,
+        "actor_email": actor_email,
+        "action": log.action,
+        "entity_type": log.entity_type,
+        "entity_id": log.entity_id,
+        "payload": log.payload,
+        "created_at": log.created_at,
+    }
 
-    result = await db.execute(
-        select(AuditLog).order_by(AuditLog.created_at.desc()).limit(500)
+
+async def list_logs_paginated(
+    db: AsyncSession,
+    *,
+    page: int = 1,
+    page_size: int = 20,
+    query: str | None = None,
+) -> tuple[list[dict], int]:
+    page = max(1, page)
+    page_size = min(max(1, page_size), 100)
+    offset = (page - 1) * page_size
+    filters = _audit_log_filters(query)
+
+    count_stmt = (
+        select(func.count(AuditLog.id))
+        .select_from(AuditLog)
+        .outerjoin(Utilisateur, AuditLog.actor_id == Utilisateur.id)
     )
-    logs = list(result.scalars().all())
-    matched: list[AuditLog] = []
-    for log in logs:
-        haystack = " ".join(
-            filter(
-                None,
-                [
-                    log.action,
-                    log.entity_type or "",
-                    log.entity_id or "",
-                    str(log.actor_id) if log.actor_id is not None else "",
-                    json.dumps(log.payload or {}, ensure_ascii=False),
-                ],
-            )
-        ).lower()
-        if needle in haystack:
-            matched.append(log)
-        if len(matched) >= limit:
-            break
-    return matched
+    if filters is not None:
+        count_stmt = count_stmt.where(filters)
+    total = (await db.execute(count_stmt)).scalar_one()
+
+    items_stmt = (
+        select(AuditLog, Utilisateur)
+        .outerjoin(Utilisateur, AuditLog.actor_id == Utilisateur.id)
+        .order_by(AuditLog.created_at.desc())
+        .offset(offset)
+        .limit(page_size)
+    )
+    if filters is not None:
+        items_stmt = items_stmt.where(filters)
+
+    result = await db.execute(items_stmt)
+    rows = [
+        _audit_log_to_dict(log, utilisateur)
+        for log, utilisateur in result.all()
+    ]
+    return rows, total
 
 
 async def get_export_file(db: AsyncSession, export_id: UUID) -> AuditExportFile | None:
@@ -118,11 +156,12 @@ async def run_scheduled_export(
             period_start = period_end - timedelta(hours=interval_hours)
 
         logs_result = await db.execute(
-            select(AuditLog)
+            select(AuditLog, Utilisateur)
+            .outerjoin(Utilisateur, AuditLog.actor_id == Utilisateur.id)
             .where(AuditLog.created_at >= period_start, AuditLog.created_at < period_end)
             .order_by(AuditLog.created_at.asc())
         )
-        logs = list(logs_result.scalars().all())
+        log_rows = list(logs_result.all())
 
         meta = {
             "_type": "tip_audit_export",
@@ -132,17 +171,24 @@ async def run_scheduled_export(
             "manual": manual,
             "period_start": period_start.isoformat(),
             "period_end": period_end.isoformat(),
-            "record_count": len(logs),
+            "record_count": len(log_rows),
             "generated_at": now.isoformat(),
         }
         lines = [json.dumps(meta, ensure_ascii=False, indent=2)]
-        for log in logs:
+        for log, utilisateur in log_rows:
+            actor_name = None
+            actor_email = None
+            if utilisateur is not None:
+                actor_name = f"{utilisateur.prenom} {utilisateur.nom}".strip() or None
+                actor_email = utilisateur.email
             lines.append(
                 json.dumps(
                     {
                         "id": str(log.id),
                         "timestamp": log.created_at.isoformat(),
                         "actor_id": log.actor_id,
+                        "actor_name": actor_name,
+                        "actor_email": actor_email,
                         "action": log.action,
                         "entity_type": log.entity_type,
                         "entity_id": log.entity_id,
@@ -168,14 +214,14 @@ async def run_scheduled_export(
             storage_key=storage_key,
             period_start=period_start,
             period_end=period_end,
-            record_count=len(logs),
+            record_count=len(log_rows),
             file_size_bytes=len(content),
         )
         db.add(export_file)
         config.last_run_at = period_end
         await db.commit()
         await db.refresh(export_file)
-        logger.info("Export audit %s (%s entrées)", storage_key, len(logs))
+        logger.info("Export audit %s (%s entrées)", storage_key, len(log_rows))
         return export_file
 
 

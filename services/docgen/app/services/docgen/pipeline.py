@@ -19,6 +19,7 @@ from app.core.config import Settings
 from app.services.docgen.event_context import enrich_event_context
 from app.services.docgen.template_render import build_event_context, render_package_document
 from tip_common.package_types import (
+    effective_list_days,
     filter_templates_by_package_duration,
     infer_package_type_for_event,
     PACKAGE_TYPE_SPECS,
@@ -120,7 +121,7 @@ async def _load_event(session: AsyncSession, event_id: UUID) -> dict:
             SELECT project_number, title, event_type, preparation_theme,
                    city, country, region, responsible_person,
                    start_date::text, end_date::text,
-                   participants_expected, metadata_json
+                   participants_expected, metadata_json, project_status
             FROM events.events
             WHERE id = :id
             """
@@ -143,7 +144,27 @@ async def _load_event(session: AsyncSession, event_id: UUID) -> dict:
         "end_date": row.end_date,
         "participants_expected": row.participants_expected,
         "metadata_json": row.metadata_json,
+        "project_status": row.project_status,
     }
+
+
+_OPEN_PROJECT_STATUSES = frozenset({"open", "ouvert", "en cours"})
+
+
+def _assert_event_open(event: dict) -> None:
+    raw = event.get("project_status")
+    if raw is None or not str(raw).strip():
+        return
+    key = str(raw).strip().lower()
+    if key in _OPEN_PROJECT_STATUSES or "open" in key or "ouvert" in key:
+        return
+    if "cancel" in key or key in {"cancelled", "canceled", "annule", "annulé"}:
+        raise ValueError(
+            "Ce projet AO est annulé. La génération n'est possible que pour les projets Open."
+        )
+    raise ValueError(
+        "Ce projet AO est clos. La génération n'est possible que pour les projets Open."
+    )
 
 
 def _assert_event_upcoming(event: dict) -> None:
@@ -201,6 +222,7 @@ async def _load_profile_templates(session: AsyncSession, event: dict) -> tuple[d
         title=event.get("title"),
         start_date=event.get("start_date"),
         end_date=event.get("end_date"),
+        metadata_json=event.get("metadata_json"),
     )
     if not package_type:
         raise ValueError(
@@ -286,7 +308,12 @@ async def _load_profile_templates(session: AsyncSession, event: dict) -> tuple[d
         key=lambda t: (t.get("placeholders") or {}).get("package_file_order", 0)
     )
     spec = PACKAGE_TYPE_SPECS.get(package_type)
-    max_days = spec.duration_days if spec else 3
+    max_days = effective_list_days(
+        start_date=event.get("start_date"),
+        end_date=event.get("end_date"),
+        package_type=package_type,
+        package_max_days=spec.duration_days if spec else None,
+    )
     before = len(templates)
     templates = filter_templates_by_package_duration(
         templates,
@@ -440,6 +467,7 @@ async def build_package_zip(
 ) -> tuple[str, str, int]:
     await append_job_log(db, job_id, message="Chargement de l'événement…")
     event = await _load_event(db, event_id)
+    _assert_event_open(event)
     _assert_event_upcoming(event)
     await append_job_log(
         db,

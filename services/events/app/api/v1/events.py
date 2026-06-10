@@ -46,6 +46,7 @@ def _event_payload_for_classify(event: Event) -> dict:
         "title": event.title,
         "start_date": event.start_date,
         "end_date": event.end_date,
+        "metadata_json": event.metadata_json,
     }
 
 
@@ -109,6 +110,14 @@ def _apply_update(event: Event, payload: EventUpdate) -> None:
     if contact_patch:
         meta = dict(event.metadata_json or {})
         meta.update(contact_patch)
+        event.metadata_json = meta
+    if "package_type_override" in data:
+        override = data.pop("package_type_override")
+        meta = dict(event.metadata_json or {})
+        if override:
+            meta["package_type_override"] = str(override).strip().upper().replace("-", "_")
+        else:
+            meta.pop("package_type_override", None)
         event.metadata_json = meta
     for key, value in data.items():
         setattr(event, key, value)
@@ -447,7 +456,7 @@ async def update_event(
     await db.commit()
     await db.refresh(event)
     await _invalidate_events_cache()
-    return _event_to_response(event)
+    return await _event_to_response_async(event)
 
 
 @router.post("/{event_id}/close", response_model=EventResponse)

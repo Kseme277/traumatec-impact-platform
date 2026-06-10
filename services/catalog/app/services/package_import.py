@@ -4,9 +4,11 @@ from __future__ import annotations
 
 import io
 import logging
+import os
 import mimetypes
 import re
 import zipfile
+from collections.abc import Callable
 from pathlib import Path, PurePosixPath
 from uuid import UUID
 
@@ -16,10 +18,24 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import Settings
 from app.models.catalog import EventProfile, PackageBundle, PackageTemplate
 from tip_common.package_analyzer import analyze_package_zip
-from tip_common.package_types import PACKAGE_TYPE_SPECS
+from tip_common.package_types import (
+    PACKAGE_TYPE_SPECS,
+    filter_templates_by_package_duration,
+    normalize_package_type,
+)
 from tip_common.storage import PACKAGES_BUNDLES_PREFIX, get_object_storage
 
 logger = logging.getLogger(__name__)
+
+
+def _import_scan_use_ai(explicit: bool | None = None) -> bool:
+    """Analyse NVIDIA à l'import : désactivée par défaut (lente). Activer via CATALOG_IMPORT_SCAN_USE_AI=true."""
+    if explicit is not None:
+        return explicit
+    return os.getenv("CATALOG_IMPORT_SCAN_USE_AI", "").strip().lower() in ("1", "true", "yes")
+
+# Dossiers legacy / doublons — ne pas importer au bootstrap (utiliser PBO_S, pas ORP_S).
+_BOOTSTRAP_SKIP_FOLDERS = frozenset({"ORP_S", "IEC_C", "PBO_F", "IEC_F"})
 
 
 def _content_type(filename: str) -> str:
@@ -121,7 +137,10 @@ async def import_package_zip(
     package_type_hint: str | None = None,
     notes: str | None = None,
     activate: bool = True,
+    scan_use_ai: bool | None = None,
+    on_progress: Callable[..., None] | None = None,
 ) -> dict:
+    use_ai_for_scan = _import_scan_use_ai(scan_use_ai)
     if not zip_bytes:
         raise ValueError("Fichier ZIP vide.")
     if not filename.lower().endswith(".zip"):
@@ -132,9 +151,24 @@ async def import_package_zip(
         source_name=filename,
         package_type_hint=package_type_hint,
     )
-    package_type = analysis.package_type
+    package_type = normalize_package_type(analysis.package_type) or analysis.package_type
     version = await _next_bundle_version(db, package_type)
-    spec = PACKAGE_TYPE_SPECS[package_type]
+    spec = PACKAGE_TYPE_SPECS.get(package_type) or PACKAGE_TYPE_SPECS[analysis.package_type]
+    kept_names = {
+        row["name"]
+        for row in filter_templates_by_package_duration(
+            [{"name": item.filename} for item in analysis.files],
+            package_type=package_type,
+            max_days=spec.duration_days,
+        )
+    }
+    entries = [(name, data) for name, data in entries if name in kept_names]
+    analysis.files = [item for item in analysis.files if item.filename in kept_names]
+    if not entries:
+        raise ValueError(
+            f"Aucun fichier compatible avec la durée du paquet ({spec.duration_days} jour(s))."
+        )
+
     storage = get_object_storage(settings)
     bundle_prefix = f"{PACKAGES_BUNDLES_PREFIX}{package_type.lower()}/v{version}/"
 
@@ -157,8 +191,69 @@ async def import_package_zip(
     await db.flush()
 
     entry_map = dict(entries)
+    sorted_files = sorted(analysis.files, key=lambda f: f.order)
+
+    async def _scan_fields(analyzed) -> tuple[str, dict]:
+        data = entry_map.get(analyzed.filename)
+        if data is None:
+            raise ValueError(f"Fichier manquant dans le ZIP : {analyzed.filename}")
+        if not analyzed.replaceable:
+            return analyzed.filename, {}
+        try:
+            from tip_common.document_section_scanner import scan_document_sections
+
+            scan = await scan_document_sections(
+                filename=analyzed.filename,
+                file_bytes=data,
+                document_role=analyzed.document_role,
+                use_ai=use_ai_for_scan,
+            )
+            return analyzed.filename, {
+                "fields": scan.get("replacement_fields") or [],
+                "classifier": scan.get("classifier"),
+                "section_count": scan.get("section_count"),
+                "samples": [
+                    f.get("sample") for f in (scan.get("replacement_fields") or []) if f.get("sample")
+                ],
+            }
+        except Exception as exc:
+            logger.warning("Analyse champs %s : %s", analyzed.filename, exc)
+            return analyzed.filename, {}
+
+    total_files = len(sorted_files)
+    field_by_name: dict[str, dict] = {}
+    for index, analyzed in enumerate(sorted_files, start=1):
+        label = "Analyse IA" if use_ai_for_scan else "Analyse"
+        if on_progress:
+            on_progress(
+                phase="analyzing",
+                processed=index - 1,
+                total=total_files,
+                current_file=analyzed.filename,
+                message=f"{label} : {analyzed.filename} ({index}/{total_files})",
+            )
+        name, fields = await _scan_fields(analyzed)
+        field_by_name[name] = fields
+        if on_progress:
+            on_progress(
+                phase="analyzing",
+                processed=index,
+                total=total_files,
+                current_file=analyzed.filename,
+                message=f"{label} : {analyzed.filename} ({index}/{total_files})",
+            )
+
+    if on_progress:
+        on_progress(
+            phase="saving",
+            processed=total_files,
+            total=total_files,
+            current_file="",
+            message="Enregistrement des fichiers et activation du paquet…",
+        )
+
     created_templates: list[PackageTemplate] = []
-    for analyzed in sorted(analysis.files, key=lambda f: f.order):
+    for analyzed in sorted_files:
         data = entry_map.get(analyzed.filename)
         if data is None:
             raise ValueError(f"Fichier manquant dans le ZIP : {analyzed.filename}")
@@ -166,27 +261,7 @@ async def import_package_zip(
         storage_key = f"{bundle_prefix}files/{arcname}"
         storage.upload_bytes(storage_key, data, content_type=_content_type(arcname))
         code = _template_code(package_type, version, arcname)
-        field_analysis: dict = {}
-        if analyzed.replaceable:
-            try:
-                from tip_common.document_section_scanner import scan_document_sections
-
-                scan = await scan_document_sections(
-                    filename=arcname,
-                    file_bytes=data,
-                    document_role=analyzed.document_role,
-                    use_ai=True,
-                )
-                field_analysis = {
-                    "fields": scan.get("replacement_fields") or [],
-                    "classifier": scan.get("classifier"),
-                    "section_count": scan.get("section_count"),
-                    "samples": [
-                        f.get("sample") for f in (scan.get("replacement_fields") or []) if f.get("sample")
-                    ],
-                }
-            except Exception as exc:
-                logger.warning("Analyse champs %s : %s", arcname, exc)
+        field_analysis = field_by_name.get(arcname, {})
 
         meta = {
             "bundle_id": str(bundle.id),
@@ -327,6 +402,7 @@ async def _bootstrap_import_type(
         package_type_hint=package_type,
         notes=notes,
         activate=True,
+        scan_use_ai=False,
     )
 
 
@@ -350,7 +426,7 @@ async def bootstrap_system_packages(
 
     if zips_dir is not None:
         for zip_path in sorted(zips_dir.glob("*.zip")):
-            package_type = zip_path.stem.upper().replace("-", "_")
+            package_type = normalize_package_type(zip_path.stem.upper().replace("-", "_")) or ""
             summary = await _bootstrap_import_type(
                 db,
                 settings,
@@ -369,7 +445,11 @@ async def bootstrap_system_packages(
         for folder in sorted(packages_dir.iterdir()):
             if not folder.is_dir() or folder.name.startswith("."):
                 continue
-            package_type = folder.name.upper().replace("-", "_")
+            folder_code = folder.name.upper().replace("-", "_")
+            if folder_code in _BOOTSTRAP_SKIP_FOLDERS:
+                logger.info("Bootstrap : dossier %s ignoré (legacy/doublon)", folder.name)
+                continue
+            package_type = normalize_package_type(folder_code) or ""
             if package_type in imported_types and not force:
                 continue
             try:

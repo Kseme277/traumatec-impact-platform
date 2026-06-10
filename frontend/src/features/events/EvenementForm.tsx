@@ -6,7 +6,7 @@ import Button from "../../components/ui/button/Button";
 import { useTranslation } from "../../i18n/useTranslation";
 import type { Evenement, EvenementPayload, EventStatus, PreparationTheme } from "./types";
 import { getProjectStatusFormOptions } from "./projectStatus";
-import { themeFormOptions } from "./themeOptions";
+import { inferActivityKind, themeFormOptionsForEvent } from "./themeOptions";
 
 interface EvenementFormProps {
   initial?: Evenement | null;
@@ -42,6 +42,7 @@ export default function EvenementForm({
 }: EvenementFormProps) {
   const { t } = useTranslation();
   const [form, setForm] = useState<EvenementPayload>(emptyForm);
+  const [themeChoice, setThemeChoice] = useState("");
 
   const statusOptions = useMemo(
     () => [
@@ -55,9 +56,20 @@ export default function EvenementForm({
   );
 
   const projectStatusOptions = useMemo(() => getProjectStatusFormOptions(t), [t]);
-
+  const activityKind = useMemo(
+    () => inferActivityKind(form),
+    [form.event_type, form.title, form.start_date, form.end_date],
+  );
+  const themeOptions = useMemo(
+    () => themeFormOptionsForEvent(form, t),
+    [form.event_type, form.title, form.start_date, form.end_date, t],
+  );
   useEffect(() => {
     if (initial) {
+      const override = initial.metadata_json?.package_type_override;
+      setThemeChoice(
+        override === "NONOP_C" ? "operatory-nonop" : (initial.preparation_theme ?? ""),
+      );
       setForm({
         project_number: initial.project_number,
         title: initial.title,
@@ -81,6 +93,7 @@ export default function EvenementForm({
 
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
+    const isNonop = themeChoice === "operatory-nonop";
     await onSubmit({
       ...form,
       event_type: form.event_type || null,
@@ -93,7 +106,10 @@ export default function EvenementForm({
       region: form.region || null,
       start_date: form.start_date || null,
       end_date: form.end_date || null,
-      preparation_theme: (form.preparation_theme as PreparationTheme | null) || null,
+      preparation_theme: activityKind === "faculty"
+        ? null
+        : ((isNonop ? "operatory" : form.preparation_theme) as PreparationTheme | null) || null,
+      package_type_override: isNonop ? "NONOP_C" : null,
       status: form.status as EventStatus,
     });
   };
@@ -168,20 +184,32 @@ export default function EvenementForm({
             onChange={(value) => setForm({ ...form, project_status: value })}
           />
         </div>
-        <div>
-          <Label>{t("events.theme")}</Label>
-          <Select
-            placeholder={t("events.chooseTheme")}
-            options={themeFormOptions}
-            value={form.preparation_theme ?? ""}
-            onChange={(value) =>
-              setForm({
-                ...form,
-                preparation_theme: (value || null) as PreparationTheme | null,
-              })
-            }
-          />
-        </div>
+        {activityKind === "faculty" ? (
+          <div>
+            <Label>{t("events.theme")}</Label>
+            <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">{t("events.facultyNoTheme")}</p>
+          </div>
+        ) : (
+          <div>
+            <Label>{t("events.theme")}</Label>
+            <Select
+              placeholder={t("events.chooseTheme")}
+              options={themeOptions}
+              value={themeChoice}
+              onChange={(value) => {
+                setThemeChoice(value);
+                if (value === "operatory-nonop") {
+                  setForm({ ...form, preparation_theme: "operatory" });
+                  return;
+                }
+                setForm({
+                  ...form,
+                  preparation_theme: (value || null) as PreparationTheme | null,
+                });
+              }}
+            />
+          </div>
+        )}
         <div>
           <Label>{t("events.tipStatus")}</Label>
           <Select

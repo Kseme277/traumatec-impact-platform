@@ -8,7 +8,9 @@ import Button from "../components/ui/button/Button";
 import Badge from "../components/ui/badge/Badge";
 import { useEvents } from "../features/events/useEvents";
 import type { Evenement } from "../features/events/types";
-import { themeLabel, type PreparationTheme } from "../features/events/types";
+import type { PackageCandidate, PreparationTheme } from "../features/events/types";
+import { themeLabel } from "../features/events/types";
+import { packageTypeLabel } from "../features/events/themeOptions";
 import { formatDateRangeFr } from "../features/events/eventDates";
 import ProjectStatusBadge from "../features/events/ProjectStatusBadge";
 import { isEventFinished, isEventOpen } from "../features/events/projectStatus";
@@ -109,13 +111,19 @@ export default function EvenementDetailPage() {
           <DetailRow label={t("events.status")}>
             <ProjectStatusBadge projectStatus={event.project_status} />
           </DetailRow>
-          <DetailRow label={t("events.theme")}>{themeLabel(event.preparation_theme)}</DetailRow>
+          <DetailRow label={t("events.theme")}>
+            {event.inferred_package?.activity_kind === "faculty"
+              ? t("events.facultyNoTheme")
+              : themeLabel(event.preparation_theme, t)}
+          </DetailRow>
           {event.inferred_package && (
             <DetailRow label={t("events.inferredPackage")}>
               <span className="inline-flex flex-wrap items-center gap-2">
                 <span>
-                  {event.inferred_package.package_label} ({event.inferred_package.package_type})
-                  {" · "}
+                  {packageTypeLabel(event.inferred_package.package_type, t)}
+                  {" ("}
+                  {event.inferred_package.package_type}
+                  {") · "}
                   {event.inferred_package.activity_label}
                   {" · "}
                   {event.inferred_package.duration_days} {t("documents.days")}
@@ -128,25 +136,31 @@ export default function EvenementDetailPage() {
               </span>
             </DetailRow>
           )}
-          {!event.preparation_theme && event.inferred_package?.preparation_theme && (
+          {!event.preparation_theme
+            && event.inferred_package?.activity_kind !== "faculty"
+            && (event.inferred_package?.package_candidates?.length ?? 0) > 0 && (
             <div className="rounded-lg border border-brand-100 bg-brand-50/50 p-4 dark:border-brand-500/20">
-              <p className="text-sm text-gray-700 dark:text-gray-300">{t("events.suggestTheme")}</p>
-              <p className="mt-1 text-xs text-gray-500">
-                {themeLabel(event.inferred_package.preparation_theme as PreparationTheme)}
-                {" → "}
-                {event.inferred_package.package_label}
-              </p>
-              <Button
-                size="sm"
-                className="mt-3"
-                onClick={() =>
-                  void update(event.id, {
-                    preparation_theme: event.inferred_package!.preparation_theme as PreparationTheme,
-                  }).then((updated) => updated && setEvent(updated))
-                }
-              >
-                {t("events.applySuggestedTheme")}
-              </Button>
+              <p className="text-sm text-gray-700 dark:text-gray-300">{t("events.suggestThemePick")}</p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                {(event.inferred_package?.package_candidates ?? []).map((candidate: PackageCandidate) => (
+                  <Button
+                    key={candidate.package_type}
+                    size="sm"
+                    variant={candidate.suggested ? "primary" : "outline"}
+                    onClick={() => {
+                      const override =
+                        candidate.package_type === "NONOP_C" ? "NONOP_C" : null;
+                      void update(event.id, {
+                        preparation_theme: (candidate.preparation_theme as PreparationTheme | null) || null,
+                        package_type_override: override,
+                      }).then((updated) => updated && setEvent(updated));
+                    }}
+                  >
+                    {packageTypeLabel(candidate.package_type, t)}
+                    {candidate.suggested ? ` (${t("events.suggestedPackage")})` : ""}
+                  </Button>
+                ))}
+              </div>
             </div>
           )}
           <DetailRow label={t("events.location")}>
@@ -166,6 +180,11 @@ export default function EvenementDetailPage() {
             <Link to={`/evenements/${event.id}/modifier`}>
               <Button size="sm" className="w-full">
                 {t("events.edit")}
+              </Button>
+            </Link>
+            <Link to={`/certificats?event=${event.id}`}>
+              <Button size="sm" variant="outline" className="w-full">
+                {t("participants.generateFromEvent")}
               </Button>
             </Link>
             {event.inferred_package && (

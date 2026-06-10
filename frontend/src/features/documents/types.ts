@@ -68,6 +68,28 @@ export interface PackageUploadResult {
   };
 }
 
+export type PackageImportJobStatus = "pending" | "analyzing" | "saving" | "completed" | "failed";
+
+export interface PackageImportJobStart {
+  job_id: string;
+  filename: string;
+}
+
+export interface PackageImportProgress {
+  job_id: string;
+  status: PackageImportJobStatus;
+  phase: string;
+  processed: number;
+  total: number;
+  percent: number;
+  message: string;
+  filename: string;
+  current_file: string | null;
+  use_ai: boolean;
+  result: PackageUploadResult | null;
+  error: string | null;
+}
+
 export type GenerationJobStatus = "queued" | "running" | "completed" | "failed";
 
 export interface GenerationLogEntry {

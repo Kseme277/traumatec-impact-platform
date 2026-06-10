@@ -195,12 +195,19 @@ CREATE TABLE events.events (
 );
 
 CREATE TABLE events.participants (
-    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-    event_id        UUID NOT NULL REFERENCES events.events(id) ON DELETE CASCADE,
-    full_name       VARCHAR(255) NOT NULL,
-    hospital        VARCHAR(255),
-    row_number      INTEGER,
-    created_at      TIMESTAMPTZ NOT NULL DEFAULT now()
+    id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    event_id            UUID NOT NULL REFERENCES events.events(id) ON DELETE CASCADE,
+    full_name           VARCHAR(255) NOT NULL,
+    last_name           VARCHAR(128),
+    first_name          VARCHAR(128),
+    hospital            VARCHAR(255),
+    email               VARCHAR(255),
+    statut              VARCHAR(128),
+    certificate_role    VARCHAR(32) NOT NULL DEFAULT 'participant',
+    row_number          INTEGER,
+    registration_meta   JSONB,
+    imported_at         TIMESTAMPTZ NOT NULL DEFAULT now(),
+    created_at          TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
 CREATE TABLE events.event_attachments (
@@ -215,6 +222,7 @@ CREATE TABLE events.event_attachments (
 CREATE INDEX idx_events_events_status ON events.events(status);
 CREATE INDEX idx_events_events_project_number ON events.events(project_number);
 CREATE INDEX idx_events_participants_event_id ON events.participants(event_id);
+CREATE INDEX idx_events_participants_certificate_role ON events.participants(event_id, certificate_role);
 
 -- ---------------------------------------------------------------------------
 -- docgen-service
@@ -240,3 +248,17 @@ CREATE TABLE docgen.generation_jobs (
 
 CREATE INDEX idx_docgen_jobs_event_id ON docgen.generation_jobs(event_id);
 CREATE INDEX idx_docgen_jobs_status ON docgen.generation_jobs(status);
+
+CREATE TABLE docgen.certificate_generations (
+    id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    event_id            UUID NOT NULL REFERENCES events.events(id) ON DELETE CASCADE,
+    requested_by_id     INTEGER NOT NULL REFERENCES identity.utilisateurs(id),
+    role_filter         VARCHAR(32) NOT NULL DEFAULT 'all',
+    certificate_count   INTEGER NOT NULL DEFAULT 0,
+    storage_key         VARCHAR(512) NOT NULL,
+    filename            VARCHAR(512) NOT NULL,
+    created_at          TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX idx_docgen_certificate_generations_event_id
+    ON docgen.certificate_generations(event_id, created_at DESC);

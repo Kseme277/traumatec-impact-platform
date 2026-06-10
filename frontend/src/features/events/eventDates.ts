@@ -1,5 +1,6 @@
 import type { DashboardEventStats, Evenement, EventStatus } from "./types";
 import { calendarChipToneForEventType } from "./eventTypeColors";
+import { isEventOpen } from "./projectStatus";
 
 export type CalendarEntry = DashboardEventStats["calendar"][number];
 
@@ -104,19 +105,53 @@ export function isUpcomingEvent(event: Pick<Evenement, "start_date" | "end_date"
 const GENERATABLE_STATUSES: EventStatus[] = ["imported", "in_progress", "ready"];
 
 export function isGeneratableEvent(event: Evenement): boolean {
-  return GENERATABLE_STATUSES.includes(event.status) && isUpcomingEvent(event);
+  return (
+    GENERATABLE_STATUSES.includes(event.status)
+    && isUpcomingEvent(event)
+    && isEventOpen(event.project_status)
+  );
 }
 
-/** Texte libre pour filtrer la liste (n°, titre, ville, pays, type). */
+/** Options filtre « type d'événement » : valeurs distinctes présentes dans la liste. */
+export function distinctEventTypeFilterOptions(
+  events: Pick<Evenement, "event_type">[],
+): Array<{ value: string; label: string }> {
+  const types = new Set<string>();
+  for (const event of events) {
+    const value = (event.event_type ?? "").trim();
+    if (value) types.add(value);
+  }
+  return [...types]
+    .sort((a, b) => a.localeCompare(b, "fr"))
+    .map((value) => ({ value, label: value }));
+}
+
+export function eventMatchesEventTypeFilter(
+  event: Pick<Evenement, "event_type">,
+  filter: string,
+): boolean {
+  if (!filter) return true;
+  return (event.event_type ?? "").trim() === filter;
+}
+
+/** Texte libre pour filtrer la liste (n°, titre, ville, pays, type, dates). */
 export function eventMatchesSearch(event: Evenement, query: string): boolean {
   const q = query.trim().toLowerCase();
   if (!q) return true;
+  const dateRange = formatEventDateRange(event);
   const haystack = [
     event.project_number,
     event.title,
     event.event_type,
     event.city,
     event.country,
+    event.region,
+    event.responsible_person,
+    event.start_date,
+    event.end_date,
+    dateRange,
+    formatEventDate(event.start_date),
+    formatEventDate(event.end_date),
     event.inferred_package?.package_type,
     event.inferred_package?.activity_label,
     event.inferred_package?.package_label,

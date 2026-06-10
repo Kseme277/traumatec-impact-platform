@@ -19,3 +19,9 @@ export function filterTemplatesByPackageDuration<T extends { name: string }>(
     return day === null || day <= maxDays;
   });
 }
+
+/** Jours effectifs pour les listes 07/08 : min(durée événement, max paquet). */
+export function effectiveListDays(eventDays: number, packageMaxDays: number): number {
+  if (!packageMaxDays) return eventDays;
+  return Math.min(Math.max(1, eventDays), packageMaxDays);
+}

@@ -10,6 +10,9 @@ interface OnlyOfficeEditorProps {
   editorConfig: OnlyOfficeEditorConfig | null;
   className?: string;
   onDocumentSaved?: () => void;
+  /** Ouvre directement en plein écran (aperçu certificats — évite iframe 0×0). */
+  autoFullscreen?: boolean;
+  onClose?: () => void;
 }
 
 declare global {
@@ -24,9 +27,10 @@ declare global {
 }
 
 const SCRIPT_ID = "onlyoffice-docs-api";
+const MIN_CONTAINER_PX = 280;
 
-function computeEditorHeight(): number {
-  return Math.max(720, window.innerHeight - 200);
+function computeEditorHeight(fullscreen: boolean): number {
+  return fullscreen ? Math.max(480, window.innerHeight - 56) : Math.max(720, window.innerHeight - 200);
 }
 
 function loadOnlyOfficeScript(documentServerUrl: string, t: (key: string) => string): Promise<void> {
@@ -55,10 +59,18 @@ function documentMountKey(editorConfig: OnlyOfficeEditorConfig): string {
   return doc?.key ?? doc?.url ?? editorConfig.document_server_url;
 }
 
+function waitForNextFrame(): Promise<void> {
+  return new Promise((resolve) => {
+    requestAnimationFrame(() => requestAnimationFrame(() => resolve()));
+  });
+}
+
 export default function OnlyOfficeEditor({
   editorConfig,
   className = "",
   onDocumentSaved,
+  autoFullscreen = false,
+  onClose,
 }: OnlyOfficeEditorProps) {
   const { t } = useTranslation();
   const reactId = useId().replace(/:/g, "");
@@ -68,16 +80,23 @@ export default function OnlyOfficeEditor({
   const onDocumentSavedRef = useRef(onDocumentSaved);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [editorHeight, setEditorHeight] = useState(computeEditorHeight);
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [editorHeight, setEditorHeight] = useState(() => computeEditorHeight(false));
+  const [containerSize, setContainerSize] = useState({ width: 0, height: 0 });
 
   const syncHeight = useCallback(() => {
-    setEditorHeight(isFullscreen ? window.innerHeight - 56 : computeEditorHeight());
+    setEditorHeight(computeEditorHeight(isFullscreen));
   }, [isFullscreen]);
 
   useEffect(() => {
     onDocumentSavedRef.current = onDocumentSaved;
   }, [onDocumentSaved]);
+
+  useEffect(() => {
+    if (editorConfig && autoFullscreen) {
+      setIsFullscreen(true);
+    }
+  }, [editorConfig, autoFullscreen]);
 
   useEffect(() => {
     syncHeight();
@@ -96,16 +115,40 @@ export default function OnlyOfficeEditor({
 
   useEffect(() => {
     const shell = shellRef.current;
+    if (!shell) return;
+
+    const updateSize = () => {
+      const rect = shell.getBoundingClientRect();
+      setContainerSize({
+        width: Math.round(rect.width),
+        height: Math.round(rect.height),
+      });
+    };
+
+    updateSize();
+    const observer = new ResizeObserver(updateSize);
+    observer.observe(shell);
+    return () => observer.disconnect();
+  }, [editorConfig, isFullscreen]);
+
+  const containerReady =
+    isFullscreen ||
+    (containerSize.width >= MIN_CONTAINER_PX && containerSize.height >= MIN_CONTAINER_PX);
+
+  useEffect(() => {
+    const shell = shellRef.current;
     if (!shell) {
       return;
     }
 
-    if (!editorConfig) {
+    if (!editorConfig || !containerReady) {
       editorRef.current?.destroyEditor?.();
       editorRef.current = null;
-      shell.replaceChildren();
-      setError(null);
-      setLoading(false);
+      if (!editorConfig) {
+        shell.replaceChildren();
+        setError(null);
+        setLoading(false);
+      }
       return;
     }
 
@@ -119,6 +162,7 @@ export default function OnlyOfficeEditor({
     void (async () => {
       try {
         await loadOnlyOfficeScript(editorConfig.document_server_url, t);
+        await waitForNextFrame();
         if (cancelled || !window.DocsAPI || !shellRef.current) {
           return;
         }
@@ -144,6 +188,12 @@ export default function OnlyOfficeEditor({
           height: heightPx,
           width: "100%",
           events: {
+            onAppReady: () => {
+              if (!cancelled) setLoading(false);
+            },
+            onDocumentReady: () => {
+              if (!cancelled) setLoading(false);
+            },
             onDocumentStateChange: (event: { data?: boolean }) => {
               if (event.data === false) {
                 onDocumentSavedRef.current?.();
@@ -152,6 +202,7 @@ export default function OnlyOfficeEditor({
             onError: (event: { data?: { errorDescription?: string } }) => {
               const detail = event.data?.errorDescription ?? t("documents.onlyofficeError");
               setError(detail);
+              setLoading(false);
             },
           },
         };
@@ -160,9 +211,6 @@ export default function OnlyOfficeEditor({
       } catch (err) {
         if (!cancelled) {
           setError(err instanceof Error ? err.message : t("documents.onlyofficeUnavailable"));
-        }
-      } finally {
-        if (!cancelled) {
           setLoading(false);
         }
       }
@@ -175,7 +223,7 @@ export default function OnlyOfficeEditor({
       mountEl?.remove();
       shell.replaceChildren();
     };
-  }, [editorConfig, editorHeight, mountId, t]);
+  }, [editorConfig, editorHeight, mountId, t, containerReady, containerSize.width]);
 
   if (!editorConfig) {
     return (
@@ -192,6 +240,15 @@ export default function OnlyOfficeEditor({
   return (
     <div className={shellClass}>
       <div className="flex items-center justify-end gap-2">
+        {onClose ? (
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-700 transition hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
+          >
+            {t("documents.closeEditor")}
+          </button>
+        ) : null}
         <button
           type="button"
           onClick={() => setIsFullscreen((prev) => !prev)}
@@ -217,14 +274,16 @@ export default function OnlyOfficeEditor({
         className="relative w-full flex-1"
         style={{ minHeight: editorHeight }}
       >
-        {loading ? (
+        {loading || !containerReady ? (
           <div
             className="absolute inset-0 z-10 flex items-center justify-center rounded-lg border border-dashed border-gray-200 bg-gray-50/80 dark:border-gray-700 dark:bg-gray-900/50"
             role="status"
             aria-live="polite"
           >
             <span className="text-sm text-gray-500 dark:text-gray-400">
-              {t("documents.onlyofficeEditorLoading")}
+              {!containerReady
+                ? t("documents.onlyofficeLayoutWait")
+                : t("documents.onlyofficeEditorLoading")}
             </span>
           </div>
         ) : null}
