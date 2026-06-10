@@ -113,7 +113,8 @@ export function resolveNavigatePath(
       score += 4;
     if (q.includes("audit") && entry.path.includes("audit")) score += 4;
     if ((q.includes("profil") || q.includes("profile")) && entry.path.includes("profil")) score += 4;
-    if ((q.includes("accueil") || q.includes("home") || q.includes("dashboard")) && entry.path === "/") score += 4;
+    if ((q.includes("accueil") || q.includes("home") || q.includes("dashboard")) && entry.path === "/dashboard")
+      score += 4;
     if (
       (q.includes("prédiction") || q.includes("prediction") || q.includes("analytics") || q.includes("budget")) &&
       entry.path.includes("predictions")

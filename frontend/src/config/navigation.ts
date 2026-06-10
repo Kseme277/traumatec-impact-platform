@@ -19,7 +19,7 @@ export function getNavItems(isAdmin: boolean): NavItem[] {
     {
       name: "Tableau de bord",
       icon: null,
-      path: "/",
+      path: "/dashboard",
     },
     {
       name: "Événements",

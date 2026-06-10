@@ -2,6 +2,7 @@
 layer(base);
 
 @import "tailwindcss";
+@import "./features/landing/landing.css";
 
 @custom-variant dark (&:is(.dark *));
 

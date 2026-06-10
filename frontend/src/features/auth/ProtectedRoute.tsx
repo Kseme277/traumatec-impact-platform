@@ -50,7 +50,7 @@ export default function ProtectedRoute({ requireAdmin = false }: ProtectedRouteP
   }
 
   if (requireAdmin && tipUser.role !== "administrateur") {
-    return <Navigate to="/" replace />;
+    return <Navigate to="/dashboard" replace />;
   }
 
   return <Outlet />;

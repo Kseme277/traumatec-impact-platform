@@ -80,7 +80,7 @@ async def list_participants(
     )
     items = list(result.scalars().all())
     return ParticipantListResponse(
-        items=[ParticipantResponse.model_validate(p) for p in items],
+        items=[ParticipantResponse.model_validate(p, from_attributes=True) for p in items],
         total=total,
         page=safe_page,
         page_size=page_size,
@@ -192,7 +192,7 @@ async def get_participant_detail(
     ]
 
     return ParticipantDetailResponse(
-        participant=ParticipantResponse.model_validate(participant),
+        participant=ParticipantResponse.model_validate(participant, from_attributes=True),
         events_participated_count=len(events),
         events=events,
     )

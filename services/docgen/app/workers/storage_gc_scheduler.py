@@ -5,8 +5,6 @@ from __future__ import annotations
 import asyncio
 import logging
 import os
-import time
-
 logger = logging.getLogger(__name__)
 
 INTERVAL_SECONDS = int(os.getenv("STORAGE_GC_INTERVAL_SECONDS", "3600"))
@@ -31,15 +29,19 @@ async def _run_once() -> None:
         await run_storage_garbage_collection(session, storage, force=False)
 
 
+async def _scheduler_loop() -> None:
+    while True:
+        try:
+            await _run_once()
+        except Exception:
+            logger.exception("Erreur GC stockage")
+        await asyncio.sleep(INTERVAL_SECONDS)
+
+
 def main() -> None:
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")
     logger.info("Planificateur GC démarré (intervalle=%ss)", INTERVAL_SECONDS)
-    while True:
-        try:
-            asyncio.run(_run_once())
-        except Exception:
-            logger.exception("Erreur GC stockage")
-        time.sleep(INTERVAL_SECONDS)
+    asyncio.run(_scheduler_loop())
 
 
 if __name__ == "__main__":

@@ -1,0 +1,52 @@
+.landing-wrapper {
+  width: 100%;
+  max-width: 1280px;
+  margin-inline: auto;
+  padding-inline: 1.25rem;
+}
+
+@media (min-width: 640px) {
+  .landing-wrapper {
+    padding-inline: 1.5rem;
+  }
+}
+
+.landing-gradient-btn {
+  background-image: linear-gradient(97deg, #465fff 0%, #9cb9ff 140.21%);
+}
+
+.landing-hero-glow {
+    background: linear-gradient(
+      180deg,
+      rgba(70, 95, 255, 0) 0%,
+      rgba(70, 95, 255, 0.08) 50%,
+      rgba(70, 95, 255, 0) 100%
+    );
+  }
+
+.landing-benefits-card {
+    border-radius: 20px;
+    background: linear-gradient(216deg, #c2d6ff 0%, #465fff 100%);
+  }
+
+.landing-floating-1 {
+    animation: landing-float 6s ease-in-out infinite;
+  }
+
+.landing-floating-2 {
+    animation: landing-float 7s ease-in-out infinite 0.5s;
+  }
+
+.landing-floating-3 {
+  animation: landing-float 5.5s ease-in-out infinite 1s;
+}
+
+@keyframes landing-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-12px);
+  }
+}

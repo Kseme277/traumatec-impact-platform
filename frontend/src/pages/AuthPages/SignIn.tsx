@@ -18,7 +18,7 @@ export default function SignIn() {
     if (isLoading) {
       return <AuthLoadingScreen />;
     }
-    return <Navigate to="/" replace />;
+    return <Navigate to="/dashboard" replace />;
   }
 
   return (

@@ -1057,6 +1057,159 @@ const fr = {
       FET: "Faculty ET",
     },
   },
+  landing: {
+    meta: {
+      title: "Traumatec Impact Platform — Gestion des événements AO Alliance",
+      description:
+        "Plateforme tout-en-un pour piloter vos événements AO Alliance : import Projects, paquets documentaires, certificats et analyses prédictives.",
+    },
+    nav: {
+      aria: "Navigation principale",
+      features: "Fonctionnalités",
+      modules: "Modules",
+      benefits: "Avantages",
+      faq: "FAQ",
+      signIn: "Connexion",
+      getStarted: "Accéder à la plateforme",
+      openMenu: "Ouvrir le menu",
+      closeMenu: "Fermer le menu",
+    },
+    hero: {
+      badge: "Plateforme AO Alliance par Traumatec",
+      title: "Pilotez vos événements AO Alliance de A à Z",
+      subtitle:
+        "Import Excel, génération de paquets documentaires, certificats participants et indicateurs prédictifs — une seule plateforme pour les responsables nationaux et préparateurs.",
+      ctaPrimary: "Se connecter",
+      ctaSecondary: "Découvrir les fonctionnalités",
+    },
+    features: {
+      title: "Tout ce dont vous avez besoin pour vos dossiers",
+      subtitle:
+        "TIP centralise la préparation, la production documentaire et le suivi d'impact de vos séminaires et cours AO Alliance.",
+      items: {
+        events: {
+          title: "Événements & import Projects",
+          description:
+            "Créez, modifiez et importez vos événements depuis Projects.xlsx avec statuts, alertes et tableau de bord BI.",
+        },
+        documents: {
+          title: "Paquets documentaires",
+          description:
+            "Importez les ZIP AO (Op S, PBO S, IEC S, cours 3j, FET) et générez les dossiers complets en un clic.",
+        },
+        certificates: {
+          title: "Certificats participants",
+          description:
+            "Importez les listes Excel, personnalisez les titres et produisez des certificats Word conformes au modèle AO.",
+        },
+        analytics: {
+          title: "Prédictions ML",
+          description:
+            "Estimez l'affluence et le risque budgétaire grâce aux modèles prédictifs entraînés sur l'historique TIP.",
+        },
+        audit: {
+          title: "Traçabilité & audit",
+          description:
+            "Journalisez chaque action sensible — création d'événement, import participants, génération de documents.",
+        },
+        assistant: {
+          title: "Assistant d'actions",
+          description:
+            "Lancez des opérations courantes en langage naturel : générer un paquet, ouvrir un événement, consulter les stats.",
+        },
+      },
+    },
+    modules: {
+      title: "Une plateforme modulaire",
+      subtitle: "Chaque module répond à une étape clé du cycle de vie de vos événements AO Alliance.",
+      tabs: {
+        events: "Événements",
+        documents: "Documents",
+        certificates: "Certificats",
+        analytics: "Analyses",
+      },
+      content: {
+        events: {
+          title: "Du projet Excel au dossier prêt",
+          description:
+            "Synchronisez Projects.xlsx, suivez les statuts de préparation et accédez à la fiche détaillée de chaque événement.",
+        },
+        documents: {
+          title: "Templates & génération",
+          description:
+            "Catalogue des paquets AO, filtres par type d'événement et production asynchrone avec barre de progression.",
+        },
+        certificates: {
+          title: "Certificats en masse",
+          description:
+            "Dédoublonnage des participants, suggestion de titre par IA et export Word page par page.",
+        },
+        analytics: {
+          title: "Décisions guidées par la data",
+          description:
+            "Corrélations budget/affluence, heatmaps et tableaux interactifs pour anticiper vos prochains événements.",
+        },
+      },
+    },
+    benefits: {
+      title: "Pourquoi choisir Traumatec Impact Platform ?",
+      subtitle: "Gagnez du temps, réduisez les erreurs et harmonisez vos livrables AO Alliance.",
+      card1: {
+        title: "Conformité aux standards AO",
+        description:
+          "Paquets, listes de présence et certificats alignés sur les modèles officiels AO Alliance.",
+      },
+      card2: {
+        title: "Productivité des équipes",
+        description:
+          "Moins de copier-coller, moins de fichiers éparpillés — tout est versionné et traçable dans TIP.",
+      },
+      card3: {
+        title: "Prêt pour vos prochains événements",
+        description: "Connectez-vous pour accéder au tableau de bord et démarrer un dossier en quelques minutes.",
+        cta: "Ouvrir le tableau de bord",
+      },
+    },
+    faq: {
+      title: "Questions fréquentes",
+      subtitle: "Tout ce qu'il faut savoir avant de démarrer sur TIP.",
+      items: {
+        q1: {
+          question: "À qui s'adresse Traumatec Impact Platform ?",
+          answer:
+            "TIP est destinée aux responsables nationaux, préparateurs et administrateurs qui gèrent des événements AO Alliance (séminaires Op S, PBO S, IEC S, cours 3 jours et FET).",
+        },
+        q2: {
+          question: "Comment accéder à la plateforme ?",
+          answer:
+            "Les comptes sont créés sur invitation par un administrateur TIP. Cliquez sur « Se connecter » et utilisez votre e-mail professionnel ou Google.",
+        },
+        q3: {
+          question: "Puis-je importer mes fichiers Projects.xlsx ?",
+          answer:
+            "Oui. L'import Projects met à jour ou crée les événements avec dédoublonnage et historique des participations.",
+        },
+        q4: {
+          question: "Les certificats respectent-ils le modèle AO ?",
+          answer:
+            "Oui. La génération reproduit la mise en page officielle (logo, filigrane, une page par certificat) à partir de vos listes Excel.",
+        },
+        q5: {
+          question: "Les données sont-elles sécurisées ?",
+          answer:
+            "L'authentification passe par Clerk, les documents sont stockés sur MinIO et chaque action sensible est journalisée dans l'audit.",
+        },
+      },
+    },
+    footer: {
+      description:
+        "Traumatec Impact Platform — la solution Traumatec pour orchestrer vos événements AO Alliance, de la préparation documentaire aux certificats.",
+      platform: "Plateforme",
+      account: "Compte",
+      resetPassword: "Mot de passe oublié",
+      rights: "Tous droits réservés.",
+    },
+  },
   notFound: {
     title: "Page introuvable",
     message: "La page que vous recherchez n'existe pas ou a été déplacée.",
@@ -2137,6 +2290,159 @@ const en: typeof fr = {
       ORP_C: "ORP C",
       NONOP_C: "NonOp C",
       FET: "Faculty ET",
+    },
+  },
+  landing: {
+    meta: {
+      title: "Traumatec Impact Platform — AO Alliance event management",
+      description:
+        "All-in-one platform for AO Alliance events: Projects import, document packages, certificates and predictive analytics.",
+    },
+    nav: {
+      aria: "Main navigation",
+      features: "Features",
+      modules: "Modules",
+      benefits: "Benefits",
+      faq: "FAQ",
+      signIn: "Sign in",
+      getStarted: "Open the platform",
+      openMenu: "Open menu",
+      closeMenu: "Close menu",
+    },
+    hero: {
+      badge: "AO Alliance platform by Traumatec",
+      title: "Run your AO Alliance events end to end",
+      subtitle:
+        "Excel import, document package generation, participant certificates and predictive KPIs — one platform for national coordinators and preparers.",
+      ctaPrimary: "Sign in",
+      ctaSecondary: "Explore features",
+    },
+    features: {
+      title: "Everything you need for your dossiers",
+      subtitle:
+        "TIP centralizes preparation, document production and impact tracking for your AO Alliance seminars and courses.",
+      items: {
+        events: {
+          title: "Events & Projects import",
+          description:
+            "Create, edit and import events from Projects.xlsx with statuses, alerts and BI dashboards.",
+        },
+        documents: {
+          title: "Document packages",
+          description:
+            "Import AO ZIP files (Op S, PBO S, IEC S, 3-day courses, FET) and generate complete dossiers in one click.",
+        },
+        certificates: {
+          title: "Participant certificates",
+          description:
+            "Import Excel lists, customize titles and produce Word certificates matching the official AO layout.",
+        },
+        analytics: {
+          title: "ML predictions",
+          description:
+            "Estimate attendance and budget risk with predictive models trained on TIP history.",
+        },
+        audit: {
+          title: "Traceability & audit",
+          description:
+            "Log every sensitive action — event creation, participant import, document generation.",
+        },
+        assistant: {
+          title: "Action assistant",
+          description:
+            "Run common operations in natural language: generate a package, open an event, view stats.",
+        },
+      },
+    },
+    modules: {
+      title: "A modular platform",
+      subtitle: "Each module covers a key step in your AO Alliance event lifecycle.",
+      tabs: {
+        events: "Events",
+        documents: "Documents",
+        certificates: "Certificates",
+        analytics: "Analytics",
+      },
+      content: {
+        events: {
+          title: "From Excel project to ready dossier",
+          description:
+            "Sync Projects.xlsx, track preparation status and open detailed event pages.",
+        },
+        documents: {
+          title: "Templates & generation",
+          description:
+            "AO package catalogue, event-type filters and async production with progress bar.",
+        },
+        certificates: {
+          title: "Bulk certificates",
+          description:
+            "Participant deduplication, AI title suggestions and per-page Word export.",
+        },
+        analytics: {
+          title: "Data-driven decisions",
+          description:
+            "Budget/attendance correlations, heatmaps and interactive tables to plan ahead.",
+        },
+      },
+    },
+    benefits: {
+      title: "Why Traumatec Impact Platform?",
+      subtitle: "Save time, reduce errors and standardize your AO Alliance deliverables.",
+      card1: {
+        title: "AO standards compliance",
+        description:
+          "Packages, attendance lists and certificates aligned with official AO Alliance templates.",
+      },
+      card2: {
+        title: "Team productivity",
+        description:
+          "Less copy-paste, fewer scattered files — everything is versioned and traceable in TIP.",
+      },
+      card3: {
+        title: "Ready for your next events",
+        description: "Sign in to access the dashboard and start a dossier in minutes.",
+        cta: "Open dashboard",
+      },
+    },
+    faq: {
+      title: "Frequently asked questions",
+      subtitle: "What you need to know before getting started with TIP.",
+      items: {
+        q1: {
+          question: "Who is Traumatec Impact Platform for?",
+          answer:
+            "TIP is built for national coordinators, preparers and administrators managing AO Alliance events (Op S, PBO S, IEC S seminars, 3-day courses and FET).",
+        },
+        q2: {
+          question: "How do I access the platform?",
+          answer:
+            "Accounts are created by invitation from a TIP administrator. Click Sign in and use your work email or Google.",
+        },
+        q3: {
+          question: "Can I import Projects.xlsx files?",
+          answer:
+            "Yes. Projects import updates or creates events with deduplication and participation history.",
+        },
+        q4: {
+          question: "Do certificates match the AO template?",
+          answer:
+            "Yes. Generation reproduces the official layout (logo, watermark, one page per certificate) from your Excel lists.",
+        },
+        q5: {
+          question: "Is data secure?",
+          answer:
+            "Authentication uses Clerk, documents are stored on MinIO and every sensitive action is logged in the audit trail.",
+        },
+      },
+    },
+    footer: {
+      description:
+        "Traumatec Impact Platform — Traumatec's solution to orchestrate AO Alliance events, from document preparation to certificates.",
+      platform: "Platform",
+      account: "Account",
+      resetPassword: "Forgot password",
+      rights: "All rights reserved.",
     },
   },
   notFound: {

@@ -16,6 +16,7 @@ import Blank from "./pages/Blank";
 import AppLayout from "./layout/AppLayout";
 import { ScrollToTop } from "./components/common/ScrollToTop";
 import Home from "./pages/Dashboard/Home";
+import LandingPage from "./pages/LandingPage";
 import EvenementsPage from "./pages/EvenementsPage";
 import EvenementDetailPage from "./pages/EvenementDetailPage";
 import EvenementCreatePage from "./pages/EvenementCreatePage";
@@ -51,6 +52,7 @@ export default function App() {
         <Route path="/connexion" element={<Navigate to="/signin" replace />} />
         <Route path="/signup" element={<Navigate to="/signin" replace />} />
         <Route path="/sso-callback" element={<SsoCallback />} />
+        <Route index path="/" element={<LandingPage />} />
 
         <Route element={<ProtectedRoute requireAdmin />}>
           <Route path="/guides/admin-handoff" element={<GuidesAdminHandoffPage />} />
@@ -58,7 +60,7 @@ export default function App() {
 
         <Route element={<ProtectedRoute />}>
           <Route element={<AppLayout />}>
-            <Route index path="/" element={<Home />} />
+            <Route path="/dashboard" element={<Home />} />
             <Route path="/evenements" element={<EvenementsPage />} />
             <Route path="/evenements/nouveau" element={<EvenementCreatePage />} />
             <Route path="/evenements/:id" element={<EvenementDetailPage />} />

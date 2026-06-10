@@ -29,7 +29,7 @@ export default function AdminBreadcrumb({ pageTitle, crumbs = [] }: AdminBreadcr
         <ol className="flex flex-wrap items-center gap-1.5">
           <li>
             <Link
-              to="/"
+              to="/dashboard"
               className="inline-flex items-center gap-1.5 text-sm text-gray-500 transition hover:text-brand-500 dark:text-gray-400 dark:hover:text-brand-400"
             >
               {t("nav.home")}

@@ -43,6 +43,7 @@ async def ensure_system_settings_table(session: AsyncSession) -> None:
             "days_val": str(DEFAULT_GC_RETENTION_DAYS),
         },
     )
+    await session.commit()
 
 
 async def get_setting(session: AsyncSession, key: str, default: str | None = None) -> str | None:

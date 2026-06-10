@@ -55,7 +55,7 @@ export default function GuidesAdminHandoffPage() {
         error
       >
         <div className="mt-6 border-t border-gray-200 pt-5">
-          <Link to="/" className="text-sm font-medium text-brand-500 hover:text-brand-600 hover:underline">
+          <Link to="/dashboard" className="text-sm font-medium text-brand-500 hover:text-brand-600 hover:underline">
             {t("common.backToHome")}
           </Link>
         </div>

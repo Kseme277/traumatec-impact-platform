@@ -85,7 +85,7 @@ export default function AcceptInvitationForm() {
 
           if (signupResult.status === "complete" && signupResult.createdSessionId) {
             await setActiveSignUp({ session: signupResult.createdSessionId });
-            navigate("/", { replace: true });
+            navigate("/dashboard", { replace: true });
             return;
           }
         } catch (signupErr) {
@@ -106,14 +106,14 @@ export default function AcceptInvitationForm() {
         const updated = await signIn.update({ password });
         if (updated.status === "complete" && updated.createdSessionId) {
           await setActiveSignIn({ session: updated.createdSessionId });
-          navigate("/", { replace: true });
+          navigate("/dashboard", { replace: true });
           return;
         }
       }
 
       if (signinResult.status === "complete" && signinResult.createdSessionId) {
         await setActiveSignIn({ session: signinResult.createdSessionId });
-        navigate("/", { replace: true });
+        navigate("/dashboard", { replace: true });
         return;
       }
 
@@ -125,7 +125,7 @@ export default function AcceptInvitationForm() {
         });
         if (signupResult.status === "complete" && signupResult.createdSessionId) {
           await setActiveSignUp({ session: signupResult.createdSessionId });
-          navigate("/", { replace: true });
+          navigate("/dashboard", { replace: true });
           return;
         }
       }

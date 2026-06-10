@@ -40,7 +40,7 @@ const AppSidebar: React.FC = () => {
       {
         icon: <LayoutGrid className="size-6" strokeWidth={1.75} />,
         name: t("nav.dashboard"),
-        path: "/",
+        path: "/dashboard",
         tourId: "nav-dashboard",
       },
       {
@@ -276,7 +276,7 @@ const AppSidebar: React.FC = () => {
           !isExpanded && !isHovered ? "lg:justify-center" : "justify-start"
         }`}
       >
-        <Link to="/" className="block px-3 py-1">
+        <Link to="/dashboard" className="block px-3 py-1">
           {isExpanded || isHovered || isMobileOpen ? (
             <TipAnimatedLogo size="md" showWordmark animate />
           ) : (
