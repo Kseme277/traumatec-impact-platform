@@ -36,10 +36,14 @@ async function fetchMeWithTimeout(token: string | null): Promise<Utilisateur> {
   }
 }
 
+function isInvalidTokenStatus(status: number): boolean {
+  return status === 401;
+}
+
 export function TipAuthProvider({ children }: { children: ReactNode }) {
-  const { isLoaded, isSignedIn, getToken } = useAuth();
+  const { isLoaded, isSignedIn, getToken, signOut } = useAuth();
   const [tipUser, setTipUser] = useState<Utilisateur | null>(null);
-  const [profileLoading, setProfileLoading] = useState(true);
+  const [profileLoading, setProfileLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [errorStatus, setErrorStatus] = useState<number | null>(null);
 
@@ -69,8 +73,18 @@ export function TipAuthProvider({ children }: { children: ReactNode }) {
     } catch (err) {
       setTipUser(null);
       if (err instanceof ApiError) {
-        setError(err.message);
-        setErrorStatus(err.status);
+        if (isInvalidTokenStatus(err.status)) {
+          setError(null);
+          setErrorStatus(err.status);
+          try {
+            await signOut();
+          } catch {
+            /* session déjà invalide */
+          }
+        } else {
+          setError(err.message);
+          setErrorStatus(err.status);
+        }
       } else if (err instanceof DOMException && err.name === "AbortError") {
         setError(
           "Délai dépassé lors du chargement du profil. Vérifiez que l'API TIP est démarrée (docker compose up -d).",
@@ -85,7 +99,7 @@ export function TipAuthProvider({ children }: { children: ReactNode }) {
     } finally {
       setProfileLoading(false);
     }
-  }, [getToken, isLoaded, isSignedIn]);
+  }, [getToken, isLoaded, isSignedIn, signOut]);
 
   useEffect(() => {
     void refreshProfile();

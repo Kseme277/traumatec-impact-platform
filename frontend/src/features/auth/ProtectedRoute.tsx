@@ -15,15 +15,19 @@ export default function ProtectedRoute({ requireAdmin = false }: ProtectedRouteP
   const { tipUser, isLoading, error, errorStatus, refreshProfile } = useTipAuth();
   const location = useLocation();
 
-  if (!isLoaded || isLoading) {
+  if (!isLoaded) {
     return <AuthLoadingScreen />;
   }
 
-  if (!isSignedIn) {
+  if (!isSignedIn || errorStatus === 401) {
     return <Navigate to="/signin" replace state={{ from: location }} />;
   }
 
-  // Clerk est prêt mais le profil TIP n'est pas encore résolu — évite le flash « Accès refusé »
+  if (isLoading) {
+    return <AuthLoadingScreen />;
+  }
+
+  // Profil TIP en cours de résolution
   if (!tipUser && !error) {
     return <AuthLoadingScreen />;
   }

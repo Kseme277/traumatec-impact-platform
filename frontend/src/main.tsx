@@ -3,13 +3,11 @@ import { createRoot } from "react-dom/client";
 import "./index.css";
 import "swiper/swiper-bundle.css";
 import "flatpickr/dist/flatpickr.css";
-import App from "./App.tsx";
+import AppGate from "./components/auth/AppGate.tsx";
 import ClerkRootProvider from "./components/auth/ClerkRootProvider.tsx";
 import { AppWrapper } from "./components/common/PageMeta.tsx";
 import { ThemeProvider } from "./context/ThemeContext.tsx";
 import { LanguageProvider } from "./context/LanguageContext.tsx";
-import { TipAuthProvider } from "./context/TipAuthContext.tsx";
-
 const clerkPublishableKey = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
 
 if (!clerkPublishableKey) {
@@ -22,9 +20,7 @@ createRoot(document.getElementById("root")!).render(
       <ThemeProvider>
         <LanguageProvider>
           <AppWrapper>
-            <TipAuthProvider>
-              <App />
-            </TipAuthProvider>
+            <AppGate />
           </AppWrapper>
         </LanguageProvider>
       </ThemeProvider>

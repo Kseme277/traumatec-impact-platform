@@ -5,6 +5,7 @@ import TipAnimatedLogo from "../../components/brand/TipAnimatedLogo";
 import LanguageDropdown from "../../components/header/LanguageDropdown";
 import { ThemeToggleButton } from "../../components/common/ThemeToggleButton";
 import { useTranslation } from "../../i18n/useTranslation";
+import PlatformEntryLink from "./PlatformEntryLink";
 
 export default function LandingHeader() {
   const { t } = useTranslation();
@@ -51,12 +52,11 @@ export default function LandingHeader() {
             >
               {t("landing.nav.signIn")}
             </Link>
-            <Link
-              to="/signin"
+            <PlatformEntryLink
               className="landing-gradient-btn hidden h-11 items-center rounded-full px-5 text-sm font-medium text-white transition hover:opacity-90 lg:inline-flex"
             >
               {t("landing.nav.getStarted")}
-            </Link>
+            </PlatformEntryLink>
             <button
               type="button"
               className="inline-flex size-11 items-center justify-center rounded-full border border-gray-200 text-gray-600 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-400 dark:hover:bg-gray-800 lg:hidden"
@@ -87,12 +87,9 @@ export default function LandingHeader() {
             >
               {t("landing.nav.signIn")}
             </Link>
-            <Link
-              to="/signin"
-              className="landing-gradient-btn inline-flex h-11 items-center justify-center rounded-full px-5 text-sm font-medium text-white"
-            >
+            <PlatformEntryLink className="landing-gradient-btn inline-flex h-11 items-center justify-center rounded-full px-5 text-sm font-medium text-white">
               {t("landing.nav.getStarted")}
-            </Link>
+            </PlatformEntryLink>
           </div>
         </nav>
       ) : null}

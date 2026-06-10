@@ -1,5 +1,5 @@
-import { Link } from "react-router";
 import { useTranslation } from "../../i18n/useTranslation";
+import PlatformEntryLink from "./PlatformEntryLink";
 
 export default function LandingBenefits() {
   const { t } = useTranslation();
@@ -47,12 +47,9 @@ export default function LandingBenefits() {
                     {t("landing.benefits.card3.title")}
                   </h3>
                   <p className="mb-8 text-base text-white/70">{t("landing.benefits.card3.description")}</p>
-                  <Link
-                    to="/signin"
-                    className="inline-flex rounded-full bg-brand-500 px-6 py-3 text-sm font-medium text-white transition hover:bg-brand-600"
-                  >
+                  <PlatformEntryLink className="inline-flex rounded-full bg-brand-500 px-6 py-3 text-sm font-medium text-white transition hover:bg-brand-600">
                     {t("landing.benefits.card3.cta")}
-                  </Link>
+                  </PlatformEntryLink>
                 </div>
                 <div className="relative z-10 hidden size-48 rounded-full bg-brand-500/20 lg:block" aria-hidden="true" />
                 <div

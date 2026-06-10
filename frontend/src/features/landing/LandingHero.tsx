@@ -1,5 +1,5 @@
-import { Link } from "react-router";
 import { useTranslation } from "../../i18n/useTranslation";
+import PlatformEntryLink from "./PlatformEntryLink";
 
 export default function LandingHero() {
   const { t } = useTranslation();
@@ -18,12 +18,9 @@ export default function LandingHero() {
             {t("landing.hero.subtitle")}
           </p>
           <div className="relative z-30 mt-9 flex flex-col items-center justify-center gap-3 sm:flex-row">
-            <Link
-              to="/signin"
-              className="inline-flex h-12 items-center justify-center rounded-full bg-brand-500 px-6 text-sm text-white transition hover:bg-brand-600"
-            >
+            <PlatformEntryLink className="inline-flex h-12 items-center justify-center rounded-full bg-brand-500 px-6 text-sm text-white transition hover:bg-brand-600">
               {t("landing.hero.ctaPrimary")}
-            </Link>
+            </PlatformEntryLink>
             <a
               href="#features"
               className="inline-flex h-12 items-center justify-center rounded-full border border-gray-200 bg-white px-6 text-sm font-medium text-gray-700 transition hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-900 dark:text-gray-300 dark:hover:bg-gray-800"
