@@ -25,9 +25,19 @@
   }
 
 .landing-benefits-card {
-    border-radius: 20px;
-    background: linear-gradient(216deg, #c2d6ff 0%, #465fff 100%);
-  }
+  border-radius: 20px;
+  background: linear-gradient(216deg, #c2d6ff 0%, #465fff 100%);
+}
+
+.landing-benefits-card-alt {
+  border-radius: 20px;
+  background: linear-gradient(216deg, #9cb9ff 0%, #3641f5 100%);
+}
+
+.landing-benefits-cta {
+  border-radius: 20px;
+  background: linear-gradient(135deg, #1e1b4b 0%, #312e81 45%, #1e3a8a 100%);
+}
 
 .landing-floating-1 {
     animation: landing-float 6s ease-in-out infinite;

@@ -9,11 +9,31 @@ const MODULE_ICONS = {
   certificates: Award,
   analytics: BarChart3,
 } as const;
+const MODULE_IMAGES = {
+  events: {
+    light: "/images/landing/event-img.png",
+    dark: "/images/landing/event-img-dark.png",
+  },
+  documents: {
+    light: "/images/landing/document-img.png",
+    dark: "/images/landing/document-img-dark.png",
+  },
+  certificates: {
+    light: "/images/landing/certificat-img.png",
+    dark: "/images/landing/certificat-img-dark.png",
+  },
+  analytics: {
+    light: "/images/landing/predict-img.png",
+    dark: "/images/landing/predict-img-dark.png",
+  },
+} as const;
 
 export default function LandingModules() {
   const { t } = useTranslation();
   const [active, setActive] = useState<(typeof MODULE_IDS)[number]>("events");
   const ActiveIcon = MODULE_ICONS[active];
+  const images = MODULE_IMAGES[active];
+  const imageAlt = t(`landing.modules.content.${active}.title`);
 
   return (
     <section id="modules" className="px-5 py-20 dark:bg-gray-900">
@@ -62,26 +82,23 @@ export default function LandingModules() {
                 {t(`landing.modules.content.${active}.description`)}
               </p>
             </div>
-            <div className="relative z-20 rounded-2xl border border-white/40 bg-white/80 p-6 shadow-theme-lg backdrop-blur dark:border-white/10 dark:bg-gray-900/80">
-              <div className="mb-4 flex items-center gap-2">
-                <span className="size-3 rounded-full bg-error-500" />
-                <span className="size-3 rounded-full bg-warning-500" />
-                <span className="size-3 rounded-full bg-success-500" />
-              </div>
-              <div className="space-y-3">
-                {[1, 2, 3].map((row) => (
-                  <div
-                    key={row}
-                    className="flex items-center gap-3 rounded-xl bg-gray-50 p-3 dark:bg-white/5"
-                  >
-                    <div className="size-10 shrink-0 rounded-lg bg-brand-100 dark:bg-brand-500/20" />
-                    <div className="flex-1 space-y-2">
-                      <div className="h-2.5 w-3/4 rounded-full bg-gray-200 dark:bg-gray-700" />
-                      <div className="h-2 w-1/2 rounded-full bg-gray-100 dark:bg-gray-800" />
-                    </div>
-                  </div>
-                ))}
-              </div>
+            <div className="relative z-20 overflow-hidden rounded-2xl border border-white/40 bg-white/80 shadow-theme-lg backdrop-blur dark:border-white/10 dark:bg-gray-900/80">
+              <img
+                key={`${active}-light`}
+                src={images.light}
+                alt={imageAlt}
+                className="block w-full rounded-2xl dark:hidden"
+                width={560}
+                height={400}
+              />
+              <img
+                key={`${active}-dark`}
+                src={images.dark}
+                alt={imageAlt}
+                className="hidden w-full rounded-2xl dark:block"
+                width={560}
+                height={400}
+              />
             </div>
           </div>
         </div>
