@@ -23,12 +23,8 @@ export default function ProtectedRoute({ requireAdmin = false }: ProtectedRouteP
     return <Navigate to="/signin" replace state={{ from: location }} />;
   }
 
-  if (isLoading) {
-    return <AuthLoadingScreen />;
-  }
-
-  // Profil TIP en cours de résolution
-  if (!tipUser && !error) {
+  // Loader plein écran uniquement tant que le profil TIP n'est pas encore résolu
+  if (!tipUser && (isLoading || !error)) {
     return <AuthLoadingScreen />;
   }
 

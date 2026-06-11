@@ -2,7 +2,7 @@ import math
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
-from sqlalchemy import delete, func, or_, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
@@ -245,24 +245,21 @@ async def import_participants(
             )
         ).scalar_one()
 
-    existing_in_event_keys: set[str] = set()
-    if identity_keys:
-        existing_result = await db.execute(
-            select(Participant.identity_key).where(
-                Participant.event_id == event_id,
-                Participant.identity_key.in_(identity_keys),
-            )
-        )
-        existing_in_event_keys = {key for key in existing_result.scalars().all() if key}
-
-    await db.execute(delete(Participant).where(Participant.event_id == event_id))
+    existing_result = await db.execute(
+        select(Participant.identity_key).where(Participant.event_id == event_id)
+    )
+    existing_in_event_keys = {key for key in existing_result.scalars().all() if key}
 
     enseignants = 0
     participants_count = 0
-    already_in_event_count = len(existing_in_event_keys)
+    already_in_event_count = 0
     imported = 0
 
     for row in rows:
+        if row["identity_key"] in existing_in_event_keys:
+            already_in_event_count += 1
+            continue
+
         if row["certificate_role"] == "enseignant":
             enseignants += 1
         else:
@@ -283,10 +280,15 @@ async def import_participants(
             )
         )
         imported += 1
+        existing_in_event_keys.add(row["identity_key"])
 
     if duplicate_in_file_count > 0:
         warnings.append(
             f"{duplicate_in_file_count} doublon(s) ignoré(s) dans le fichier (même e-mail ou même nom)."
+        )
+    if already_in_event_count > 0:
+        warnings.append(
+            f"{already_in_event_count} participant(s) déjà inscrit(s) à cet événement — ignoré(s)."
         )
     if known_from_other_events_count > 0:
         warnings.append(
@@ -299,7 +301,12 @@ async def import_participants(
     ctx["title_formatted"] = None
     ctx["last_import_filename"] = file.filename
     event.certificate_context_json = ctx
-    event.participants_real = imported
+    total_in_event = (
+        await db.execute(
+            select(func.count()).select_from(Participant).where(Participant.event_id == event_id)
+        )
+    ).scalar_one()
+    event.participants_real = total_in_event
 
     await record_audit_event(
         db,
@@ -310,11 +317,13 @@ async def import_participants(
         payload={
             "count": imported,
             "duplicate_in_file_count": duplicate_in_file_count,
+            "already_in_event_count": already_in_event_count,
             "known_from_other_events_count": known_from_other_events_count,
             "filename": file.filename,
             "actor_name": f"{user.prenom} {user.nom}".strip(),
             "enseignants_count": enseignants,
             "participants_count": participants_count,
+            "total_in_event": total_in_event,
         },
     )
     await db.commit()
@@ -322,7 +331,7 @@ async def import_participants(
 
     return ParticipantImportResult(
         imported_count=imported,
-        skipped_count=duplicate_in_file_count,
+        skipped_count=duplicate_in_file_count + already_in_event_count,
         duplicate_in_file_count=duplicate_in_file_count,
         already_in_event_count=already_in_event_count,
         known_from_other_events_count=known_from_other_events_count,

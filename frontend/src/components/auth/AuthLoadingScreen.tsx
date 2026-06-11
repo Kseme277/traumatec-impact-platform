@@ -1,6 +1,5 @@
 import TipAnimatedLogo from "../brand/TipAnimatedLogo";
 import GridShape from "../common/GridShape";
-import PageMeta from "../common/PageMeta";
 import { useTranslation } from "../../i18n/useTranslation";
 
 interface AuthLoadingScreenProps {
@@ -13,10 +12,6 @@ export default function AuthLoadingScreen({ message }: AuthLoadingScreenProps) {
 
   return (
     <>
-      <PageMeta
-        title={`${t("auth.loadingPage")} | ${t("common.appName")}`}
-        description={t("auth.loadingPage")}
-      />
       <div className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden p-6 z-1">
         <GridShape />
         <div className="mx-auto flex w-full max-w-sm flex-col items-center text-center">

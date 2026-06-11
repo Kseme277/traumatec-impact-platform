@@ -318,6 +318,9 @@ export default function CertificatesPage() {
       if (result.duplicate_in_file_count > 0) {
         successDetail += `\n${t("participants.duplicatesSkipped").replace("{count}", String(result.duplicate_in_file_count))}`;
       }
+      if (result.already_in_event_count > 0) {
+        successDetail += `\n${t("participants.alreadyInEventSkipped").replace("{count}", String(result.already_in_event_count))}`;
+      }
       if (result.known_from_other_events_count > 0) {
         successDetail += `\n${t("participants.knownFromOtherEvents").replace("{count}", String(result.known_from_other_events_count))}`;
       }
