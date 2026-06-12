@@ -44,7 +44,7 @@ export const SEARCH_ENTRIES: SearchEntry[] = [
   {
     id: "evenement-nouveau",
     title: "Nouvel événement",
-    subtitle: "Créer un dossier AO Alliance",
+    subtitle: "Créer un nouveau dossier événement",
     path: "/evenements/nouveau",
     category: "Événements",
     keywords: ["créer", "ajouter", "event"],

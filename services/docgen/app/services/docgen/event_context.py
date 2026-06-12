@@ -101,6 +101,10 @@ async def enrich_event_context(
     if start and end:
         enriched["event_calendar_days"] = max(1, (end - start).days + 1)
 
+    from tip_common.location_fields import resolve_lieu_display
+
+    lieu_display = resolve_lieu_display(enriched)
+
     if start:
         months = (
             "janvier", "février", "mars", "avril", "mai", "juin",
@@ -109,6 +113,8 @@ async def enrich_event_context(
         single = f"{start.day} {months[start.month - 1]} {start.year}"
         if not enriched.get("date_single_formatted"):
             enriched["date_single_formatted"] = single
+        if not enriched.get("header_lieu_date") and lieu_display:
+            enriched["header_lieu_date"] = f"{single}\t\t{lieu_display}"
         if not enriched.get("date_range_formatted"):
             if end and end != start:
                 end_single = f"{end.day} {months[end.month - 1]} {end.year}"

@@ -43,23 +43,13 @@ def apply_legacy_doc_replacements(
     if not pairs:
         return doc_bytes
 
+    from app.services.docgen.doc_binary_replace import replace_fixed_width_in_binary
+
     result = doc_bytes
     replaced = 0
     for old, new in pairs:
-        for encoding in ("utf-16-le", "utf-8", "latin-1"):
-            try:
-                old_b = old.encode(encoding)
-                new_b = new.encode(encoding)
-            except UnicodeEncodeError:
-                continue
-            if old_b in result:
-                if len(new_b) <= len(old_b):
-                    padded = new_b + b"\x00" * (len(old_b) - len(new_b))
-                    result = result.replace(old_b, padded, 1)
-                else:
-                    result = result.replace(old_b, new_b, 1)
-                replaced += 1
-                break
+        result, count = replace_fixed_width_in_binary(result, old, new)
+        replaced += count
 
     if replaced:
         logger.info("DOC legacy : %s remplacement(s)", replaced)

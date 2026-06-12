@@ -20,7 +20,7 @@ export default function SignIn() {
     <>
       <PageMeta
         title="Connexion | Traumatec Impact Platform"
-        description="Connectez-vous à la plateforme Traumatec Impact Platform pour gérer vos dossiers AO Alliance."
+        description="Connectez-vous à Traumatec Impact Platform pour gérer vos événements et dossiers."
       />
       <AuthLayout>
         <SignInForm />

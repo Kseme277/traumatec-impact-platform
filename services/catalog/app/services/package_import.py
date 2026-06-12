@@ -19,6 +19,7 @@ from app.core.config import Settings
 from app.models.catalog import EventProfile, PackageBundle, PackageTemplate
 from tip_common.package_analyzer import analyze_package_zip
 from tip_common.package_types import (
+    adapt_package_filename,
     PACKAGE_TYPE_SPECS,
     filter_templates_by_package_duration,
     normalize_package_type,
@@ -257,11 +258,11 @@ async def import_package_zip(
         data = entry_map.get(analyzed.filename)
         if data is None:
             raise ValueError(f"Fichier manquant dans le ZIP : {analyzed.filename}")
-        arcname = analyzed.filename
+        arcname = adapt_package_filename(analyzed.filename, package_type)
         storage_key = f"{bundle_prefix}files/{arcname}"
         storage.upload_bytes(storage_key, data, content_type=_content_type(arcname))
         code = _template_code(package_type, version, arcname)
-        field_analysis = field_by_name.get(arcname, {})
+        field_analysis = field_by_name.get(analyzed.filename, {})
 
         meta = {
             "bundle_id": str(bundle.id),
@@ -518,7 +519,8 @@ async def export_package_type_zip(
     with zipfile.ZipFile(buffer, "w", compression=zipfile.ZIP_DEFLATED) as archive:
         for tpl in templates:
             meta = tpl.placeholders or {}
-            arcname = meta.get("source_file") or tpl.name
+            source = meta.get("source_file") or tpl.name
+            arcname = adapt_package_filename(source, code)
             data = storage.download_bytes(tpl.file_path)
             archive.writestr(arcname, data)
 
@@ -554,7 +556,8 @@ async def export_bundle_zip(
     with zipfile.ZipFile(buffer, "w", compression=zipfile.ZIP_DEFLATED) as archive:
         for tpl in bundle_templates:
             meta = tpl.placeholders or {}
-            arcname = meta.get("source_file") or tpl.name
+            source = meta.get("source_file") or tpl.name
+            arcname = adapt_package_filename(source, bundle.package_type)
             data = storage.download_bytes(tpl.file_path)
             archive.writestr(arcname, data)
 

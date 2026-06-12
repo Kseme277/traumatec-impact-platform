@@ -210,9 +210,7 @@ def apply_rapport_national_docx_replacements(
     if not total:
         return data
 
-    out = BytesIO()
-    with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as zout:
-        for name, content in parts.items():
-            zout.writestr(name, content)
+    from app.services.docgen.docx_zip_repack import repack_docx_archive
+
     logger.info("Rapport national : %s paragraphe(s) mis à jour (styles préservés)", total)
-    return out.getvalue()
+    return repack_docx_archive(data, parts)

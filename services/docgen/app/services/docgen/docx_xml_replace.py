@@ -105,13 +105,12 @@ def apply_role_replacements_docx(
     if not total:
         return data
 
-    out = BytesIO()
-    with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as zout:
-        for name, content in parts.items():
-            zout.writestr(name, content)
+    from app.services.docgen.docx_zip_repack import repack_docx_archive
+
+    result = repack_docx_archive(data, parts)
     logger.info(
         "Rôle %s : %s paragraphe(s) mis à jour (dont en-têtes)",
         document_role or "?",
         total,
     )
-    return out.getvalue()
+    return result

@@ -9,7 +9,7 @@ from typing import Any
 from openpyxl import load_workbook
 
 REGISTRATION_COLUMNS_HELP = (
-    "Export plateforme d'inscription AO Alliance (events.ao-alliance.org) : "
+    "Export plateforme d'inscription participants : "
     "Nom, prenom, Statut, Nom_evenement, Formation_sanitaire, Email, etc."
 )
 
@@ -355,7 +355,7 @@ def parse_registration_workbook(
         if skipped_other_event > 0:
             raise ValueError(
                 "Aucun participant ne correspond à la date et au lieu de l'événement sélectionné. "
-                "Vérifiez que l'export provient bien de la session TIP (events.ao-alliance.org)."
+                "Vérifiez que l'export provient bien de la plateforme d'inscription de l'événement."
             )
         raise ValueError("Aucun participant valide trouvé dans le fichier.")
 

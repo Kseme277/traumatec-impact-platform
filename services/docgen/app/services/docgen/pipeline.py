@@ -19,6 +19,7 @@ from app.core.config import Settings
 from app.services.docgen.event_context import enrich_event_context
 from app.services.docgen.template_render import build_event_context, render_package_document
 from tip_common.package_types import (
+    adapt_package_filename,
     effective_list_days,
     filter_templates_by_package_duration,
     infer_package_type_for_event,
@@ -544,15 +545,23 @@ async def build_package_zip(
     await append_job_log(db, job_id, message="README généré et stocké")
 
     zip_entries: list[tuple[str, bytes]] = []
+    package_type = profile.get("package_type")
     for tpl in templates:
         meta = tpl.get("placeholders") or {}
-        arcname = meta.get("source_file") or tpl["name"]
+        source_arcname = meta.get("source_file") or tpl["name"]
+        arcname = adapt_package_filename(source_arcname, package_type)
+        if arcname != source_arcname:
+            await append_job_log(
+                db,
+                job_id,
+                message=f"Nom adapté ({package_type}) : {source_arcname} → {arcname}",
+            )
         ext = Path(arcname).suffix or Path(tpl["file_path"]).suffix or ".docx"
         raw = storage.download_bytes(tpl["file_path"])
         from tip_common.package_types import infer_document_type, template_day_index
 
-        document_role = meta.get("document_role") or infer_document_type(arcname)
-        day_index = template_day_index(arcname)
+        document_role = meta.get("document_role") or infer_document_type(source_arcname)
+        day_index = template_day_index(source_arcname)
         replaceable = meta.get("replaceable") or ext.lower() in {".docx", ".doc", ".xlsx"}
         if replaceable and ext.lower() in {".docx", ".doc", ".xlsx"}:
             replacement_fields = list(meta.get("replacement_fields") or [])

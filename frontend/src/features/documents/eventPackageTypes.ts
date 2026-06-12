@@ -1,4 +1,4 @@
-/** Types d'événement AO Alliance — cours, séminaire, faculty (format paquet). */
+/** Types d'événement — cours, séminaire, faculty (format paquet). */
 
 export type ActivityKind = "cours" | "seminaire" | "faculty";
 
@@ -25,7 +25,7 @@ export const FALLBACK_PACKAGE_TYPES: EventPackageTypeCatalog = {
       activity_kind: "cours",
       activity_label: "Cours",
       title: "Cours ORP — PBO (3 jours)",
-      description: "Cours AO Alliance PBO sur plusieurs jours.",
+      description: "Cours PBO sur plusieurs jours.",
       preparation_theme: "pbo",
       duration_days: 3,
     },

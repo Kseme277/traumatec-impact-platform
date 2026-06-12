@@ -79,7 +79,7 @@ export function GuideHubHandoffShell({
           </div>
           <h2 className="mb-2 text-2xl font-semibold text-white">Traumatec</h2>
           <p className="m-0 text-sm leading-relaxed text-white/60">
-            Guides procédures AO Alliance et administration entreprise.
+            Guides procédures Traumatec et administration entreprise.
           </p>
         </div>
       </aside>

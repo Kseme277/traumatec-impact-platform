@@ -257,6 +257,8 @@ CREATE TABLE docgen.certificate_generations (
     certificate_count   INTEGER NOT NULL DEFAULT 0,
     storage_key         VARCHAR(512) NOT NULL,
     filename            VARCHAR(512) NOT NULL,
+    preview_storage_key VARCHAR(512),
+    preview_filename    VARCHAR(512),
     created_at          TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 

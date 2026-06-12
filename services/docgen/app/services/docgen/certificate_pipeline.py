@@ -1,4 +1,4 @@
-"""Génération des certificats AO Alliance (un .docx fusionné par participant)."""
+"""Génération des certificats participants (un .docx par personne, livrés en ZIP)."""
 
 from __future__ import annotations
 
@@ -181,25 +181,26 @@ def _apply_replacements_to_docx_bytes(
         node_map["n tant qu"] = "en tant qu'"
         node_map["e participant"] = "enseignant"
 
+    from app.services.docgen.docx_zip_repack import repack_docx_archive
+
+    parts: dict[str, bytes] = {}
     with zipfile.ZipFile(BytesIO(template_bytes), "r") as zin:
-        buf = BytesIO()
-        with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zout:
-            for item in zin.infolist():
-                data = zin.read(item.filename)
-                if item.filename == "word/document.xml":
-                    text = data.decode("utf-8")
-                    text = _replace_text_nodes(text, node_map)
-                    text = text.replace(
-                        _xml_escape("le participant a assisté"),
-                        _xml_escape(f"{role_footer} a assisté"),
-                    )
-                    text = text.replace(
-                        _xml_escape("le participant a assisté à"),
-                        _xml_escape(f"{role_footer} a assisté à"),
-                    )
-                    data = text.encode("utf-8")
-                zout.writestr(item, data)
-        return buf.getvalue()
+        for item in zin.infolist():
+            data = zin.read(item.filename)
+            if item.filename == "word/document.xml":
+                text = data.decode("utf-8")
+                text = _replace_text_nodes(text, node_map)
+                text = text.replace(
+                    _xml_escape("le participant a assisté"),
+                    _xml_escape(f"{role_footer} a assisté"),
+                )
+                text = text.replace(
+                    _xml_escape("le participant a assisté à"),
+                    _xml_escape(f"{role_footer} a assisté à"),
+                )
+                data = text.encode("utf-8")
+            parts[item.filename] = data
+    return repack_docx_archive(template_bytes, parts)
 
 
 def _certificate_block_bounds(body: Any) -> tuple[int, int] | None:
@@ -317,16 +318,9 @@ def _extract_first_certificate_template_bytes(full_template: bytes) -> bytes:
 
     single_xml = etree.tostring(root, xml_declaration=True, encoding="UTF-8", standalone=True)
 
-    buf = BytesIO()
-    with zipfile.ZipFile(BytesIO(full_template), "r") as zin, zipfile.ZipFile(
-        buf, "w", zipfile.ZIP_DEFLATED
-    ) as zout:
-        for item in zin.infolist():
-            data = zin.read(item.filename)
-            if item.filename == "word/document.xml":
-                data = single_xml
-            zout.writestr(item, data)
-    return buf.getvalue()
+    from app.services.docgen.docx_zip_repack import repack_docx_archive
+
+    return repack_docx_archive(full_template, {"word/document.xml": single_xml})
 
 
 def _merge_docx_documents(doc_bytes_list: list[bytes]) -> bytes:
@@ -398,12 +392,25 @@ def _merge_docx_documents(doc_bytes_list: list[bytes]) -> bytes:
     return out.getvalue()
 
 
+def _participant_docx_filename(index: int, person: dict[str, Any]) -> str:
+    name = str(person.get("full_name") or "participant").strip()
+    safe = re.sub(r"[^A-Za-z0-9_\-]+", "_", name).strip("_")[:80] or "participant"
+    return f"{index:03d}_{safe}.docx"
+
+
+def _build_zip_filename(event: dict[str, Any], count: int, role_filter: RoleFilter) -> str:
+    pn = re.sub(r"[^A-Za-z0-9_-]+", "_", str(event.get("project_number") or "event")).strip("_")
+    suffix = "" if role_filter == "all" else f"_{role_filter}"
+    return f"Certificats_{pn}{suffix}_{count}.zip"
+
+
 async def generate_certificates_docx(
     *,
     event: dict[str, Any],
     participants: list[dict[str, Any]],
     role_filter: RoleFilter = "all",
-) -> tuple[bytes, int, str]:
+) -> tuple[bytes, bytes, int, str, str]:
+    """Génère un ZIP (un .docx par personne, une page) + le premier fichier pour l'aperçu."""
     if not TEMPLATE_PATH.is_file():
         raise FileNotFoundError(f"Modèle certificat introuvable : {TEMPLATE_PATH}")
 
@@ -430,28 +437,29 @@ async def generate_certificates_docx(
     single_template = _extract_first_certificate_template_bytes(full_template)
     cert_context = await build_event_certificate_context(event)
 
-    rendered: list[bytes] = []
+    rendered: list[tuple[dict[str, Any], bytes]] = []
     for person in filtered:
         name = str(person.get("full_name") or "").strip()
         role = str(person.get("certificate_role") or "participant")
-        rendered.append(
-            _apply_replacements_to_docx_bytes(
-                single_template,
-                participant_name=name,
-                event_title=cert_context["title_formal"],
-                role=role,
-                date_single=cert_context["date_single"],
-                city=cert_context["city"],
-                country=cert_context["country"],
-            )
+        doc_bytes = _apply_replacements_to_docx_bytes(
+            single_template,
+            participant_name=name,
+            event_title=cert_context["title_formal"],
+            role=role,
+            date_single=cert_context["date_single"],
+            city=cert_context["city"],
+            country=cert_context["country"],
         )
+        rendered.append((person, doc_bytes))
 
-    merged = _merge_docx_documents(rendered)
-    filename = _build_output_filename(event, len(filtered), role_filter)
-    return merged, len(filtered), filename
+    zip_buf = BytesIO()
+    with zipfile.ZipFile(zip_buf, "w", zipfile.ZIP_DEFLATED, compresslevel=6) as archive:
+        for index, (person, doc_bytes) in enumerate(rendered, start=1):
+            info = zipfile.ZipInfo(_participant_docx_filename(index, person))
+            info.compress_type = zipfile.ZIP_DEFLATED
+            info.flag_bits |= 0x800
+            archive.writestr(info, doc_bytes, compress_type=zipfile.ZIP_DEFLATED)
 
-
-def _build_output_filename(event: dict[str, Any], count: int, role_filter: RoleFilter) -> str:
-    pn = re.sub(r"[^A-Za-z0-9_-]+", "_", str(event.get("project_number") or "event")).strip("_")
-    suffix = "" if role_filter == "all" else f"_{role_filter}"
-    return f"Certificats_{pn}{suffix}_{count}.docx"
+    zip_filename = _build_zip_filename(event, len(filtered), role_filter)
+    preview_filename = _participant_docx_filename(1, rendered[0][0])
+    return zip_buf.getvalue(), rendered[0][1], len(filtered), zip_filename, preview_filename

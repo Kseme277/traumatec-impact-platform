@@ -35,6 +35,11 @@ _MIGRATIONS = (
     CREATE INDEX IF NOT EXISTS idx_docgen_certificate_generations_event_id
         ON docgen.certificate_generations(event_id, created_at DESC);
     """,
+    """
+    ALTER TABLE docgen.certificate_generations
+        ADD COLUMN IF NOT EXISTS preview_storage_key VARCHAR(512),
+        ADD COLUMN IF NOT EXISTS preview_filename VARCHAR(512);
+    """,
 )
 
 

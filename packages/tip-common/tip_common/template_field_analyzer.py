@@ -314,7 +314,46 @@ def format_value_for_field(
     kind = str(field.get("section_kind", "")).lower()
 
     if kind == "date_lieu_combined":
-        return None
+        from tip_common.location_fields import resolve_lieu_display
+
+        date_val = (
+            context.get("date_single_formatted")
+            or context.get("start_date_long")
+            or context.get("start_date")
+            or ""
+        )
+        if isinstance(date_val, str):
+            date_val = date_val.strip()
+        lieu = resolve_lieu_display(context)
+        if not date_val or not lieu or not sample:
+            return None
+        updated = re.sub(
+            r"\d{1,2}\s+(?:janvier|février|mars|avril|mai|juin|juillet|août|septembre|octobre|novembre|décembre)\s+\d{4}",
+            date_val,
+            sample,
+            count=1,
+            flags=re.I,
+        )
+        for old_lieu in (
+            "Bangui, RCA",
+            "Dakar, Sénégal",
+            "Mbour, Sénégal",
+            "Kaffrine, Sénégal",
+            "Brazzaville, Congo",
+            "Zurich, Suisse",
+            "Ethiopia, Ethiopia",
+            "Addis Ababa, Ethiopia",
+        ):
+            if old_lieu in updated:
+                updated = updated.replace(old_lieu, lieu, 1)
+                break
+        if updated == sample:
+            return None
+        if len(updated) > len(sample):
+            return None
+        if len(updated) < len(sample):
+            updated = updated + " " * (len(sample) - len(updated))
+        return updated
 
     if key in {"contact_line", "contact_placeholder"} or (
         sample and ("adresse@email" in sample.lower() or ("courriel" in sample.lower() and "téléphone" in sample.lower()))

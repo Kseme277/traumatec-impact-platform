@@ -791,3 +791,39 @@ def infer_document_type(filename: str) -> str:
     if ext in {".pptx", ".ppt"}:
         return "presentation"
     return "autre"
+
+
+# Noms canoniques du fichier programme (02_*) par type de paquet.
+_CANONICAL_PROGRAMME_STEM: dict[str, str] = {
+    PACKAGE_TYPE_OP_S: "02_Modèle_Programme_Sem Op_S",
+    PACKAGE_TYPE_IEC_S: "02_Modèle_Programme_Sem IEC_SEN",
+    PACKAGE_TYPE_PBO_S: "02_Modèle_Programme_PBO",
+    PACKAGE_TYPE_ORP_S: "02_Modèle_Programme_PBO",
+    PACKAGE_TYPE_OP_C: "02_Modèle Programme_Op C_v2",
+    PACKAGE_TYPE_IEC_C: "02_Modèle Programme_Op C_v2",
+    PACKAGE_TYPE_IEC_F: "02_Modèle Programme_Op C_v2",
+    PACKAGE_TYPE_FET: "02_Modèle Programme_Op C_v2",
+    PACKAGE_TYPE_ORP_C: "02_Modèle programme_ORP C_Congo_v2",
+    PACKAGE_TYPE_PBO_F: "02_Modèle programme_ORP C_Congo_v2",
+    PACKAGE_TYPE_NONOP_C: "02_Modèle Programme_Nonp C_SEN",
+}
+
+def adapt_package_filename(filename: str, package_type: str | None) -> str:
+    """
+    Adapte le nom exporté au type de paquet cible.
+
+    Ex. OP_S : ``02_Modèle_Programme_Sem IEC_SEN.doc`` → ``02_Modèle_Programme_Sem Op_S.doc``.
+    """
+    if not filename or not package_type:
+        return filename
+    code = normalize_package_type(package_type) or str(package_type).upper().replace("-", "_")
+    if code not in PACKAGE_TYPE_SPECS:
+        return filename
+    if infer_document_type(filename) != "programme":
+        return filename
+
+    canonical = _CANONICAL_PROGRAMME_STEM.get(code)
+    if not canonical:
+        return filename
+
+    return f"{canonical}{Path(filename).suffix}"

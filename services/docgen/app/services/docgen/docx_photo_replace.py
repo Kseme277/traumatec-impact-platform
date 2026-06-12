@@ -69,10 +69,7 @@ def apply_responsible_photo_docx(
     else:
         parts[target] = photo_bytes
 
-    out = BytesIO()
-    with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as zout:
-        for name, content in parts.items():
-            zout.writestr(name, content)
+    from app.services.docgen.docx_zip_repack import repack_docx_archive
 
     logger.info("Programme : photo responsable insérée (%s)", new_name)
-    return out.getvalue()
+    return repack_docx_archive(data, parts)

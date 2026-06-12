@@ -22,7 +22,7 @@ const fr = {
   analytics: {
     pageTitle: "Prédictions ML",
     pageHeading: "Analyse prédictive",
-    pageDesc: "Risque budgétaire et affluence estimée par machine learning pour vos événements AO Alliance.",
+    pageDesc: "Risque budgétaire et affluence estimée par machine learning pour vos événements.",
     title: "Indicateurs prédictifs",
     subtitle: "Risque budgétaire et affluence estimée pour l'événement sélectionné.",
     selectEvent: "Événement analysé",
@@ -159,7 +159,7 @@ const fr = {
     steps: {
       welcome: {
         title: "Bienvenue sur Traumatec Impact Platform",
-        body: "Ce tutoriel vous présente chaque zone de l'interface et son rôle pour préparer vos dossiers AO Alliance.",
+        body: "Ce tutoriel vous présente chaque zone de l'interface et son rôle pour préparer vos dossiers.",
       },
       dashboard: {
         title: "Tableau de bord",
@@ -171,7 +171,7 @@ const fr = {
       },
       participants: {
         title: "Certificats",
-        body: "Menu Certificats : choisissez un événement, importez l'export Excel de la plateforme d'inscription (events.ao-alliance.org), puis générez le fichier Word.",
+        body: "Menu Certificats : choisissez un événement, importez l'export Excel de la plateforme d'inscription, puis générez le ZIP de certificats.",
       },
       documents: {
         title: "Menu Documents",
@@ -211,7 +211,7 @@ const fr = {
       },
       guides: {
         title: "Guides documentaires",
-        body: "Accès aux guides AO Alliance (GuideHub) et administration des guides si vous êtes admin.",
+        body: "Accès aux guides (GuideHub) et administration des guides si vous êtes admin.",
       },
       admin: {
         title: "Administration",
@@ -262,7 +262,7 @@ const fr = {
     notDefined: "Non défini",
     notProvided: "Non renseigné",
     appName: "Traumatec Impact Platform",
-    appSlogan: "Plateforme de préparation des dossiers AO Alliance",
+    appSlogan: "Plateforme de gestion des événements Traumatec",
     breadcrumb: "Fil d'Ariane",
     user: "Utilisateur",
     or: "Ou",
@@ -436,16 +436,16 @@ const fr = {
   events: {
     title: "Événements",
     list: "Liste des événements",
-    listDesc: "Statut AO Alliance : Open = en cours, Closed = terminé, Cancelled = annulé.",
+    listDesc: "Statut projet : Open = en cours, Closed = terminé, Cancelled = annulé.",
     detail: "Informations",
-    detailDesc: "Détails du dossier AO Alliance",
+    detailDesc: "Détails du dossier",
     actions: "Gestion du dossier",
     project: "N° projet",
     eventTitle: "Titre",
     activity: "Activité",
     activityType: "Type d'activité",
     responsible: "Responsable",
-    status: "Statut AO Alliance",
+    status: "Statut projet",
     tipStatus: "Statut dossier TIP",
     theme: "Thème préparation TIP",
     inferredPackage: "Paquet documentaire inféré",
@@ -515,12 +515,12 @@ const fr = {
     distinctTypes: "Types distincts",
     newEvent: "Nouvel événement",
     createEvent: "Créer un événement",
-    createEventDesc: "Saisissez les informations du dossier AO Alliance.",
+    createEventDesc: "Saisissez les informations du dossier.",
     createSubmit: "Créer l'événement",
     editEvent: "Modifier l'événement",
     editEventDesc: "Mettez à jour les informations du dossier.",
     saveChanges: "Enregistrer les modifications",
-    alreadyFinished: "Événement déjà terminé ou annulé selon le statut AO Alliance.",
+    alreadyFinished: "Événement déjà terminé ou annulé selon le statut.",
     viewDetails: "Voir les détails",
     closeEvent: "Clôturer l'événement",
     deleteEvent: "Supprimer l'événement",
@@ -528,7 +528,7 @@ const fr = {
     tableEvent: "Événement",
     tableResponsible: "Responsable",
     titlePlaceholder: "Nom de l'événement",
-    responsiblePlaceholder: "Nom du responsable AO Alliance",
+    responsiblePlaceholder: "Nom du responsable",
     responsibleEmail: "Courriel du responsable",
     responsiblePhone: "Téléphone du responsable",
     chooseTheme: "— Choisir un thème —",
@@ -550,11 +550,11 @@ const fr = {
     tipError: "Erreur",
     importModalTitle: "Import annuel Projects.xlsx (AID Impact)",
     importModalDesc:
-      "Importe le fichier Projects.xlsx exporté depuis AID Impact (AO Alliance). Tous les champs événement sont chargés ; les événements existants sont remplacés avant l'import.",
+      "Importe le fichier Projects.xlsx exporté depuis AID Impact. Tous les champs événement sont chargés ; les événements existants sont remplacés avant l'import.",
     importColumns: "Colonnes lues",
     importColumnsExtra: "Toute colonne supplémentaire est conservée dans les métadonnées pour le futur tableau de bord BI.",
     importDropzone: "Importer Projects.xlsx",
-    importDropzoneHint: "Fichier Excel (.xlsx) — format AO Alliance : Title, Project number, Activity, dates, Location, Country…",
+    importDropzoneHint: "Fichier Excel (.xlsx) — format Projects : Title, Project number, Activity, dates, Location, Country…",
     biTitle: "Pilotage BI",
     biDesc: "Indicateurs issus de Projects.xlsx — budget CHF, participants et répartition géographique.",
     budgetTotal: "Budget total (CHF)",
@@ -568,7 +568,7 @@ const fr = {
     title: "Participants",
     pageTitle: "Certificats",
     pageDesc:
-      "Choisissez un événement, importez l'export Excel de la plateforme d'inscription AO Alliance (events.ao-alliance.org), puis générez un fichier Word avec tous les certificats. Le titre affiché provient du fichier Excel (Nom_evenement), formaté par l'IA et modifiable avant génération. Réimportez avant chaque génération.",
+      "Choisissez un événement, importez l'export Excel de la plateforme d'inscription, puis générez un ZIP avec un certificat Word par personne. Le titre affiché provient du fichier Excel (Nom_evenement), formaté par l'IA et modifiable avant génération.",
     selectEventTitle: "Événement",
     selectEventDesc:
       "Projets AO encore ouverts (Open) uniquement — sélectionnez l'événement pour importer les inscriptions et générer les certificats.",
@@ -587,13 +587,13 @@ const fr = {
     historyBy: "Généré par",
     historyCount: "Certificats",
     preview: "Aperçu",
-    previewTitle: "Aperçu du document",
+    previewTitle: "Aperçu du premier certificat",
     previewError: "Aperçu impossible",
     backToEvent: "Voir la fiche événement",
     loadError: "Impossible de charger les participants.",
     importTitle: "Import des inscriptions",
     importDesc:
-      "Fichier .xlsx exporté depuis la plateforme d'inscription des participants (events.ao-alliance.org). Les doublons déjà présents dans cet événement sont ignorés.",
+      "Fichier .xlsx exporté depuis la plateforme d'inscription des participants. Les doublons déjà présents dans cet événement sont ignorés.",
     importButton: "Importer l'export Excel",
     importing: "Import en cours…",
     importSuccess: "Participants importés",
@@ -604,7 +604,7 @@ const fr = {
     sourceEvent: "Événement dans le fichier",
     generateTitle: "Génération des certificats",
     generateDesc:
-      "Produit un document Word fusionné (un certificat par personne). Le titre provient de l'export Excel (colonne Nom_evenement), formaté par l'IA — vous pouvez le modifier avant de générer.",
+      "Produit un fichier ZIP contenant un certificat Word par personne (une page chacun). Le titre provient de l'export Excel (colonne Nom_evenement), formaté par l'IA — vous pouvez le modifier avant de générer.",
     certificateTitleLabel: "Titre sur le certificat",
     certificateTitlePlaceholder: "Titre de l'événement tel qu'il apparaîtra sur chaque certificat…",
     certificateTitleHintNoImport: "Importez d'abord l'export Excel pour récupérer le titre (Nom_evenement).",
@@ -619,11 +619,11 @@ const fr = {
     genPhaseCompleted: "Terminé",
     genPhaseFailed: "Échec",
     genMsgPreparing: "Vérification des participants et du titre…",
-    genMsgGenerating: "Fusion des pages Word en cours — cela peut prendre une minute.",
+    genMsgGenerating: "Génération des certificats individuels et création du ZIP — cela peut prendre une minute.",
     genMsgUploading: "Enregistrement du fichier dans MinIO…",
     genMsgDownloading: "Téléchargement du document sur votre poste…",
     genMsgCompleted: "Génération terminée.",
-    generateButton: "Télécharger les certificats (.docx)",
+    generateButton: "Télécharger les certificats (.zip)",
     generating: "Génération…",
     generateSuccess: "Certificats générés",
     certificatesLabel: "certificat(s)",
@@ -667,7 +667,7 @@ const fr = {
   },
   documents: {
     templatesTitle: "Templates documentaires",
-    templatesMeta: "Paquets AO Alliance par type d'événement (cours et séminaires) — versions ZIP versionnées.",
+    templatesMeta: "Paquets documentaires par type d'événement (cours et séminaires) — versions ZIP versionnées.",
     templatesManageTitle: "Gestion des paquets par type d'événement",
     templatesManageDesc: "Sélectionnez un cours ou un séminaire, gérez les versions ZIP et les fichiers du paquet actif.",
     eventTypeHelp: "Séminaires (1j) : Op S, PBO S, IEC S. Faculty (FET, 2j). Cours (multi-jours) : Op C, ORP C, NonOp C. Les listes 07/08 sont filtrées à l'import ZIP et selon les dates de l'événement.",
@@ -851,7 +851,7 @@ const fr = {
     previewHint:
       "La prévisualisation affiche le fichier stocké sur le serveur. « Remplacer le fichier catalogue » met à jour ce fichier dans MinIO, pas votre copie locale.",
     moduleTitle: "Guides procédures",
-    moduleDesc: "Templates AO Alliance et génération des paquets documentaires pour vos événements.",
+    moduleDesc: "Templates et génération des paquets documentaires pour vos événements.",
     templatesTip: "Templates TIP",
     generationTip: "Génération TIP",
     jobQueued: "En file",
@@ -895,7 +895,7 @@ const fr = {
     quickActions: "Actions rapides",
     viewEvents: "Voir les événements",
     adminSection: "Administration",
-    adminDesc: "Gérez les comptes, importez Projects.xlsx et suivez les dossiers AO Alliance.",
+    adminDesc: "Gérez les comptes, importez Projects.xlsx et suivez les dossiers.",
     manageUsers: "Gérer les utilisateurs",
     activeUsers: "Utilisateurs actifs",
     loading: "Chargement du tableau de bord...",
@@ -906,9 +906,9 @@ const fr = {
   },
   guides: {
     title: "Guides procédures",
-    desc: "Templates AO Alliance et génération des paquets",
-    descLong: "Consultez les procédures métier AO Alliance et téléchargez les modèles de préparation (Op, PBO, IEC).",
-    sidebarDesc: "Procédures métier et modèles AO Alliance",
+    desc: "Templates et génération des paquets",
+    descLong: "Consultez les procédures métier et téléchargez les modèles de préparation (Op, PBO, IEC).",
+    sidebarDesc: "Procédures métier et modèles",
     open: "Ouvrir Guides →",
     openShort: "Ouvrir Guides",
     adminOpen: "Admin GuideHub",
@@ -929,7 +929,7 @@ const fr = {
     regionsTop: "Top 12 régions par nombre de projets",
     noRegion: "Aucune région renseignée.",
     loadingStats: "Chargement des statistiques…",
-    projectStatus: "Statut AO Alliance",
+    projectStatus: "Statut projet",
     projectStatusDesc: "Open, Closed, Cancelled",
     projectStatusBreakdown: "Répartition des projets par statut Excel",
     projects: "Projets",
@@ -1060,9 +1060,9 @@ const fr = {
   },
   landing: {
     meta: {
-      title: "Traumatec Impact Platform — Gestion des événements AO Alliance",
+      title: "Traumatec Impact Platform — Gestion des événements",
       description:
-        "Plateforme tout-en-un pour piloter vos événements AO Alliance : import Projects, paquets documentaires, certificats et analyses prédictives.",
+        "Plateforme tout-en-un pour piloter vos événements : import Projects, paquets documentaires, certificats et analyses prédictives.",
     },
     nav: {
       aria: "Navigation principale",
@@ -1076,8 +1076,8 @@ const fr = {
       closeMenu: "Fermer le menu",
     },
     hero: {
-      badge: "Plateforme AO Alliance par Traumatec",
-      title: "Pilotez vos événements AO Alliance de A à Z",
+      badge: "Plateforme Traumatec",
+      title: "Pilotez vos événements de A à Z",
       subtitle:
         "Import Excel, génération de paquets documentaires, certificats participants et indicateurs prédictifs — une seule plateforme pour les responsables nationaux et préparateurs.",
       ctaPrimary: "Se connecter",
@@ -1086,7 +1086,7 @@ const fr = {
     features: {
       title: "Tout ce dont vous avez besoin pour vos dossiers",
       subtitle:
-        "TIP centralise la préparation, la production documentaire et le suivi d'impact de vos séminaires et cours AO Alliance.",
+        "TIP centralise la préparation, la production documentaire et le suivi d'impact de vos séminaires et cours.",
       items: {
         events: {
           title: "Événements & import Projects",
@@ -1122,7 +1122,7 @@ const fr = {
     },
     modules: {
       title: "Une plateforme modulaire",
-      subtitle: "Chaque module répond à une étape clé du cycle de vie de vos événements AO Alliance.",
+      subtitle: "Chaque module répond à une étape clé du cycle de vie de vos événements.",
       tabs: {
         events: "Événements",
         documents: "Documents",
@@ -1154,11 +1154,11 @@ const fr = {
     },
     benefits: {
       title: "Pourquoi choisir Traumatec Impact Platform ?",
-      subtitle: "Gagnez du temps, réduisez les erreurs et harmonisez vos livrables AO Alliance.",
+      subtitle: "Gagnez du temps, réduisez les erreurs et harmonisez vos livrables.",
       card1: {
         title: "Conformité aux standards AO",
         description:
-          "Paquets, listes de présence et certificats alignés sur les modèles officiels AO Alliance.",
+          "Paquets, listes de présence et certificats alignés sur les modèles officiels.",
       },
       card2: {
         title: "Productivité des équipes",
@@ -1178,7 +1178,7 @@ const fr = {
         q1: {
           question: "À qui s'adresse Traumatec Impact Platform ?",
           answer:
-            "TIP est destinée aux responsables nationaux, préparateurs et administrateurs qui gèrent des événements AO Alliance (séminaires Op S, PBO S, IEC S, cours 3 jours et FET).",
+            "TIP est destinée aux responsables nationaux, préparateurs et administrateurs qui gèrent des événements (séminaires Op S, PBO S, IEC S, cours 3 jours et FET).",
         },
         q2: {
           question: "Comment accéder à la plateforme ?",
@@ -1204,7 +1204,7 @@ const fr = {
     },
     footer: {
       description:
-        "Traumatec Impact Platform — la solution Traumatec pour orchestrer vos événements AO Alliance, de la préparation documentaire aux certificats.",
+        "Traumatec Impact Platform — la solution Traumatec pour orchestrer vos événements, de la préparation documentaire aux certificats.",
       platform: "Plateforme",
       account: "Compte",
       resetPassword: "Mot de passe oublié",
@@ -1258,7 +1258,7 @@ const en: typeof fr = {
   analytics: {
     pageTitle: "ML Predictions",
     pageHeading: "Predictive analysis",
-    pageDesc: "Machine learning budget risk and attendance estimates for your AO Alliance events.",
+    pageDesc: "Machine learning budget risk and attendance estimates for your events.",
     title: "Predictive indicators",
     subtitle: "Budget risk and estimated attendance for the selected event.",
     selectEvent: "Analyzed event",
@@ -1395,7 +1395,7 @@ const en: typeof fr = {
     steps: {
       welcome: {
         title: "Welcome to Traumatec Impact Platform",
-        body: "This tour walks through each part of the interface and what it is for when preparing AO Alliance packages.",
+        body: "This tour walks through each part of the interface and what it is for when preparing packages.",
       },
       dashboard: {
         title: "Dashboard",
@@ -1407,7 +1407,7 @@ const en: typeof fr = {
       },
       participants: {
         title: "Certificates",
-        body: "Certificates menu: pick an event, import the Excel export from the registration platform (events.ao-alliance.org), then generate the Word file.",
+        body: "Certificates menu: pick an event, import the Excel export from the registration platform, then generate the certificates ZIP.",
       },
       documents: {
         title: "Documents menu",
@@ -1447,7 +1447,7 @@ const en: typeof fr = {
       },
       guides: {
         title: "Document guides",
-        body: "AO Alliance guides (GuideHub) and guide admin for administrators.",
+        body: "guides (GuideHub) and guide admin for administrators.",
       },
       admin: {
         title: "Administration",
@@ -1498,7 +1498,7 @@ const en: typeof fr = {
     notDefined: "Not defined",
     notProvided: "Not provided",
     appName: "Traumatec Impact Platform",
-    appSlogan: "AO Alliance tender preparation platform",
+    appSlogan: "Traumatec event management platform",
     breadcrumb: "Breadcrumb",
     user: "User",
     or: "Or",
@@ -1672,16 +1672,16 @@ const en: typeof fr = {
   events: {
     title: "Events",
     list: "Event list",
-    listDesc: "AO Alliance status: Open = in progress, Closed = finished, Cancelled = cancelled.",
+    listDesc: "status: Open = in progress, Closed = finished, Cancelled = cancelled.",
     detail: "Information",
-    detailDesc: "AO Alliance file details",
+    detailDesc: "file details",
     actions: "File management",
     project: "Project #",
     eventTitle: "Title",
     activity: "Activity",
     activityType: "Activity type",
     responsible: "Responsible",
-    status: "AO Alliance status",
+    status: "status",
     tipStatus: "TIP file status",
     theme: "TIP preparation theme",
     inferredPackage: "Inferred document package",
@@ -1751,12 +1751,12 @@ const en: typeof fr = {
     distinctTypes: "Distinct types",
     newEvent: "New event",
     createEvent: "Create event",
-    createEventDesc: "Enter AO Alliance file information.",
+    createEventDesc: "Enter file information.",
     createSubmit: "Create event",
     editEvent: "Edit event",
     editEventDesc: "Update file information.",
     saveChanges: "Save changes",
-    alreadyFinished: "Event already finished or cancelled per AO Alliance status.",
+    alreadyFinished: "Event already finished or cancelled per status.",
     viewDetails: "View details",
     closeEvent: "Close event",
     deleteEvent: "Delete event",
@@ -1764,7 +1764,7 @@ const en: typeof fr = {
     tableEvent: "Event",
     tableResponsible: "Responsible",
     titlePlaceholder: "Event name",
-    responsiblePlaceholder: "AO Alliance responsible person",
+    responsiblePlaceholder: "responsible person",
     responsibleEmail: "Responsible person email",
     responsiblePhone: "Responsible person phone",
     chooseTheme: "— Choose a theme —",
@@ -1786,11 +1786,11 @@ const en: typeof fr = {
     tipError: "Error",
     importModalTitle: "Annual Projects.xlsx import (AID Impact)",
     importModalDesc:
-      "Imports the Projects.xlsx file exported from AID Impact (AO Alliance). All event fields are loaded; existing events are replaced before import.",
+      "Imports the Projects.xlsx file exported from AID Impact. All event fields are loaded; existing events are replaced before import.",
     importColumns: "Columns read",
     importColumnsExtra: "Any extra column is kept in metadata for future BI dashboard.",
     importDropzone: "Import Projects.xlsx",
-    importDropzoneHint: "Excel file (.xlsx) — AO Alliance format: Title, Project number, Activity, dates, Location, Country…",
+    importDropzoneHint: "Excel file (.xlsx) — format: Title, Project number, Activity, dates, Location, Country…",
     biTitle: "BI dashboard",
     biDesc: "Indicators from Projects.xlsx — CHF budget, participants and geographic breakdown.",
     budgetTotal: "Total budget (CHF)",
@@ -1804,7 +1804,7 @@ const en: typeof fr = {
     title: "Participants",
     pageTitle: "Certificates",
     pageDesc:
-      "Pick an event, import the Excel export from the AO Alliance registration platform (events.ao-alliance.org), then generate a Word file with all certificates. AI formalizes the event title; teachers receive « as a teacher ». Re-import before each generation.",
+      "Pick an event, import the Excel export from the registration platform, then generate a ZIP with one Word certificate per person. AI formalizes the event title; teachers receive « as a teacher ».",
     selectEventTitle: "Event",
     selectEventDesc:
       "Open AO projects only — select the event to import registrations and generate certificates.",
@@ -1823,13 +1823,13 @@ const en: typeof fr = {
     historyBy: "Generated by",
     historyCount: "Certificates",
     preview: "Preview",
-    previewTitle: "Document preview",
+    previewTitle: "First certificate preview",
     previewError: "Preview failed",
     backToEvent: "View event details",
     loadError: "Unable to load participants.",
     importTitle: "Registration import",
     importDesc:
-      "Excel .xlsx file exported from the participant registration platform (events.ao-alliance.org). Duplicates already in this event are skipped.",
+      "Excel .xlsx file exported from the participant registration platform. Duplicates already in this event are skipped.",
     importButton: "Import Excel export",
     importing: "Importing…",
     importSuccess: "Participants imported",
@@ -1840,7 +1840,7 @@ const en: typeof fr = {
     sourceEvent: "Event in file",
     generateTitle: "Certificate generation",
     generateDesc:
-      "Produces a merged Word document (one certificate per person). Title comes from the Excel export (Nom_evenement column), AI-formatted — you can edit it before generating.",
+      "Produces a ZIP file with one Word certificate per person (one page each). Title comes from the Excel export (Nom_evenement column), AI-formatted — you can edit it before generating.",
     certificateTitleLabel: "Title on certificate",
     certificateTitlePlaceholder: "Event title as it will appear on each certificate…",
     certificateTitleHintNoImport: "Import the Excel export first to load the title (Nom_evenement).",
@@ -1855,11 +1855,11 @@ const en: typeof fr = {
     genPhaseCompleted: "Complete",
     genPhaseFailed: "Failed",
     genMsgPreparing: "Checking participants and title…",
-    genMsgGenerating: "Merging Word pages — this may take a minute.",
+    genMsgGenerating: "Generating individual certificates and building ZIP — this may take a minute.",
     genMsgUploading: "Saving file to MinIO…",
     genMsgDownloading: "Downloading document to your computer…",
     genMsgCompleted: "Generation complete.",
-    generateButton: "Download certificates (.docx)",
+    generateButton: "Download certificates (.zip)",
     generating: "Generating…",
     generateSuccess: "Certificates generated",
     certificatesLabel: "certificate(s)",
@@ -1903,7 +1903,7 @@ const en: typeof fr = {
   },
   documents: {
     templatesTitle: "Document templates",
-    templatesMeta: "AO Alliance packages by event type (courses and seminars) — versioned ZIP bundles.",
+    templatesMeta: "packages by event type (courses and seminars) — versioned ZIP bundles.",
     templatesManageTitle: "Package management by event type",
     templatesManageDesc: "Pick a course or seminar, manage ZIP versions and files in the active bundle.",
     eventTypeHelp: "Seminars (1d): Op S, PBO S, IEC S. Faculty (FET, 2d). Courses (multi-day): Op C, ORP C, NonOp C. Lists 07/08 filtered on ZIP import and by event dates.",
@@ -2087,7 +2087,7 @@ const en: typeof fr = {
     onlyofficeFullscreen: "Full screen",
     onlyofficeExitFullscreen: "Exit full screen",
     moduleTitle: "Procedure guides",
-    moduleDesc: "AO Alliance templates and document package generation for your events.",
+    moduleDesc: "templates and document package generation for your events.",
     templatesTip: "TIP Templates",
     generationTip: "TIP Generation",
     jobQueued: "Queued",
@@ -2131,7 +2131,7 @@ const en: typeof fr = {
     quickActions: "Quick actions",
     viewEvents: "View events",
     adminSection: "Administration",
-    adminDesc: "Manage accounts, import Projects.xlsx and track AO Alliance files.",
+    adminDesc: "Manage accounts, import Projects.xlsx and track files.",
     manageUsers: "Manage users",
     activeUsers: "Active users",
     loading: "Loading dashboard...",
@@ -2142,9 +2142,9 @@ const en: typeof fr = {
   },
   guides: {
     title: "Procedure guides",
-    desc: "AO Alliance templates and document packages",
-    descLong: "Browse AO Alliance procedures and download preparation templates (Op, PBO, IEC).",
-    sidebarDesc: "Business procedures and AO Alliance templates",
+    desc: "templates and document packages",
+    descLong: "Browse procedures and download preparation templates (Op, PBO, IEC).",
+    sidebarDesc: "Business procedures and templates",
     open: "Open Guides →",
     openShort: "Open Guides",
     adminOpen: "GuideHub admin",
@@ -2165,7 +2165,7 @@ const en: typeof fr = {
     regionsTop: "Top 12 regions by project count",
     noRegion: "No region provided.",
     loadingStats: "Loading statistics…",
-    projectStatus: "AO Alliance status",
+    projectStatus: "status",
     projectStatusDesc: "Open, Closed, Cancelled",
     projectStatusBreakdown: "Project breakdown by Excel status",
     projects: "Projects",
@@ -2296,9 +2296,9 @@ const en: typeof fr = {
   },
   landing: {
     meta: {
-      title: "Traumatec Impact Platform — AO Alliance event management",
+      title: "Traumatec Impact Platform — event management",
       description:
-        "All-in-one platform for AO Alliance events: Projects import, document packages, certificates and predictive analytics.",
+        "All-in-one platform for events: Projects import, document packages, certificates and predictive analytics.",
     },
     nav: {
       aria: "Main navigation",
@@ -2312,8 +2312,8 @@ const en: typeof fr = {
       closeMenu: "Close menu",
     },
     hero: {
-      badge: "AO Alliance platform by Traumatec",
-      title: "Run your AO Alliance events end to end",
+      badge: "platform by Traumatec",
+      title: "Run your events end to end",
       subtitle:
         "Excel import, document package generation, participant certificates and predictive KPIs — one platform for national coordinators and preparers.",
       ctaPrimary: "Sign in",
@@ -2322,7 +2322,7 @@ const en: typeof fr = {
     features: {
       title: "Everything you need for your dossiers",
       subtitle:
-        "TIP centralizes preparation, document production and impact tracking for your AO Alliance seminars and courses.",
+        "TIP centralizes preparation, document production and impact tracking for your seminars and courses.",
       items: {
         events: {
           title: "Events & Projects import",
@@ -2358,7 +2358,7 @@ const en: typeof fr = {
     },
     modules: {
       title: "A modular platform",
-      subtitle: "Each module covers a key step in your AO Alliance event lifecycle.",
+      subtitle: "Each module covers a key step in your event lifecycle.",
       tabs: {
         events: "Events",
         documents: "Documents",
@@ -2390,11 +2390,11 @@ const en: typeof fr = {
     },
     benefits: {
       title: "Why Traumatec Impact Platform?",
-      subtitle: "Save time, reduce errors and standardize your AO Alliance deliverables.",
+      subtitle: "Save time, reduce errors and standardize your deliverables.",
       card1: {
         title: "AO standards compliance",
         description:
-          "Packages, attendance lists and certificates aligned with official AO Alliance templates.",
+          "Packages, attendance lists and certificates aligned with official templates.",
       },
       card2: {
         title: "Team productivity",
@@ -2414,7 +2414,7 @@ const en: typeof fr = {
         q1: {
           question: "Who is Traumatec Impact Platform for?",
           answer:
-            "TIP is built for national coordinators, preparers and administrators managing AO Alliance events (Op S, PBO S, IEC S seminars, 3-day courses and FET).",
+            "TIP is built for national coordinators, preparers and administrators managing events (Op S, PBO S, IEC S seminars, 3-day courses and FET).",
         },
         q2: {
           question: "How do I access the platform?",
@@ -2440,7 +2440,7 @@ const en: typeof fr = {
     },
     footer: {
       description:
-        "Traumatec Impact Platform — Traumatec's solution to orchestrate AO Alliance events, from document preparation to certificates.",
+        "Traumatec Impact Platform — Traumatec's solution to orchestrate events, from document preparation to certificates.",
       platform: "Platform",
       account: "Account",
       resetPassword: "Forgot password",

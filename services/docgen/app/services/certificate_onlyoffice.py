@@ -12,6 +12,7 @@ from app.core.config import Settings
 from tip_common.storage import get_object_storage
 
 DOCX_CONTENT_TYPE = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+ZIP_CONTENT_TYPE = "application/zip"
 
 
 def _sign(secret: str, generation_id: UUID, purpose: str, expires: int) -> str:

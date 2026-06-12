@@ -254,10 +254,8 @@ def apply_highlight_replacements_docx(
         if _replace_highlighted_runs(sub_root, context, replacement_fields=replacement_fields):
             parts[part_name] = ET.tostring(sub_root, encoding="utf-8", xml_declaration=True)
 
-    out = BytesIO()
-    with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as zout:
-        for name, content in parts.items():
-            zout.writestr(name, content)
+    from app.services.docgen.docx_zip_repack import repack_docx_archive
+
     if count:
         logger.info("Surlignages remplacés : %s occurrence(s)", count)
-    return out.getvalue()
+    return repack_docx_archive(data, parts)

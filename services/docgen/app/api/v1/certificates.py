@@ -18,6 +18,7 @@ from app.schemas.certificate import (
 )
 from app.services.certificate_onlyoffice import (
     DOCX_CONTENT_TYPE,
+    ZIP_CONTENT_TYPE,
     build_certificate_editor_config,
     download_certificate_bytes,
     verify_access_token,
@@ -50,6 +51,24 @@ def _storage_key(event_id: UUID, generation_id: UUID, filename: str) -> str:
     return f"generations/certificates/{event_id}/{generation_id}/{filename}"
 
 
+def _preview_storage_key(event_id: UUID, generation_id: UUID) -> str:
+    return _storage_key(event_id, generation_id, "preview.docx")
+
+
+def _download_content_type(filename: str) -> str:
+    if filename.lower().endswith(".zip"):
+        return ZIP_CONTENT_TYPE
+    return DOCX_CONTENT_TYPE
+
+
+def _preview_file_row(row: dict) -> tuple[str, str]:
+    preview_key = row.get("preview_storage_key")
+    preview_name = row.get("preview_filename")
+    if preview_key:
+        return preview_key, preview_name or row["filename"]
+    return row["storage_key"], row["filename"]
+
+
 def _row_to_response(row: dict) -> CertificateGenerationResponse:
     prenom = row.get("prenom") or ""
     nom = row.get("nom") or ""
@@ -72,7 +91,8 @@ async def _get_generation_row(db: AsyncSession, generation_id: UUID) -> dict | N
         text(
             """
             SELECT g.id, g.event_id, g.requested_by_id, g.role_filter,
-                   g.certificate_count, g.storage_key, g.filename, g.created_at,
+                   g.certificate_count, g.storage_key, g.filename,
+                   g.preview_storage_key, g.preview_filename, g.created_at,
                    u.prenom, u.nom
             FROM docgen.certificate_generations g
             LEFT JOIN identity.utilisateurs u ON u.id = g.requested_by_id
@@ -95,7 +115,8 @@ async def list_certificate_generations(
         text(
             """
             SELECT g.id, g.event_id, g.requested_by_id, g.role_filter,
-                   g.certificate_count, g.storage_key, g.filename, g.created_at,
+                   g.certificate_count, g.storage_key, g.filename,
+                   g.preview_storage_key, g.preview_filename, g.created_at,
                    u.prenom, u.nom
             FROM docgen.certificate_generations g
             LEFT JOIN identity.utilisateurs u ON u.id = g.requested_by_id
@@ -245,7 +266,7 @@ async def generate_event_certificates(
         )
         event_dict["certificate_context_json"] = ctx
 
-        docx_bytes, count, filename = await generate_certificates_docx(
+        zip_bytes, preview_bytes, count, filename, preview_filename = await generate_certificates_docx(
             event=event_dict,
             participants=participants,
             role_filter=payload.role_filter,
@@ -257,20 +278,24 @@ async def generate_event_certificates(
 
     generation_id = uuid4()
     storage_key = _storage_key(event_id, generation_id, filename)
+    preview_key = _preview_storage_key(event_id, generation_id)
     storage = get_object_storage(settings)
     storage.ensure_bucket()
-    storage.upload_bytes(storage_key, docx_bytes, content_type=DOCX_CONTENT_TYPE)
+    storage.upload_bytes(storage_key, zip_bytes, content_type=ZIP_CONTENT_TYPE)
+    storage.upload_bytes(preview_key, preview_bytes, content_type=DOCX_CONTENT_TYPE)
 
     await db.execute(
         text(
             """
             INSERT INTO docgen.certificate_generations (
                 id, event_id, requested_by_id, role_filter,
-                certificate_count, storage_key, filename
+                certificate_count, storage_key, filename,
+                preview_storage_key, preview_filename
             )
             VALUES (
                 :id, :event_id, :requested_by_id, :role_filter,
-                :certificate_count, :storage_key, :filename
+                :certificate_count, :storage_key, :filename,
+                :preview_storage_key, :preview_filename
             )
             """
         ),
@@ -282,6 +307,8 @@ async def generate_event_certificates(
             "certificate_count": count,
             "storage_key": storage_key,
             "filename": filename,
+            "preview_storage_key": preview_key,
+            "preview_filename": preview_filename,
         },
     )
 
@@ -331,7 +358,7 @@ async def download_certificate_generation(
 
     return Response(
         content=data,
-        media_type=DOCX_CONTENT_TYPE,
+        media_type=_download_content_type(row["filename"]),
         headers={"Content-Disposition": f'attachment; filename="{row["filename"]}"'},
     )
 
@@ -347,10 +374,11 @@ async def certificate_editor_config(
     if row is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Génération introuvable")
 
+    _, preview_filename = _preview_file_row(row)
     payload = build_certificate_editor_config(
         settings,
         generation_id=generation_id,
-        filename=row["filename"],
+        filename=preview_filename,
         created_at=row["created_at"],
         user_id=str(user.id),
         user_name=f"{user.prenom} {user.nom}".strip(),
@@ -375,8 +403,9 @@ async def certificate_onlyoffice_file(
     if row is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Génération introuvable")
 
+    preview_key, preview_filename = _preview_file_row(row)
     try:
-        data = download_certificate_bytes(settings, row["storage_key"])
+        data = download_certificate_bytes(settings, preview_key)
     except ClientError as exc:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -386,5 +415,5 @@ async def certificate_onlyoffice_file(
     return Response(
         content=data,
         media_type=DOCX_CONTENT_TYPE,
-        headers={"Content-Disposition": f'inline; filename="{row["filename"]}"'},
+        headers={"Content-Disposition": f'inline; filename="{preview_filename}"'},
     )

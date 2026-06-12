@@ -120,34 +120,22 @@ def apply_exhaustive_pairs_docx(data: bytes, pairs: list[tuple[str, str]]) -> by
     if not total:
         return data
 
-    out = BytesIO()
-    with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as zout:
-        for name, content in parts.items():
-            zout.writestr(name, content)
+    from app.services.docgen.docx_zip_repack import repack_docx_archive
+
     logger.info("Remplacement exhaustif docx : %s paragraphe(s)", total)
-    return out.getvalue()
+    return repack_docx_archive(data, parts)
 
 
 def apply_exhaustive_pairs_doc_binary(data: bytes, pairs: list[tuple[str, str]]) -> bytes:
+    from app.services.docgen.doc_binary_replace import replace_fixed_width_in_binary
+
     if not pairs:
         return data
     result = data
     replaced = 0
     for old, new in pairs:
-        for encoding in ("utf-16-le", "utf-8", "latin-1"):
-            try:
-                old_b = old.encode(encoding)
-                new_b = new.encode(encoding)
-            except UnicodeEncodeError:
-                continue
-            if old_b not in result:
-                continue
-            if len(new_b) <= len(old_b):
-                result = result.replace(old_b, new_b + b"\x00" * (len(old_b) - len(new_b)), 1)
-            else:
-                result = result.replace(old_b, new_b, 1)
-            replaced += 1
-            break
+        result, count = replace_fixed_width_in_binary(result, old, new)
+        replaced += count
     if replaced:
         logger.info("Remplacement exhaustif .doc : %s chaîne(s)", replaced)
     return result

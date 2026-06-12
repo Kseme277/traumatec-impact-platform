@@ -255,9 +255,7 @@ def apply_coordonnees_docx_replacements(
     if not replaced:
         return data
 
+    from app.services.docgen.docx_zip_repack import repack_docx_archive
+
     logger.info("Formulaire AO table : %s cellule(s)/paragraphe(s) mis à jour", replaced)
-    out = BytesIO()
-    with zipfile.ZipFile(out, "w", zipfile.ZIP_DEFLATED) as zout:
-        for name, content in parts.items():
-            zout.writestr(name, content)
-    return out.getvalue()
+    return repack_docx_archive(data, parts)
