@@ -826,116 +826,199 @@ input:-webkit-autofill:focus {
   -webkit-box-shadow: 0 0 0 1000px rgb(17 24 39) inset;
 }
 
-/* Logo TIP — tracé vectoriel animé (couleurs brand du site) */
-@keyframes tip-logo-stroke {
-  50% {
-    stroke-dashoffset: 0;
-  }
-}
-
-@keyframes tip-logo-fill {
+/* Logo — barres brand (cohérent avec --color-brand-*) */
+@keyframes tip-logo-bar-pulse {
   0%,
-  48% {
-    fill-opacity: 0;
-    stroke-opacity: 1;
-  }
-  58%,
   100% {
-    fill-opacity: 1;
-    stroke-opacity: 0.4;
+    opacity: 1;
+    transform: translateY(0);
+  }
+  50% {
+    opacity: 0.72;
+    transform: translateY(-1px);
   }
 }
 
-.tip-logo--default .tip-logo-path {
-  stroke: var(--color-brand-500);
-  fill: var(--color-brand-500);
-}
-
-.tip-logo--on-dark .tip-logo-path {
-  stroke: var(--color-brand-300);
-  fill: var(--color-brand-300);
+@keyframes tip-splash-bar-shimmer {
+  0% {
+    transform: translateX(-120%);
+    opacity: 0;
+  }
+  20% {
+    opacity: 1;
+  }
+  80% {
+    opacity: 1;
+  }
+  100% {
+    transform: translateX(120%);
+    opacity: 0;
+  }
 }
 
 .tip-logo__svg {
   overflow: visible;
-  filter: drop-shadow(0 2px 8px rgb(70 95 255 / 0.28));
+  filter: drop-shadow(0 4px 14px rgb(70 95 255 / 0.24));
 }
 
-.tip-logo {
-  overflow: visible;
+.tip-logo--on-dark .tip-logo__svg {
+  filter: drop-shadow(0 4px 16px rgb(117 146 255 / 0.32));
 }
 
-.tip-logo--default .tip-logo__platform {
-  color: rgb(70 95 255 / 0.1);
+.tip-logo--default .tip-logo-bar--1 {
+  fill: var(--color-brand-700);
 }
 
-.dark .tip-logo--default .tip-logo__platform {
-  color: rgb(117 146 255 / 0.14);
+.tip-logo--default .tip-logo-bar--2 {
+  fill: var(--color-brand-500);
 }
 
-.tip-logo--on-dark .tip-logo__platform {
-  color: rgb(255 255 255 / 0.08);
+.tip-logo--default .tip-logo-bar--3 {
+  fill: var(--color-brand-400);
+}
+
+.tip-logo--on-dark .tip-logo-bar--1 {
+  fill: var(--color-brand-300);
+}
+
+.tip-logo--on-dark .tip-logo-bar--2 {
+  fill: var(--color-brand-400);
+}
+
+.tip-logo--on-dark .tip-logo-bar--3 {
+  fill: var(--color-brand-200);
+}
+
+.tip-logo-bar {
+  transform-origin: center;
+  animation: tip-logo-bar-pulse 2.4s ease-in-out infinite;
+}
+
+.tip-logo-bar--1 {
+  animation-delay: 0s;
+}
+
+.tip-logo-bar--2 {
+  animation-delay: 0.15s;
+}
+
+.tip-logo-bar--3 {
+  animation-delay: 0.3s;
+}
+
+.tip-logo--default .tip-logo__brand {
+  color: var(--color-brand-800);
+}
+
+.dark .tip-logo--default .tip-logo__brand {
+  color: rgb(249 250 251);
+}
+
+.tip-logo--on-dark .tip-logo__brand {
+  color: rgb(255 255 255);
 }
 
 .tip-logo--default .tip-logo__slogan {
-  color: rgb(70 95 255 / 0.72);
+  color: rgb(102 112 133);
 }
 
 .dark .tip-logo--default .tip-logo__slogan {
-  color: rgb(117 146 255 / 0.78);
+  color: rgb(152 162 179);
 }
 
 .tip-logo--on-dark .tip-logo__slogan {
-  color: rgb(255 255 255 / 0.55);
+  color: rgb(255 255 255 / 0.62);
 }
 
-.tip-logo-path {
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  paint-order: stroke fill;
+/* Splash loader — fond doux + barre lumineuse */
+.tip-splash {
+  background: rgb(249 250 251);
 }
 
-.tip-logo-path--short,
-.tip-logo-path--long,
-.tip-logo-path--letter-t,
-.tip-logo-path--letter-i,
-.tip-logo-path--letter-p {
-  animation:
-    tip-logo-stroke 3.5s ease-in-out infinite,
-    tip-logo-fill 3.5s ease-in-out infinite;
+.dark .tip-splash {
+  background: rgb(3 7 18);
 }
 
-.tip-logo-path--long {
-  animation-delay: 0.12s, 0.12s;
+.tip-splash__blob {
+  position: absolute;
+  border-radius: 9999px;
+  filter: blur(72px);
+  pointer-events: none;
 }
 
-.tip-logo-path--letter-t {
-  animation-delay: 0.35s, 0.35s;
+.tip-splash__blob--left {
+  top: 28%;
+  left: -8%;
+  width: min(42vw, 320px);
+  height: min(42vw, 320px);
+  background: rgb(117 146 255 / 0.42);
 }
 
-.tip-logo-path--letter-i {
-  animation-delay: 0.5s, 0.5s;
+.tip-splash__blob--right {
+  top: 32%;
+  right: -6%;
+  width: min(38vw, 280px);
+  height: min(38vw, 280px);
+  background: rgb(194 214 255 / 0.55);
 }
 
-.tip-logo-path--letter-p {
-  animation-delay: 0.65s, 0.65s;
+.dark .tip-splash__blob--left {
+  background: rgb(70 95 255 / 0.22);
 }
 
-.tip-logo-path--static {
-  stroke-dashoffset: 0;
-  fill-opacity: 1;
-  stroke-opacity: 0.35;
+.dark .tip-splash__blob--right {
+  background: rgb(42 49 216 / 0.28);
+}
+
+.tip-splash--inline {
+  background: transparent;
+}
+
+.tip-splash--inline .tip-splash__blob {
+  opacity: 0.45;
+}
+
+.tip-splash--inline .tip-splash__bar {
+  margin-top: 2rem;
+}
+
+.tip-splash__bar {
+  position: relative;
+  width: 7rem;
+  height: 3px;
+  border-radius: 9999px;
+  background: var(--color-brand-100);
+  overflow: hidden;
+  box-shadow:
+    0 8px 24px rgb(70 95 255 / 0.14),
+    0 2px 8px rgb(117 146 255 / 0.22);
+}
+
+.dark .tip-splash__bar {
+  background: rgb(37 45 174 / 0.35);
+  box-shadow:
+    0 8px 24px rgb(70 95 255 / 0.2),
+    0 2px 8px rgb(117 146 255 / 0.18);
+}
+
+.tip-splash__bar-glow {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgb(117 146 255 / 0.2) 35%,
+    var(--color-brand-400) 50%,
+    rgb(117 146 255 / 0.2) 65%,
+    transparent 100%
+  );
+  animation: tip-splash-bar-shimmer 2.2s ease-in-out infinite;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .tip-logo-path--short,
-  .tip-logo-path--long,
-  .tip-logo-path--letter-t,
-  .tip-logo-path--letter-i,
-  .tip-logo-path--letter-p {
+  .tip-logo-bar,
+  .tip-splash__bar-glow {
     animation: none;
-    stroke-dashoffset: 0;
-    fill-opacity: 1;
-    stroke-opacity: 0.4;
   }
 }

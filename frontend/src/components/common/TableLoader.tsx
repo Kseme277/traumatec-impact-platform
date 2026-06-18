@@ -1,4 +1,4 @@
-import TipAnimatedLogo from "../brand/TipAnimatedLogo";
+import TipSplashLoader from "../brand/TipSplashLoader";
 
 interface TableLoaderProps {
   message?: string;
@@ -10,16 +10,10 @@ export default function TableLoader({
   className = "",
 }: TableLoaderProps) {
   return (
-    <div
-      className={`flex flex-col items-center justify-center py-16 ${className}`}
-      role="status"
-      aria-live="polite"
-      aria-busy="true"
-    >
-      <div className="mb-5">
-        <TipAnimatedLogo size="lg" showWordmark showPlatformName showSlogan animate />
-      </div>
-      <p className="text-sm text-gray-500 dark:text-gray-400">{message}</p>
-    </div>
+    <TipSplashLoader
+      message={message}
+      variant="inline"
+      className={className}
+    />
   );
 }

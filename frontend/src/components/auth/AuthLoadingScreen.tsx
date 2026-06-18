@@ -1,26 +1,9 @@
-import TipAnimatedLogo from "../brand/TipAnimatedLogo";
-import GridShape from "../common/GridShape";
-import { useTranslation } from "../../i18n/useTranslation";
+import TipSplashLoader from "../brand/TipSplashLoader";
 
 interface AuthLoadingScreenProps {
   message?: string;
 }
 
 export default function AuthLoadingScreen({ message }: AuthLoadingScreenProps) {
-  const { t } = useTranslation();
-  const displayMessage = message ?? t("auth.loadingWorkspace");
-
-  return (
-    <>
-      <div className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden p-6 z-1">
-        <GridShape />
-        <div className="mx-auto flex w-full max-w-sm flex-col items-center text-center">
-          <div className="mb-6" role="status" aria-label={t("auth.loadingPage")}>
-            <TipAnimatedLogo size="lg" showWordmark showPlatformName showSlogan animate />
-          </div>
-          <p className="text-sm text-gray-600 dark:text-gray-400 sm:text-base">{displayMessage}</p>
-        </div>
-      </div>
-    </>
-  );
+  return <TipSplashLoader message={message} variant="fullscreen" />;
 }
