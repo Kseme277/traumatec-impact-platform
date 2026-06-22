@@ -1,6 +1,9 @@
 from functools import lru_cache
+from typing import Self
+from urllib.parse import urlparse
 
 from tip_common.config import BaseServiceSettings
+from pydantic import model_validator
 
 
 class Settings(BaseServiceSettings):
@@ -40,6 +43,17 @@ class Settings(BaseServiceSettings):
     guides_company_slug: str = ""
     guides_bridge_email: str = ""
     guides_bridge_password: str = ""
+
+    @model_validator(mode="after")
+    def resolve_app_public_url_for_lan(self) -> Self:
+        """Liens d'invitation accessibles depuis d'autres machines du réseau."""
+        lan = self.lan_host.strip()
+        if not lan:
+            return self
+        host = (urlparse(self.app_public_url).hostname or "").lower()
+        if host in ("localhost", "127.0.0.1"):
+            self.app_public_url = f"http://{lan}:{self.frontend_port}"
+        return self
 
 
 @lru_cache

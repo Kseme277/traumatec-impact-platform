@@ -71,7 +71,7 @@ async def _deliver_invitation_email(
 
     return False, (
         "Compte créé mais l'activation Clerk a échoué. "
-        "Ajoutez http://localhost:5173/accept-invitation dans Clerk → Paths / URLs de redirection, "
+        f"Ajoutez {settings.app_public_url.rstrip('/')}/accept-invitation dans Clerk → Paths / URLs de redirection, "
         "puis utilisez « Renvoyer l'invitation »."
     )
 
@@ -348,7 +348,7 @@ async def resend_invitation(
             status_code=status.HTTP_409_CONFLICT,
             detail=(
                 "Activation Clerk impossible. "
-                "Vérifiez http://localhost:5173/accept-invitation dans le dashboard Clerk."
+                f"Vérifiez {settings.app_public_url.rstrip('/')}/accept-invitation dans le dashboard Clerk."
             ),
         )
 

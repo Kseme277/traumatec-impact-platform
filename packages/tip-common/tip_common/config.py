@@ -1,8 +1,8 @@
 from functools import lru_cache
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Self
 
-from pydantic import field_validator
+from pydantic import field_validator, model_validator
 from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 
@@ -32,6 +32,10 @@ class BaseServiceSettings(BaseSettings):
         "http://localhost:5173",
         "http://localhost:8080",
     ]
+    # IP LAN du poste TIP (ex. 192.168.1.104) — ajoute :5173 et :8080 aux origines CORS
+    lan_host: str = ""
+    frontend_port: int = 5173
+    nginx_port: int = 8080
 
     @field_validator("cors_origins", mode="before")
     @classmethod
@@ -39,6 +43,19 @@ class BaseServiceSettings(BaseSettings):
         if isinstance(value, str):
             return [origin.strip() for origin in value.split(",") if origin.strip()]
         return value
+
+    @model_validator(mode="after")
+    def extend_cors_for_lan_access(self) -> Self:
+        host = self.lan_host.strip()
+        if not host:
+            return self
+        origins = list(self.cors_origins)
+        for port in (self.frontend_port, self.nginx_port):
+            origin = f"http://{host}:{port}"
+            if origin not in origins:
+                origins.append(origin)
+        self.cors_origins = origins
+        return self
 
     clerk_jwks_url: str = ""
     clerk_issuer: str = ""
