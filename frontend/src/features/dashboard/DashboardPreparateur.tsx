@@ -6,7 +6,6 @@ import { CalenderIcon, CheckCircleIcon, ListIcon, TaskIcon } from "../../icons";
 import { useTipAuth } from "../../context/TipAuthContext";
 import { useTranslation } from "../../i18n/useTranslation";
 import EventStatCard from "../events/EventStatCard";
-import EventsBiDashboardSection from "../events/EventsBiDashboardSection";
 import EventsDashboardCalendar from "../events/EventsDashboardCalendar";
 import { useEvents } from "../events/useEvents";
 import DocumentsModuleCard from "../documents/DocumentsModuleCard";
@@ -57,8 +56,6 @@ export default function DashboardPreparateur() {
           iconBgClassName="bg-blue-light-50 dark:bg-blue-light-500/15"
         />
       </div>
-
-      <EventsBiDashboardSection stats={stats} isLoading={isStatsLoading} />
 
       <div className="mb-6">
         <EventsDashboardCalendar

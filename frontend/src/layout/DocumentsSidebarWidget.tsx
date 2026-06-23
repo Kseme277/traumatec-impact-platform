@@ -10,7 +10,7 @@ import { DocsIcon, FileIcon } from "../icons";
 
 export default function DocumentsSidebarWidget() {
   const { t } = useTranslation();
-  const { isAdmin } = useTipAuth();
+  const { isAdmin, hasRole } = useTipAuth();
 
   return (
     <div
@@ -43,28 +43,44 @@ export default function DocumentsSidebarWidget() {
       ) : (
         <p className="text-xs text-gray-500 dark:text-gray-400">{t("guides.notConfigured")}</p>
       )}
+      <DocumentsQuickLinks isAdmin={isAdmin} hasRole={hasRole} />
     </div>
   );
 }
 
-export function DocumentsQuickLinks() {
+export function DocumentsQuickLinks({
+  isAdmin,
+  hasRole,
+}: {
+  isAdmin: boolean;
+  hasRole: (role: "administrateur" | "support_administratif" | "controle_procedure" | "validateur") => boolean;
+}) {
   const { t } = useTranslation();
+  const showTemplates = isAdmin;
+  const showGeneration = isAdmin || hasRole("support_administratif");
+
+  if (!showTemplates && !showGeneration) return null;
+
   return (
     <div className="mt-3 flex flex-col gap-2">
-      <Link
-        to="/documents/templates"
-        className="inline-flex items-center gap-2 text-xs text-brand-500 hover:underline"
-      >
-        <DocsIcon className="size-4" />
-        {t("nav.templates")}
-      </Link>
-      <Link
-        to="/documents/generation"
-        className="inline-flex items-center gap-2 text-xs text-brand-500 hover:underline"
-      >
-        <FileIcon className="size-4" />
-        {t("nav.generation")}
-      </Link>
+      {showTemplates ? (
+        <Link
+          to="/documents/templates"
+          className="inline-flex items-center gap-2 text-xs text-brand-500 hover:underline"
+        >
+          <DocsIcon className="size-4" />
+          {t("nav.templates")}
+        </Link>
+      ) : null}
+      {showGeneration ? (
+        <Link
+          to="/documents/generation"
+          className="inline-flex items-center gap-2 text-xs text-brand-500 hover:underline"
+        >
+          <FileIcon className="size-4" />
+          {t("nav.generation")}
+        </Link>
+      ) : null}
     </div>
   );
 }

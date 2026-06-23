@@ -15,6 +15,12 @@ logger = logging.getLogger(__name__)
 
 
 async def bootstrap_packages_on_startup() -> None:
+    import os
+
+    if os.getenv("PACKAGE_BOOTSTRAP_DISABLED", "").strip().lower() in ("1", "true", "yes"):
+        logger.info("Bootstrap paquets désactivé (PACKAGE_BOOTSTRAP_DISABLED).")
+        return
+
     settings = get_settings()
     try:
         async with AsyncSessionLocal() as db:

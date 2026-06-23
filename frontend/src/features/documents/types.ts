@@ -92,6 +92,16 @@ export interface PackageImportProgress {
 
 export type GenerationJobStatus = "queued" | "running" | "completed" | "failed";
 
+export type WorkflowStatus =
+  | "generated"
+  | "submitted"
+  | "under_procedure_review"
+  | "procedure_rejected"
+  | "procedure_approved"
+  | "under_final_validation"
+  | "validator_rejected"
+  | "approved";
+
 export interface GenerationLogEntry {
   at: string;
   level: string;
@@ -102,6 +112,7 @@ export interface GenerationJob {
   id: string;
   event_id: string;
   status: GenerationJobStatus;
+  workflow_status?: WorkflowStatus;
   zip_filename: string | null;
   zip_available?: boolean;
   certificate_count: number;

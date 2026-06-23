@@ -1,3 +1,5 @@
+import type { RoleUtilisateur } from "../features/auth/types";
+
 export interface SearchEntry {
   id: string;
   title: string;
@@ -6,6 +8,7 @@ export interface SearchEntry {
   keywords: string[];
   category: string;
   adminOnly?: boolean;
+  roles?: RoleUtilisateur[];
 }
 
 export const SEARCH_ENTRIES: SearchEntry[] = [
@@ -24,6 +27,7 @@ export const SEARCH_ENTRIES: SearchEntry[] = [
     path: "/predictions",
     category: "Navigation",
     keywords: ["predictions", "prédictions", "analytics", "ml", "budget", "risque", "affluence", "machine learning"],
+    roles: ["administrateur"],
   },
   {
     id: "notifications",
@@ -40,6 +44,7 @@ export const SEARCH_ENTRIES: SearchEntry[] = [
     path: "/evenements",
     category: "Événements",
     keywords: ["events", "projects", "excel", "import"],
+    roles: ["administrateur", "support_administratif"],
   },
   {
     id: "evenement-nouveau",
@@ -48,6 +53,7 @@ export const SEARCH_ENTRIES: SearchEntry[] = [
     path: "/evenements/nouveau",
     category: "Événements",
     keywords: ["créer", "ajouter", "event"],
+    roles: ["administrateur", "support_administratif"],
   },
   {
     id: "templates",
@@ -56,6 +62,7 @@ export const SEARCH_ENTRIES: SearchEntry[] = [
     path: "/documents/templates",
     category: "Documents",
     keywords: ["templates", "catalog", "paquets", "certificats", "word"],
+    roles: ["administrateur"],
   },
   {
     id: "generation",
@@ -64,6 +71,7 @@ export const SEARCH_ENTRIES: SearchEntry[] = [
     path: "/documents/generation",
     category: "Documents",
     keywords: ["docgen", "générer", "zip", "pdf", "export"],
+    roles: ["administrateur", "support_administratif"],
   },
   {
     id: "profil",
@@ -87,6 +95,15 @@ export const SEARCH_ENTRIES: SearchEntry[] = [
     path: "/admin/utilisateurs",
     category: "Administration",
     keywords: ["admin", "users", "invitation"],
+    adminOnly: true,
+  },
+  {
+    id: "admin-referentiels",
+    title: "Référentiels",
+    subtitle: "Responsables nationaux et enseignants",
+    path: "/admin/referentiels",
+    category: "Administration",
+    keywords: ["référentiel", "enseignants", "responsable national", "contacts"],
     adminOnly: true,
   },
   {
@@ -128,10 +145,17 @@ export const SEARCH_ENTRIES: SearchEntry[] = [
 export function filterSearchEntries(
   query: string,
   entries: SearchEntry[],
-  options?: { adminOnly?: boolean },
+  options?: { adminOnly?: boolean; hasRole?: (role: RoleUtilisateur) => boolean },
 ): SearchEntry[] {
   const normalized = query.trim().toLowerCase();
-  const visible = entries.filter((entry) => !entry.adminOnly || options?.adminOnly);
+  const hasRole = options?.hasRole;
+  const visible = entries.filter((entry) => {
+    if (entry.adminOnly && !options?.adminOnly) return false;
+    if (entry.roles?.length && hasRole && !options?.adminOnly) {
+      return entry.roles.some((role) => hasRole(role));
+    }
+    return true;
+  });
 
   if (!normalized) {
     return visible.slice(0, 8);

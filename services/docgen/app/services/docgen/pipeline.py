@@ -121,6 +121,7 @@ async def _load_event(session: AsyncSession, event_id: UUID) -> dict:
             """
             SELECT project_number, title, event_type, preparation_theme,
                    city, country, region, responsible_person,
+                   national_responsible_name, national_responsible_email, national_responsible_phone,
                    start_date::text, end_date::text,
                    participants_expected, metadata_json, project_status
             FROM events.events
@@ -141,6 +142,9 @@ async def _load_event(session: AsyncSession, event_id: UUID) -> dict:
         "country": row.country,
         "region": row.region,
         "responsible_person": row.responsible_person,
+        "national_responsible_name": row.national_responsible_name,
+        "national_responsible_email": row.national_responsible_email,
+        "national_responsible_phone": row.national_responsible_phone,
         "start_date": row.start_date,
         "end_date": row.end_date,
         "participants_expected": row.participants_expected,
@@ -545,6 +549,7 @@ async def build_package_zip(
     await append_job_log(db, job_id, message="README généré et stocké")
 
     zip_entries: list[tuple[str, bytes]] = []
+    file_trace: list[dict[str, str | None]] = []
     package_type = profile.get("package_type")
     for tpl in templates:
         meta = tpl.get("placeholders") or {}
@@ -589,6 +594,13 @@ async def build_package_zip(
         storage.upload_bytes(file_key, content, content_type=content_type)
         artifact_keys.append(file_key)
         zip_entries.append((arcname, content))
+        file_trace.append(
+            {
+                "template_id": str(tpl.get("id")) if tpl.get("id") else None,
+                "template_code": tpl.get("code") or arcname,
+                "file_path": arcname,
+            }
+        )
 
     manifest = {
         "event_id": str(event_id),
@@ -625,6 +637,8 @@ async def build_package_zip(
         "dossier_prefix": dossier_prefix,
         "zip_path": zip_key,
         "artifacts": artifact_keys,
+        "files": file_trace,
+        "template_codes": [t["code"] for t in templates],
     }
 
     await db.execute(
@@ -685,7 +699,11 @@ def run_docgen_job(job_id: str) -> None:
                 )
                 await session.execute(
                     text(
-                        "UPDATE docgen.generation_jobs SET status = 'completed', completed_at = now() WHERE id = :id"
+                        """
+                        UPDATE docgen.generation_jobs
+                        SET status = 'completed', completed_at = now(), workflow_status = 'generated'
+                        WHERE id = :id
+                        """
                     ),
                     {"id": str(jid)},
                 )

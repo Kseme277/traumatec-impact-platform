@@ -39,6 +39,42 @@ _MIGRATIONS = (
         ON events.participants(event_id, identity_key)
         WHERE identity_key IS NOT NULL AND identity_key <> '';
     """,
+    """
+    ALTER TABLE events.events
+        ADD COLUMN IF NOT EXISTS national_responsible_name VARCHAR(255),
+        ADD COLUMN IF NOT EXISTS national_responsible_email VARCHAR(255),
+        ADD COLUMN IF NOT EXISTS national_responsible_phone VARCHAR(32),
+        ADD COLUMN IF NOT EXISTS organizer_responsible_user_id INTEGER REFERENCES identity.utilisateurs(id);
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS events.teachers (
+        id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        last_name   VARCHAR(128) NOT NULL,
+        first_name  VARCHAR(128) NOT NULL,
+        email       VARCHAR(255),
+        phone       VARCHAR(32),
+        is_active   BOOLEAN NOT NULL DEFAULT TRUE,
+        created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+    );
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS events.event_teachers (
+        event_id    UUID NOT NULL REFERENCES events.events(id) ON DELETE CASCADE,
+        teacher_id  UUID NOT NULL REFERENCES events.teachers(id) ON DELETE CASCADE,
+        PRIMARY KEY (event_id, teacher_id)
+    );
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS events.national_contacts (
+        id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        full_name   VARCHAR(255) NOT NULL,
+        email       VARCHAR(255),
+        phone       VARCHAR(32),
+        country     VARCHAR(128),
+        is_active   BOOLEAN NOT NULL DEFAULT TRUE,
+        created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+    );
+    """,
 )
 
 
@@ -85,10 +121,51 @@ async def _backfill_participant_identity_keys(session) -> None:
         )
 
 
+async def _backfill_national_contacts(session) -> None:
+    from sqlalchemy import select
+
+    from app.models.event import Event
+    from app.models.national_contact import NationalContact
+
+    result = await session.execute(
+        select(Event.responsible_person, Event.country, Event.metadata_json).where(
+            Event.responsible_person.isnot(None),
+            Event.responsible_person != "",
+        )
+    )
+    seen: set[str] = set()
+    existing = await session.execute(select(NationalContact.full_name))
+    for (name,) in existing.fetchall():
+        seen.add(name.strip().lower())
+
+    created = 0
+    for row in result.fetchall():
+        name = (row.responsible_person or "").strip()
+        if not name or name.lower() in seen:
+            continue
+        meta = row.metadata_json or {}
+        email = meta.get("responsible_email") if isinstance(meta, dict) else None
+        phone = meta.get("responsible_phone") if isinstance(meta, dict) else None
+        session.add(
+            NationalContact(
+                full_name=name,
+                email=str(email).strip() if email else None,
+                phone=str(phone).strip() if phone else None,
+                country=row.country,
+            )
+        )
+        seen.add(name.lower())
+        created += 1
+
+    if created:
+        logger.info("Backfill national_contacts : %s contact(s) créé(s)", created)
+
+
 async def apply_pending_migrations() -> None:
     async with AsyncSessionLocal() as session:
         for sql in _MIGRATIONS:
             await session.execute(text(sql))
         await _backfill_participant_identity_keys(session)
+        await _backfill_national_contacts(session)
         await session.commit()
     logger.info("Migrations events à jour")

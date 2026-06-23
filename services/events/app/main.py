@@ -1,4 +1,4 @@
-from app.api.v1 import events, imports, participants
+from app.api.v1 import events, imports, national_contacts, participants, teachers
 from app.core.config import get_settings
 from app.services.db_migrate import apply_pending_migrations
 from tip_common.app_factory import create_service_app
@@ -18,6 +18,8 @@ app = create_service_app(
         (events.router, "/events", ["events"]),
         (imports.router, "/imports", ["imports"]),
         (participants.router, "/participants", ["participants"]),
+        (teachers.router, "/teachers", ["teachers"]),
+        (national_contacts.router, "/national-contacts", ["national-contacts"]),
     ],
     on_startup=on_startup,
 )

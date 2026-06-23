@@ -16,11 +16,14 @@ from app.schemas.utilisateur import (
     UtilisateurCreate,
     UtilisateurCreateResponse,
     UtilisateurResponse,
+    UtilisateurRolesUpdate,
 )
 from app.services.audit_service import record_audit_event
 from app.services.clerk_client import ClerkAPIError, ClerkClient
 from app.services.email_service import EmailService
+from app.services.user_roles import load_user_roles, set_user_roles
 from tip_common.email_identity import email_local_part, normalize_email
+from tip_common.roles import normalize_roles, primary_role
 
 logger = logging.getLogger(__name__)
 
@@ -81,6 +84,27 @@ def _clerk_sent_activation_email(invitation_url: str | None) -> bool:
     if not invitation_url:
         return False
     return "accept-invitation?ticket=" not in invitation_url
+
+
+async def _user_response(db: AsyncSession, utilisateur: Utilisateur) -> UtilisateurResponse:
+    roles = await load_user_roles(db, utilisateur.id, utilisateur.role)
+    primary = primary_role(roles)
+    return UtilisateurResponse(
+        id=utilisateur.id,
+        clerk_id=utilisateur.clerk_id,
+        username=utilisateur.username,
+        email=utilisateur.email,
+        nom=utilisateur.nom,
+        prenom=utilisateur.prenom,
+        phone=utilisateur.phone,
+        role=primary,
+        roles=roles,
+        est_actif=utilisateur.est_actif,
+        created_at=utilisateur.created_at,
+        activation_date=utilisateur.activation_date,
+        deactivation_date=utilisateur.deactivation_date,
+        last_access=utilisateur.last_access,
+    )
 
 
 @router.get("/check-email", response_model=EmailCheckResponse)
@@ -155,12 +179,18 @@ async def create_utilisateur(
         )
 
     clerk = ClerkClient(settings)
+    roles = normalize_roles(
+        list(payload.roles or []),
+        fallback_role=payload.role or "support_administratif",
+    )
+    primary = primary_role(roles)
     try:
         result = await clerk.provision_user_with_invitation(
             email=normalized_email,
             nom=payload.nom,
             prenom=payload.prenom,
-            role=payload.role,
+            role=primary,
+            roles=roles,
         )
         clerk_id = result.clerk_id
         primary_email = (
@@ -205,11 +235,12 @@ async def create_utilisateur(
         nom=payload.nom,
         prenom=payload.prenom,
         phone=payload.phone,
-        role=payload.role,
+        role=primary,
         est_actif=True,
     )
     db.add(utilisateur)
     await db.flush()
+    await set_user_roles(db, utilisateur.id, roles)
     await record_audit_event(
         db,
         actor_id=admin.id,
@@ -226,7 +257,8 @@ async def create_utilisateur(
         email=utilisateur.email,
         nom=utilisateur.nom,
         prenom=utilisateur.prenom,
-        role=utilisateur.role,
+        role=primary,
+        roles=roles,
         est_actif=utilisateur.est_actif,
         created_at=utilisateur.created_at,
         invitation_sent=invitation_sent,
@@ -239,9 +271,53 @@ async def create_utilisateur(
 async def list_utilisateurs(
     _: Utilisateur = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
-) -> list[Utilisateur]:
+) -> list[UtilisateurResponse]:
     result = await db.execute(select(Utilisateur).order_by(Utilisateur.created_at.desc()))
-    return list(result.scalars().all())
+    users = list(result.scalars().all())
+    return [await _user_response(db, user) for user in users]
+
+
+@router.patch("/{user_id}/roles", response_model=UtilisateurResponse)
+async def update_utilisateur_roles(
+    user_id: int,
+    payload: UtilisateurRolesUpdate,
+    admin: Utilisateur = Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
+) -> UtilisateurResponse:
+    if admin.id == user_id and "administrateur" not in normalize_roles(list(payload.roles)):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Vous ne pouvez pas retirer votre propre rôle administrateur",
+        )
+
+    result = await db.execute(select(Utilisateur).where(Utilisateur.id == user_id))
+    utilisateur = result.scalar_one_or_none()
+    if utilisateur is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Utilisateur introuvable")
+
+    roles = normalize_roles(list(payload.roles))
+    await set_user_roles(db, utilisateur.id, roles)
+    utilisateur.role = primary_role(roles)
+
+    settings = get_settings()
+    if utilisateur.clerk_id and settings.clerk_secret_key:
+        clerk = ClerkClient(settings)
+        try:
+            await clerk.sync_public_metadata(utilisateur.clerk_id, roles=roles)
+        except ClerkAPIError as exc:
+            raise HTTPException(status_code=status.HTTP_502_BAD_GATEWAY, detail=str(exc)) from exc
+
+    await record_audit_event(
+        db,
+        actor_id=admin.id,
+        action="user.update_roles",
+        entity_type="user",
+        entity_id=str(utilisateur.id),
+        payload={"roles": roles},
+    )
+    await db.commit()
+    await db.refresh(utilisateur)
+    return await _user_response(db, utilisateur)
 
 
 @router.patch("/{user_id}/toggle-status", response_model=ToggleStatusResponse)
@@ -322,10 +398,15 @@ async def resend_invitation(
         )
 
     clerk = ClerkClient(settings)
+    roles = await load_user_roles(db, utilisateur.id, utilisateur.role)
+    primary = primary_role(roles)
     try:
+        if utilisateur.clerk_id:
+            await clerk.sync_public_metadata(utilisateur.clerk_id, roles=roles)
         invitation_url = await clerk.create_invitation_only(
             email=utilisateur.email,
-            role=utilisateur.role,
+            role=primary,
+            roles=roles,
             clerk_id=utilisateur.clerk_id,
         )
     except ClerkAPIError as exc:

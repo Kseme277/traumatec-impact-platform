@@ -16,7 +16,6 @@ import Blank from "./pages/Blank";
 import AppLayout from "./layout/AppLayout";
 import { ScrollToTop } from "./components/common/ScrollToTop";
 import Home from "./pages/Dashboard/Home";
-import LandingPage from "./pages/LandingPage";
 import EvenementsPage from "./pages/EvenementsPage";
 import EvenementDetailPage from "./pages/EvenementDetailPage";
 import EvenementCreatePage from "./pages/EvenementCreatePage";
@@ -39,6 +38,10 @@ import DocumentsTemplatesPage from "./pages/DocumentsTemplatesPage";
 import DocumentsGenerationPage from "./pages/DocumentsGenerationPage";
 import GuidesAdminHandoffPage from "./pages/GuidesAdminHandoffPage";
 import NotificationsPage from "./pages/NotificationsPage";
+import WorkflowControlePage from "./pages/WorkflowControlePage";
+import WorkflowValidationPage from "./pages/WorkflowValidationPage";
+import UtilisateursRoutePage from "./pages/UtilisateursRoutePage";
+import ReferentielsAdminPage from "./pages/admin/ReferentielsAdminPage";
 import PredictionsPage from "./pages/PredictionsPage";
 
 export default function App() {
@@ -46,13 +49,13 @@ export default function App() {
     <Router>
       <ScrollToTop />
       <Routes>
-        <Route path="/signin" element={<SignIn />} />
+        <Route index path="/" element={<SignIn />} />
+        <Route path="/signin" element={<Navigate to="/" replace />} />
         <Route path="/reset-password" element={<ResetPassword />} />
         <Route path="/accept-invitation" element={<AcceptInvitation />} />
-        <Route path="/connexion" element={<Navigate to="/signin" replace />} />
-        <Route path="/signup" element={<Navigate to="/signin" replace />} />
+        <Route path="/connexion" element={<Navigate to="/" replace />} />
+        <Route path="/signup" element={<Navigate to="/" replace />} />
         <Route path="/sso-callback" element={<SsoCallback />} />
-        <Route index path="/" element={<LandingPage />} />
 
         <Route element={<ProtectedRoute requireAdmin />}>
           <Route path="/guides/admin-handoff" element={<GuidesAdminHandoffPage />} />
@@ -61,17 +64,31 @@ export default function App() {
         <Route element={<ProtectedRoute />}>
           <Route element={<AppLayout />}>
             <Route path="/dashboard" element={<Home />} />
-            <Route path="/evenements" element={<EvenementsPage />} />
-            <Route path="/evenements/nouveau" element={<EvenementCreatePage />} />
-            <Route path="/evenements/:id" element={<EvenementDetailPage />} />
-            <Route path="/evenements/:id/modifier" element={<EvenementEditPage />} />
-            <Route path="/certificats" element={<CertificatesPage />} />
-            <Route path="/certificats/participants/:participantId" element={<ParticipantDetailPage />} />
-            <Route path="/evenements/:id/participants" element={<EventParticipantsPage />} />
-            <Route path="/documents/templates" element={<DocumentsTemplatesPage />} />
-            <Route path="/documents/generation" element={<DocumentsGenerationPage />} />
+            <Route element={<ProtectedRoute requireAnyRole={["administrateur", "support_administratif"]} />}>
+              <Route path="/evenements" element={<EvenementsPage />} />
+              <Route path="/evenements/nouveau" element={<EvenementCreatePage />} />
+              <Route path="/evenements/:id" element={<EvenementDetailPage />} />
+              <Route path="/evenements/:id/modifier" element={<EvenementEditPage />} />
+              <Route path="/certificats" element={<CertificatesPage />} />
+              <Route path="/certificats/participants/:participantId" element={<ParticipantDetailPage />} />
+              <Route path="/evenements/:id/participants" element={<EventParticipantsPage />} />
+              <Route path="/documents/generation" element={<DocumentsGenerationPage />} />
+            </Route>
+
+            <Route element={<ProtectedRoute requireAdmin />}>
+              <Route path="/documents/templates" element={<DocumentsTemplatesPage />} />
+              <Route path="/predictions" element={<PredictionsPage />} />
+            </Route>
+
             <Route path="/notifications" element={<NotificationsPage />} />
-            <Route path="/predictions" element={<PredictionsPage />} />
+            <Route path="/utilisateurs" element={<UtilisateursRoutePage />} />
+
+            <Route element={<ProtectedRoute requireAnyRole={["administrateur", "controle_procedure"]} />}>
+              <Route path="/workflow/controle" element={<WorkflowControlePage />} />
+            </Route>
+            <Route element={<ProtectedRoute requireAnyRole={["administrateur", "validateur"]} />}>
+              <Route path="/workflow/validation" element={<WorkflowValidationPage />} />
+            </Route>
             <Route path="/profile" element={<UserProfiles />} />
             <Route path="/profil" element={<UserProfiles />} />
             <Route path="/profil/mot-de-passe" element={<ProfilMotDePassePage />} />
@@ -92,6 +109,7 @@ export default function App() {
               <Route path="/admin/utilisateurs" element={<UtilisateursListPage />} />
               <Route path="/admin/utilisateurs/nouveau" element={<UtilisateurCreatePage />} />
               <Route path="/admin/utilisateurs/:id" element={<UtilisateurDetailPage />} />
+              <Route path="/admin/referentiels" element={<ReferentielsAdminPage />} />
               <Route path="/admin/audit" element={<AuditPage />} />
               <Route path="/admin/stockage" element={<ParametresStockagePage />} />
             </Route>

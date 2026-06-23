@@ -9,6 +9,8 @@ from app.api.admin import users as admin_users
 from app.api.users import profile as users_profile
 from app.api.v1 import audit as audit_v1
 from app.api.v1 import guides as guides_v1
+from app.api.v1 import notifications as notifications_v1
+from app.api.v1 import users as users_v1
 from app.api.webhooks import clerk as clerk_webhooks
 from app.core.config import get_settings
 from app.services.audit_scheduler import audit_export_loop
@@ -54,6 +56,8 @@ app.add_middleware(
 
 app.include_router(admin_users.router, prefix="/api/admin/users", tags=["admin-users"])
 app.include_router(users_profile.router, prefix="/api/users", tags=["users"])
+app.include_router(notifications_v1.router, prefix="/api/v1/notifications", tags=["notifications"])
+app.include_router(users_v1.router, prefix="/api/v1/users", tags=["users-v1"])
 app.include_router(audit_v1.router, prefix="/api/v1/audit", tags=["audit"])
 app.include_router(guides_v1.router, prefix="/api/v1/guides", tags=["guides"])
 app.include_router(clerk_webhooks.router, prefix="/api/webhooks", tags=["webhooks"])

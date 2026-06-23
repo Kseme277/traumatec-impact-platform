@@ -26,7 +26,7 @@ export default function SignInForm() {
 
   const goToDashboard = () => {
     const from = (location.state as { from?: { pathname?: string } } | null)?.from?.pathname;
-    navigate(from && from !== "/signin" ? from : "/dashboard", { replace: true });
+    navigate(from && from !== "/" && from !== "/signin" ? from : "/dashboard", { replace: true });
   };
 
   const handleEmailSignIn = async (event: FormEvent) => {

@@ -1,6 +1,7 @@
 import { apiFetch } from "./client";
 import type {
   InvitationActionResponse,
+  RoleUtilisateur,
   ToggleStatusResponse,
   Utilisateur,
   UtilisateurCreatePayload,
@@ -54,6 +55,13 @@ export function toggleUserStatus(token: string | null, userId: number) {
 export function resendInvitation(token: string | null, userId: number) {
   return apiFetch<InvitationActionResponse>(`/admin/users/${userId}/resend-invitation`, token, {
     method: "POST",
+  });
+}
+
+export function updateUserRoles(token: string | null, userId: number, roles: RoleUtilisateur[]) {
+  return apiFetch<Utilisateur>(`/admin/users/${userId}/roles`, token, {
+    method: "PATCH",
+    body: JSON.stringify({ roles }),
   });
 }
 

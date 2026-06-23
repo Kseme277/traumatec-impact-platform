@@ -113,6 +113,7 @@ class ClerkClient:
         nom: str,
         prenom: str,
         role: str,
+        roles: list[str] | None = None,
     ) -> ClerkInvitationResult:
         """
         Réutilise un compte Clerk existant (même email ou variante proche) au lieu d'en créer un doublon.
@@ -121,7 +122,7 @@ class ClerkClient:
         existing_id = await self.find_user_id_by_email(email)
         if existing_id:
             primary_email = await self.get_primary_email(existing_id) or email
-            await self.sync_public_metadata(existing_id, role=role)
+            await self.sync_public_metadata(existing_id, role=role, roles=roles)
             await self.update_user_names(existing_id, prenom=prenom, nom=nom)
             async with httpx.AsyncClient(timeout=30.0) as client:
                 activation_url = await self._create_sign_in_activation_url(
@@ -148,6 +149,7 @@ class ClerkClient:
             nom=nom,
             prenom=prenom,
             role=role,
+            roles=roles,
         )
 
     async def create_user_with_invitation(
@@ -157,6 +159,7 @@ class ClerkClient:
         nom: str,
         prenom: str,
         role: str,
+        roles: list[str] | None = None,
     ) -> ClerkInvitationResult:
         """
         Nouvel email : invitation Clerk uniquement (notify:true) — pas de POST /users avant.
@@ -178,6 +181,7 @@ class ClerkClient:
         *,
         email: str,
         role: str,
+        roles: list[str] | None = None,
         clerk_id: str | None = None,
     ) -> str | None:
         """Lien d'activation : invitation (nouveau) ou jeton de connexion (compte Clerk existant)."""
@@ -186,16 +190,17 @@ class ClerkClient:
             resolved_id = clerk_id or await self.find_user_id_by_email(email)
             if resolved_id:
                 return await self._create_sign_in_activation_url(client, clerk_id=resolved_id)
-            return await self._create_invitation(client, email=email, role=role)
+            return await self._create_invitation(client, email=email, role=role, roles=roles)
 
     async def create_invitation_only(
         self,
         *,
         email: str,
         role: str,
+        roles: list[str] | None = None,
         clerk_id: str | None = None,
     ) -> str | None:
-        return await self.create_activation_link(email=email, role=role, clerk_id=clerk_id)
+        return await self.create_activation_link(email=email, role=role, roles=roles, clerk_id=clerk_id)
 
     async def _list_pending_invitations(
         self,
@@ -278,13 +283,18 @@ class ClerkClient:
         *,
         email: str,
         role: str,
+        roles: list[str] | None = None,
         prenom: str | None = None,
         nom: str | None = None,
         retry: bool = True,
     ) -> str | None:
+        from tip_common.roles import normalize_roles, primary_role
+
+        resolved = normalize_roles(roles or [role])
+        primary = primary_role(resolved)
         payload: dict[str, object] = {
             "email_address": email,
-            "public_metadata": {"role": role},
+            "public_metadata": {"role": primary, "roles": resolved},
             "redirect_url": self._accept_invitation_url(),
             "ignore_existing": True,
             "notify": True,
@@ -356,12 +366,23 @@ class ClerkClient:
                     response.status_code,
                 )
 
-    async def sync_public_metadata(self, clerk_id: str, *, role: str) -> None:
+    async def sync_public_metadata(
+        self,
+        clerk_id: str,
+        *,
+        role: str | None = None,
+        roles: list[str] | None = None,
+    ) -> None:
+        from tip_common.roles import normalize_roles, primary_role
+
+        resolved = normalize_roles(roles or ([role] if role else []))
+        primary = primary_role(resolved)
+        metadata = {"role": primary, "roles": resolved}
         async with httpx.AsyncClient(timeout=15.0) as client:
             response = await client.patch(
                 f"{self.BASE_URL}/users/{clerk_id}",
                 headers=self._headers,
-                json={"public_metadata": {"role": role}},
+                json={"public_metadata": metadata},
             )
             if response.status_code >= 400:
                 raise ClerkAPIError(

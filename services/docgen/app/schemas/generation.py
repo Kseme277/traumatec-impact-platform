@@ -16,6 +16,7 @@ class GenerationJobResponse(BaseModel):
     id: UUID
     event_id: UUID
     status: str
+    workflow_status: str = "generated"
     zip_filename: str | None
     zip_path: str | None = Field(default=None, exclude=True)
     zip_available: bool = False

@@ -1,117 +1,50 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation } from "react-router";
-
-import {
-  Award,
-  Bell,
-  ChevronDown,
-  FileText,
-  LayoutGrid,
-  List,
-  MoreHorizontal,
-  Shield,
-  TrendingUp,
-  UserRound,
-} from "lucide-react";
+import { ChevronDown, MoreHorizontal } from "lucide-react";
 import TipAnimatedLogo from "../components/brand/TipAnimatedLogo";
+import { filterNavItems } from "../config/navByRole";
 import { useSidebar } from "../context/SidebarContext";
 import { useTipAuth } from "../context/TipAuthContext";
 import { useTranslation } from "../i18n/useTranslation";
 import DocumentsSidebarWidget from "./DocumentsSidebarWidget";
+import { buildNavItemDefs } from "./buildNavItems";
 
-type NavItem = {
+type RenderNavItem = {
   name: string;
   icon: React.ReactNode;
   path?: string;
-  href?: string;
   tourId?: string;
-  adminOnly?: boolean;
-  subItems?: { name: string; path?: string; href?: string; tourId?: string; adminOnly?: boolean }[];
+  subItems?: { name: string; path: string; tourId?: string }[];
 };
 
 const AppSidebar: React.FC = () => {
   const { isExpanded, isMobileOpen, isHovered, setIsHovered } = useSidebar();
-  const { isAdmin } = useTipAuth();
+  const { isAdmin, hasRole } = useTipAuth();
   const { t } = useTranslation();
   const location = useLocation();
 
-  const navItems: NavItem[] = useMemo(() => {
-    const items: NavItem[] = [
-      {
-        icon: <LayoutGrid className="size-6" strokeWidth={1.75} />,
-        name: t("nav.dashboard"),
-        path: "/dashboard",
-        tourId: "nav-dashboard",
-      },
-      {
-        icon: <List className="size-6" strokeWidth={1.75} />,
-        name: t("nav.events"),
-        path: "/evenements",
-        tourId: "nav-events",
-      },
-      {
-        icon: <Award className="size-6" strokeWidth={1.75} />,
-        name: t("nav.certificates"),
-        path: "/certificats",
-        tourId: "nav-certificates",
-      },
-      {
-        icon: <TrendingUp className="size-6" strokeWidth={1.75} />,
-        name: t("nav.predictions"),
-        path: "/predictions",
-        tourId: "nav-predictions",
-      },
-      {
-        icon: <Bell className="size-6" strokeWidth={1.75} />,
-        name: t("nav.notifications"),
-        path: "/notifications",
-        tourId: "nav-notifications",
-      },
-      {
-        icon: <FileText className="size-6" strokeWidth={1.75} />,
-        name: t("nav.documents"),
-        tourId: "nav-documents",
-        subItems: [
-          { name: t("nav.templates"), path: "/documents/templates" },
-          { name: t("nav.generation"), path: "/documents/generation", tourId: "nav-generation" },
-        ],
-      },
-    ];
-
-    items.push({
-      icon: <UserRound className="size-6" strokeWidth={1.75} />,
-      name: t("nav.profile"),
-      path: "/profil",
-      tourId: "nav-profile",
-    });
-
-    if (isAdmin) {
-      items.push({
-        icon: <Shield className="size-6" strokeWidth={1.75} />,
-        name: t("nav.admin"),
-        tourId: "nav-admin",
-        adminOnly: true,
-        subItems: [
-          { name: t("nav.users"), path: "/admin/utilisateurs" },
-          { name: t("nav.audit"), path: "/admin/audit" },
-          { name: t("nav.storage"), path: "/admin/stockage" },
-        ],
-      });
-    }
-
-    return items;
-  }, [isAdmin, t]);
+  const navItems: RenderNavItem[] = useMemo(() => {
+    const defs = filterNavItems(buildNavItemDefs(t), hasRole);
+    return defs.map((item) => ({
+      name: item.name,
+      icon: item.icon,
+      path: item.path,
+      tourId: item.tourId,
+      subItems: item.subItems?.map((sub) => ({
+        name: sub.name,
+        path: sub.path,
+        tourId: sub.tourId,
+      })),
+    }));
+  }, [hasRole, isAdmin, t]);
 
   const [openSubmenu, setOpenSubmenu] = useState<number | null>(null);
-  const [subMenuHeight, setSubMenuHeight] = useState<Record<string, number>>(
-    {}
-  );
+  const [subMenuHeight, setSubMenuHeight] = useState<Record<string, number>>({});
   const subMenuRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
-  // const isActive = (path: string) => location.pathname === path;
   const isActive = useCallback(
     (path: string) => location.pathname === path,
-    [location.pathname]
+    [location.pathname],
   );
 
   useEffect(() => {
@@ -119,8 +52,8 @@ const AppSidebar: React.FC = () => {
     navItems.forEach((nav, index) => {
       nav.subItems?.forEach((subItem) => {
         if (
-          subItem.path &&
-          (isActive(subItem.path) || location.pathname.startsWith(`${subItem.path}/`))
+          isActive(subItem.path) ||
+          location.pathname.startsWith(`${subItem.path}/`)
         ) {
           setOpenSubmenu(index);
           submenuMatched = true;
@@ -152,7 +85,7 @@ const AppSidebar: React.FC = () => {
     setOpenSubmenu((prev) => (prev === index ? null : index));
   };
 
-  const renderMenuItems = (items: NavItem[]) => (
+  const renderMenuItems = (items: RenderNavItem[]) => (
     <ul className="flex flex-col gap-4">
       {items.map((nav, index) => (
         <li key={nav.name}>
@@ -186,18 +119,6 @@ const AppSidebar: React.FC = () => {
                 />
               )}
             </button>
-          ) : nav.href ? (
-            <a
-              href={nav.href}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="menu-item group menu-item-inactive"
-            >
-              <span className="menu-item-icon-size menu-item-icon-inactive">{nav.icon}</span>
-              {(isExpanded || isHovered || isMobileOpen) && (
-                <span className="menu-item-text">{nav.name}</span>
-              )}
-            </a>
           ) : (
             nav.path && (
               <Link
@@ -233,19 +154,17 @@ const AppSidebar: React.FC = () => {
               <ul className="ml-9 mt-2 space-y-1">
                 {nav.subItems.map((subItem) => (
                   <li key={subItem.name}>
-                    {subItem.path ? (
-                      <Link
-                        to={subItem.path}
-                        data-tour={subItem.tourId}
-                        className={`menu-dropdown-item ${
-                          isActive(subItem.path)
-                            ? "menu-dropdown-item-active"
-                            : "menu-dropdown-item-inactive"
-                        }`}
-                      >
-                        {subItem.name}
-                      </Link>
-                    ) : null}
+                    <Link
+                      to={subItem.path}
+                      data-tour={subItem.tourId}
+                      className={`menu-dropdown-item ${
+                        isActive(subItem.path)
+                          ? "menu-dropdown-item-active"
+                          : "menu-dropdown-item-inactive"
+                      }`}
+                    >
+                      {subItem.name}
+                    </Link>
                   </li>
                 ))}
               </ul>
@@ -255,6 +174,12 @@ const AppSidebar: React.FC = () => {
       ))}
     </ul>
   );
+
+  const showGuidesWidget =
+    isAdmin ||
+    hasRole("support_administratif") ||
+    hasRole("controle_procedure") ||
+    hasRole("validateur");
 
   return (
     <aside
@@ -305,7 +230,9 @@ const AppSidebar: React.FC = () => {
             </div>
           </div>
         </nav>
-        {isExpanded || isHovered || isMobileOpen ? <DocumentsSidebarWidget /> : null}
+        {showGuidesWidget && (isExpanded || isHovered || isMobileOpen) ? (
+          <DocumentsSidebarWidget />
+        ) : null}
       </div>
     </aside>
   );

@@ -14,7 +14,7 @@ from app.schemas.generation import (
     GenerationNotificationResponse,
     GenerationStartResponse,
 )
-from tip_common.security import AuthenticatedUser, get_current_user
+from tip_common.security import AuthenticatedUser, get_current_user, require_can_generate
 from tip_common.storage import get_object_storage
 
 router = APIRouter()
@@ -76,7 +76,7 @@ async def generation_history(
 @router.post("/events/{event_id}", response_model=GenerationStartResponse)
 async def start_generation(
     event_id: UUID,
-    user: AuthenticatedUser = Depends(get_current_user),
+    user: AuthenticatedUser = Depends(require_can_generate),
     db: AsyncSession = Depends(get_db),
 ) -> GenerationStartResponse:
     event_row = await db.execute(

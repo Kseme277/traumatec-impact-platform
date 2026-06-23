@@ -1,5 +1,5 @@
 import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
-import { Link } from "react-router";
+import { Link, useSearchParams } from "react-router";
 import { useAuth } from "@clerk/clerk-react";
 import AdminBreadcrumb from "../components/common/AdminBreadcrumb";
 import ComponentCard from "../components/common/ComponentCard";
@@ -51,6 +51,8 @@ import {
   fetchGenerationHistory,
   runPackageGeneration,
 } from "../api/docgen";
+import { submitPackage } from "../api/workflow";
+import { workflowStatusLabel } from "../features/auth/types";
 import { ApiError } from "../api/client";
 import { getApiToken } from "../lib/clerkToken";
 import GenerationLogPanel from "../features/documents/GenerationLogPanel";
@@ -58,6 +60,8 @@ import type { GenerationJob } from "../features/documents/types";
 import { jobStatusColor, jobStatusLabel } from "../features/documents/types";
 import { useTranslation } from "../i18n/useTranslation";
 import { showError, showSuccess } from "../lib/swal";
+import PackageDueEventsPanel from "../features/events/PackageDueEventsPanel";
+import { needsPackageGenerationHighlight } from "../features/events/packageGenerationUrgency";
 
 function contactFromEvent(event: Evenement | null): { email: string; phone: string } {
   if (!event) return { email: "", phone: "" };
@@ -88,6 +92,7 @@ function eventOptionLabel(event: Evenement): string {
 export default function DocumentsGenerationPage() {
   const { t, localeTag } = useTranslation();
   const { getToken, isLoaded, isSignedIn } = useAuth();
+  const [searchParams] = useSearchParams();
   const { events, isLoading, loadEvents, update, isSubmitting } = useEvents();
   const [selectedEventId, setSelectedEventId] = useState("");
   const [themeDraft, setThemeDraft] = useState<PreparationTheme | "">("");
@@ -113,6 +118,18 @@ export default function DocumentsGenerationPage() {
   useEffect(() => {
     void loadEvents(generationEventFilters);
   }, [generationEventFilters, loadEvents]);
+
+  useEffect(() => {
+    const eventId = searchParams.get("event");
+    if (eventId) {
+      setSelectedEventId(eventId);
+    }
+  }, [searchParams]);
+
+  const packageDueEvents = useMemo(
+    () => events.filter(needsPackageGenerationHighlight),
+    [events],
+  );
 
   useEffect(() => {
     if (!selectedEventId) {
@@ -478,6 +495,28 @@ export default function DocumentsGenerationPage() {
     }
   };
 
+  const canSubmitWorkflow = (job: GenerationJob) =>
+    job.status === "completed" &&
+    (!job.workflow_status ||
+      job.workflow_status === "generated" ||
+      job.workflow_status === "procedure_rejected" ||
+      job.workflow_status === "validator_rejected");
+
+  const handleSubmit = async (job: GenerationJob) => {
+    try {
+      const token = await getApiToken(getToken);
+      const { workflow } = await submitPackage(token, job.id);
+      setActiveJob({ ...job, workflow_status: workflow.workflow_status });
+      await showSuccess("Paquet soumis pour contrôle procédure");
+      if (selectedEventId) {
+        const token2 = await getApiToken(getToken);
+        setHistory(await fetchGenerationHistory(token2, selectedEventId));
+      }
+    } catch (err) {
+      await showError(t("common.error"), err instanceof Error ? err.message : t("common.error"));
+    }
+  };
+
   if (isLoading) {
     return <AuthLoadingScreen message={t("documents.loadingReady")} />;
   }
@@ -495,6 +534,8 @@ export default function DocumentsGenerationPage() {
           { label: t("nav.templates"), to: "/documents/templates" },
         ]}
       />
+
+      <PackageDueEventsPanel events={packageDueEvents} className="mb-6" />
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
         <ComponentCard
@@ -821,6 +862,16 @@ export default function DocumentsGenerationPage() {
                   {t("documents.downloadZip")}
                 </Button>
               )}
+              {activeJob && canSubmitWorkflow(activeJob) ? (
+                <Button size="sm" onClick={() => void handleSubmit(activeJob)}>
+                  Soumettre pour contrôle
+                </Button>
+              ) : null}
+              {activeJob?.workflow_status ? (
+                <Badge color="info" size="sm">
+                  {workflowStatusLabel(activeJob.workflow_status)}
+                </Badge>
+              ) : null}
               {activeJob?.status === "completed" && activeJob.zip_available === false && (
                 <span className="text-xs text-gray-500 dark:text-gray-400">
                   {t("documents.zipExpired")}
@@ -868,9 +919,16 @@ export default function DocumentsGenerationPage() {
                     <Fragment key={job.id}>
                       <TableRow>
                         <TableCell className="px-2 py-2">
-                          <Badge color={jobStatusColor(job.status)} size="sm">
-                            {jobStatusLabel(job.status, t)}
-                          </Badge>
+                          <div className="flex flex-col gap-1">
+                            <Badge color={jobStatusColor(job.status)} size="sm">
+                              {jobStatusLabel(job.status, t)}
+                            </Badge>
+                            {job.workflow_status ? (
+                              <Badge color="light" size="sm">
+                                {workflowStatusLabel(job.workflow_status)}
+                              </Badge>
+                            ) : null}
+                          </div>
                         </TableCell>
                         <TableCell className="px-2 py-2 text-xs text-gray-500">
                           {new Date(job.created_at).toLocaleString(localeTag)}

@@ -7,7 +7,7 @@ import { useTipAuth } from "../../context/TipAuthContext";
 import { isGuidesConfigured, openGuides } from "../../config/guides";
 import { resolveClerkAvatar } from "../../lib/clerkAvatar";
 import { useTranslation } from "../../i18n/useTranslation";
-import { roleLabel } from "./types";
+import { normalizeRoles, roleLabel } from "./types";
 
 export default function UserDropdown() {
   const { t } = useTranslation();
@@ -20,7 +20,10 @@ export default function UserDropdown() {
   const prenom = tipUser?.prenom ?? clerkAvatar.firstName ?? user?.firstName ?? t("common.user");
   const nom = tipUser?.nom ?? clerkAvatar.lastName ?? user?.lastName ?? "";
   const email = tipUser?.email ?? user?.primaryEmailAddress?.emailAddress ?? "";
-  const role = tipUser?.role ?? "preparateur";
+  const role = tipUser?.role ?? "support_administratif";
+  const roleDisplay = tipUser
+    ? normalizeRoles(tipUser.roles, tipUser.role).map((r) => roleLabel(r, t)).join(", ")
+    : roleLabel(role, t);
 
   const closeDropdown = () => setIsOpen(false);
 
@@ -41,7 +44,7 @@ export default function UserDropdown() {
         <ClerkUserAvatar size="sm" />
         <span className="hidden text-left sm:block">
           <span className="block text-sm font-medium">{prenom}</span>
-          <span className="block text-xs text-slate-500 dark:text-slate-400">{roleLabel(role, t)}</span>
+          <span className="block text-xs text-slate-500 dark:text-slate-400">{roleDisplay}</span>
         </span>
         <svg
           className={`h-4 w-4 text-slate-400 transition-transform ${isOpen ? "rotate-180" : ""}`}
@@ -70,8 +73,15 @@ export default function UserDropdown() {
                 {prenom} {nom}
               </p>
               <p className="mt-0.5 truncate text-xs text-slate-500 dark:text-slate-400">{email}</p>
-              <span className="mt-2 inline-flex rounded-full bg-brand-500/10 px-2.5 py-0.5 text-xs font-medium text-brand-600 dark:text-brand-400">
-                {roleLabel(role, t)}
+              <span className="mt-2 inline-flex max-w-full flex-wrap gap-1">
+                {normalizeRoles(tipUser?.roles, tipUser?.role).map((r) => (
+                  <span
+                    key={r}
+                    className="inline-flex rounded-full bg-brand-500/10 px-2.5 py-0.5 text-xs font-medium text-brand-600 dark:text-brand-400"
+                  >
+                    {roleLabel(r, t)}
+                  </span>
+                ))}
               </span>
             </div>
           </div>

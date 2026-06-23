@@ -12,6 +12,18 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 
 from tip_common.config import BaseServiceSettings
 from tip_common.email_identity import email_local_part, emails_match_for_linking, normalize_email
+from tip_common.roles import (
+    can_generate_packages,
+    can_review_procedure,
+    can_submit_packages,
+    can_validate_final,
+    can_view_users,
+    has_any_role,
+    has_role,
+    is_admin_roles,
+    normalize_roles,
+    primary_role,
+)
 
 security_scheme = HTTPBearer(auto_error=False)
 
@@ -78,11 +90,18 @@ class AuthenticatedUser:
     nom: str
     prenom: str
     role: str
+    roles: tuple[str, ...]
     est_actif: bool
 
     @property
     def is_admin(self) -> bool:
-        return self.role == "administrateur"
+        return is_admin_roles(list(self.roles))
+
+    def has_role(self, role: str) -> bool:
+        return has_role(list(self.roles), role)
+
+    def has_any_role(self, *roles: str) -> bool:
+        return has_any_role(list(self.roles), *roles)
 
 
 def _auth_settings() -> BaseServiceSettings:
@@ -98,14 +117,25 @@ def _get_session_factory() -> async_sessionmaker[AsyncSession]:
     return _session_factory
 
 
-def _row_to_user(row, clerk_id: str) -> AuthenticatedUser:
+async def _load_roles_for_user(session: AsyncSession, user_id: int, fallback_role: str) -> tuple[str, ...]:
+    result = await session.execute(
+        text("SELECT role FROM identity.user_roles WHERE user_id = :user_id ORDER BY role"),
+        {"user_id": user_id},
+    )
+    roles = normalize_roles([row.role for row in result.fetchall()], fallback_role=fallback_role)
+    return tuple(roles)
+
+
+def _row_to_user(row, clerk_id: str, roles: tuple[str, ...]) -> AuthenticatedUser:
+    primary = primary_role(list(roles)) if roles else row.role
     return AuthenticatedUser(
         id=row.id,
         clerk_id=clerk_id,
         email=row.email,
         nom=row.nom,
         prenom=row.prenom,
-        role=row.role,
+        role=primary,
+        roles=roles,
         est_actif=row.est_actif,
     )
 
@@ -148,7 +178,8 @@ async def _load_user(clerk_id: str, email: str | None = None) -> AuthenticatedUs
                     {"user_id": row.id},
                 )
                 row = result.one()
-            return _row_to_user(row, clerk_id)
+            roles = await _load_roles_for_user(session, row.id, row.role)
+            return _row_to_user(row, clerk_id, roles)
 
         if not email:
             return None
@@ -187,7 +218,9 @@ async def _load_user(clerk_id: str, email: str | None = None) -> AuthenticatedUs
                 ),
                 {"user_id": row.id},
             )
-            return _row_to_user(result.one(), clerk_id)
+            row = result.one()
+            roles = await _load_roles_for_user(session, row.id, row.role)
+            return _row_to_user(row, clerk_id, roles)
 
         local = email_local_part(clerk_email)
         result = await session.execute(
@@ -225,7 +258,9 @@ async def _load_user(clerk_id: str, email: str | None = None) -> AuthenticatedUs
                 ),
                 {"user_id": row.id},
             )
-            return _row_to_user(result.one(), clerk_id)
+            row = result.one()
+            roles = await _load_roles_for_user(session, row.id, row.role)
+            return _row_to_user(row, clerk_id, roles)
 
         return None
 
@@ -295,5 +330,91 @@ async def require_admin(user: AuthenticatedUser = Depends(get_current_user)) -> 
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Accès réservé aux administrateurs",
+        )
+    return user
+
+
+def _require_roles(*required: str, detail: str):
+    async def _guard(user: AuthenticatedUser = Depends(get_current_user)) -> AuthenticatedUser:
+        if not user.has_any_role(*required):
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail=detail)
+        return user
+
+    return _guard
+
+
+require_role = lambda role, detail=None: _require_roles(
+    role, detail=detail or f"Accès réservé au rôle {role}"
+)
+
+require_support_or_admin = _require_roles(
+    "administrateur",
+    "support_administratif",
+    detail="Accès réservé au support administratif ou aux administrateurs",
+)
+
+require_controle = _require_roles(
+    "administrateur",
+    "controle_procedure",
+    detail="Accès réservé au contrôle procédure ou aux administrateurs",
+)
+
+require_validateur = _require_roles(
+    "administrateur",
+    "validateur",
+    detail="Accès réservé aux validateurs ou aux administrateurs",
+)
+
+async def require_can_generate(
+    user: AuthenticatedUser = Depends(get_current_user),
+) -> AuthenticatedUser:
+    if not can_generate_packages(list(user.roles)):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Génération réservée au support administratif ou aux administrateurs",
+        )
+    return user
+
+
+async def require_can_submit(
+    user: AuthenticatedUser = Depends(get_current_user),
+) -> AuthenticatedUser:
+    if not can_submit_packages(list(user.roles)):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Soumission réservée au support administratif ou aux administrateurs",
+        )
+    return user
+
+
+async def require_can_review_procedure(
+    user: AuthenticatedUser = Depends(get_current_user),
+) -> AuthenticatedUser:
+    if not can_review_procedure(list(user.roles)):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Contrôle procédure non autorisé",
+        )
+    return user
+
+
+async def require_can_validate_final(
+    user: AuthenticatedUser = Depends(get_current_user),
+) -> AuthenticatedUser:
+    if not can_validate_final(list(user.roles)):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Validation finale non autorisée",
+        )
+    return user
+
+
+async def require_can_view_users(
+    user: AuthenticatedUser = Depends(get_current_user),
+) -> AuthenticatedUser:
+    if not can_view_users(list(user.roles)):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Liste utilisateurs non autorisée",
         )
     return user

@@ -6,6 +6,7 @@ from app.core.config import get_settings
 from app.core.database import AsyncSessionLocal
 from app.models.utilisateur import Utilisateur
 from app.services.clerk_client import ClerkAPIError, ClerkClient
+from app.services.user_roles import set_user_roles
 
 logger = logging.getLogger(__name__)
 
@@ -65,7 +66,8 @@ async def bootstrap_default_admin() -> None:
                 if resolved_id and existing_user.clerk_id != resolved_id:
                     existing_user.clerk_id = resolved_id
                     logger.info("Bootstrap admin : clerk_id synchronisé pour %s", email)
-                await clerk.sync_public_metadata(existing_user.clerk_id, role=role)
+                await clerk.sync_public_metadata(existing_user.clerk_id, role=role, roles=[role])
+                await set_user_roles(db, existing_user.id, [role])
                 await db.commit()
             except ClerkAPIError as exc:
                 logger.warning("Bootstrap sync admin existant : %s", exc)
@@ -95,5 +97,7 @@ async def bootstrap_default_admin() -> None:
             est_actif=True,
         )
         db.add(utilisateur)
+        await db.flush()
+        await set_user_roles(db, utilisateur.id, [role])
         await db.commit()
         logger.info("Administrateur bootstrap créé : %s (clerk_id=%s)", email, clerk_id)

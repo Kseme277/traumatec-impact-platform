@@ -40,6 +40,53 @@ _MIGRATIONS = (
         ADD COLUMN IF NOT EXISTS preview_storage_key VARCHAR(512),
         ADD COLUMN IF NOT EXISTS preview_filename VARCHAR(512);
     """,
+    """
+    ALTER TABLE docgen.generation_jobs
+        ADD COLUMN IF NOT EXISTS workflow_status VARCHAR(32) NOT NULL DEFAULT 'generated',
+        ADD COLUMN IF NOT EXISTS assigned_reviewer_id INTEGER REFERENCES identity.utilisateurs(id),
+        ADD COLUMN IF NOT EXISTS assigned_validator_id INTEGER REFERENCES identity.utilisateurs(id);
+    """,
+    """
+    UPDATE docgen.generation_jobs
+    SET workflow_status = 'approved'
+    WHERE status = 'completed' AND workflow_status = 'generated';
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS docgen.package_workflow_steps (
+        id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        generation_job_id   UUID NOT NULL REFERENCES docgen.generation_jobs(id) ON DELETE CASCADE,
+        step                VARCHAR(64) NOT NULL,
+        action              VARCHAR(64) NOT NULL,
+        actor_id            INTEGER REFERENCES identity.utilisateurs(id),
+        actor_name          VARCHAR(255),
+        comment             TEXT,
+        created_at          TIMESTAMPTZ NOT NULL DEFAULT now()
+    );
+    """,
+    """
+    CREATE INDEX IF NOT EXISTS idx_package_workflow_steps_job
+        ON docgen.package_workflow_steps(generation_job_id, created_at);
+    """,
+    """
+    CREATE TABLE IF NOT EXISTS docgen.package_file_reviews (
+        id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        generation_job_id   UUID NOT NULL REFERENCES docgen.generation_jobs(id) ON DELETE CASCADE,
+        template_id         UUID,
+        template_code       VARCHAR(128) NOT NULL,
+        file_path           VARCHAR(512),
+        status              VARCHAR(32) NOT NULL DEFAULT 'pending'
+                            CHECK (status IN ('pending', 'approved', 'rejected')),
+        comment             TEXT,
+        reviewed_by_id      INTEGER REFERENCES identity.utilisateurs(id),
+        reviewed_at         TIMESTAMPTZ,
+        created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
+        UNIQUE (generation_job_id, template_code)
+    );
+    """,
+    """
+    CREATE INDEX IF NOT EXISTS idx_package_file_reviews_job
+        ON docgen.package_file_reviews(generation_job_id);
+    """,
 )
 
 

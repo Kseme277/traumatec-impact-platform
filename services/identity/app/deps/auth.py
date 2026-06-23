@@ -9,6 +9,8 @@ from app.core.database import get_db
 from app.models.utilisateur import Utilisateur
 from app.services.clerk_token import ClerkTokenError, ClerkTokenVerifier, extract_email_from_payload
 from app.services.user_linking import resolve_utilisateur_for_clerk
+from app.services.user_roles import load_user_roles
+from tip_common.roles import can_view_users, is_admin_roles
 
 logger = logging.getLogger(__name__)
 
@@ -90,10 +92,25 @@ async def get_current_utilisateur(
 
 async def require_admin(
     utilisateur: Utilisateur = Depends(get_current_utilisateur),
+    db: AsyncSession = Depends(get_db),
 ) -> Utilisateur:
-    if not utilisateur.is_admin:
+    roles = await load_user_roles(db, utilisateur.id, utilisateur.role)
+    if not is_admin_roles(roles):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Accès réservé aux administrateurs",
+        )
+    return utilisateur
+
+
+async def require_can_view_users_identity(
+    utilisateur: Utilisateur = Depends(get_current_utilisateur),
+    db: AsyncSession = Depends(get_db),
+) -> Utilisateur:
+    roles = await load_user_roles(db, utilisateur.id, utilisateur.role)
+    if not can_view_users(roles):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Liste utilisateurs non autorisée",
         )
     return utilisateur

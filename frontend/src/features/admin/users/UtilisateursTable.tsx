@@ -12,7 +12,7 @@ import {
 import { Eye, Mail, Trash2 } from "lucide-react";
 import { useTranslation } from "../../../i18n/useTranslation";
 import type { Utilisateur } from "../../auth/types";
-import { roleLabel } from "../../auth/types";
+import { normalizeRoles, roleLabel } from "../../auth/types";
 
 interface UtilisateursTableProps {
   users: Utilisateur[];
@@ -102,9 +102,13 @@ export default function UtilisateursTable({
                   {user.phone ?? "—"}
                 </TableCell>
                 <TableCell className="px-4 py-4 text-start">
-                  <Badge color="primary" size="sm">
-                    {roleLabel(user.role, t)}
-                  </Badge>
+                  <div className="flex flex-wrap gap-1">
+                    {normalizeRoles(user.roles, user.role).map((role) => (
+                      <Badge key={role} color="primary" size="sm">
+                        {roleLabel(role, t)}
+                      </Badge>
+                    ))}
+                  </div>
                 </TableCell>
                 <TableCell className="px-4 py-4 text-start text-theme-sm text-gray-500 dark:text-gray-400 whitespace-nowrap">
                   {formatAccess(user.last_access)}

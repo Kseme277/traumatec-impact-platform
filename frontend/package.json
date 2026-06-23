@@ -21,6 +21,7 @@
     "@react-jvectormap/world": "^1.1.2",
     "apexcharts": "^4.1.0",
     "clsx": "^2.1.1",
+    "country-state-city": "^3.2.1",
     "flatpickr": "^4.6.13",
     "lucide-react": "^1.17.0",
     "react": "^19.0.0",

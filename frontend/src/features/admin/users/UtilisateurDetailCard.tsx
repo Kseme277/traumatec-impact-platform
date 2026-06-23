@@ -6,9 +6,9 @@ import Badge from "../../../components/ui/badge/Badge";
 import Button from "../../../components/ui/button/Button";
 import { useTranslation } from "../../../i18n/useTranslation";
 import type { Utilisateur } from "../../auth/types";
-import { roleLabel } from "../../auth/types";
 import { useTipAuth } from "../../../context/TipAuthContext";
 import InvitationLinkCopy from "./InvitationLinkCopy";
+import UserRolesEditor from "./UserRolesEditor";
 
 interface UtilisateurDetailCardProps {
   user: Utilisateur;
@@ -19,6 +19,7 @@ interface UtilisateurDetailCardProps {
   onToggle: (user: Utilisateur) => Promise<boolean>;
   onResend: (user: Utilisateur) => Promise<boolean>;
   onGenerateLink: (user: Utilisateur) => Promise<void>;
+  onUserUpdated?: (user: Utilisateur) => void;
 }
 
 function DetailRow({ label, children }: { label: string; children: React.ReactNode }) {
@@ -39,6 +40,7 @@ export default function UtilisateurDetailCard({
   onToggle,
   onResend,
   onGenerateLink,
+  onUserUpdated,
 }: UtilisateurDetailCardProps) {
   const { t, localeTag } = useTranslation();
   const { tipUser } = useTipAuth();
@@ -65,10 +67,14 @@ export default function UtilisateurDetailCard({
           {user.prenom} {user.nom}
         </DetailRow>
         <DetailRow label={t("common.email")}>{user.email}</DetailRow>
-        <DetailRow label={t("common.role")}>
-          <Badge color="primary" size="sm">
-            {roleLabel(user.role, t)}
-          </Badge>
+        <DetailRow label={t("users.rolesLabel")}>
+          <div className="w-full max-w-md">
+            <UserRolesEditor
+              user={user}
+              disabled={isSelf}
+              onUpdated={(updated) => onUserUpdated?.(updated)}
+            />
+          </div>
         </DetailRow>
         <DetailRow label={t("users.clerkId")}>
           <span className="font-mono text-theme-xs">{user.clerk_id ?? "—"}</span>

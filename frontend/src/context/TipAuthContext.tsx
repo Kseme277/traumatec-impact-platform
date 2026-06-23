@@ -11,7 +11,8 @@ import { useAuth } from "@clerk/clerk-react";
 import { fetchMe } from "../api/users";
 import { ApiError } from "../api/client";
 import { getApiToken } from "../lib/clerkToken";
-import type { Utilisateur } from "../features/auth/types";
+import type { RoleUtilisateur, Utilisateur } from "../features/auth/types";
+import { hasAnyRole, hasRole, normalizeRoles } from "../features/auth/types";
 
 interface TipAuthContextValue {
   tipUser: Utilisateur | null;
@@ -19,6 +20,9 @@ interface TipAuthContextValue {
   error: string | null;
   errorStatus: number | null;
   isAdmin: boolean;
+  roles: RoleUtilisateur[];
+  hasRole: (role: RoleUtilisateur) => boolean;
+  hasAnyRole: (...roles: RoleUtilisateur[]) => boolean;
   refreshProfile: () => Promise<void>;
 }
 
@@ -30,7 +34,11 @@ async function fetchMeWithTimeout(token: string | null): Promise<Utilisateur> {
   const controller = new AbortController();
   const timeout = window.setTimeout(() => controller.abort(), PROFILE_FETCH_TIMEOUT_MS);
   try {
-    return await fetchMe(token, { signal: controller.signal });
+    const profile = await fetchMe(token, { signal: controller.signal });
+    return {
+      ...profile,
+      roles: normalizeRoles(profile.roles, profile.role),
+    };
   } finally {
     window.clearTimeout(timeout);
   }
@@ -105,16 +113,21 @@ export function TipAuthProvider({ children }: { children: ReactNode }) {
     void refreshProfile();
   }, [refreshProfile]);
 
+  const roles = useMemo(() => normalizeRoles(tipUser?.roles, tipUser?.role), [tipUser]);
+
   const value = useMemo(
     () => ({
       tipUser,
       isLoading,
       error,
       errorStatus,
-      isAdmin: tipUser?.role === "administrateur",
+      isAdmin: hasRole(tipUser, "administrateur"),
+      roles,
+      hasRole: (role: RoleUtilisateur) => hasRole(tipUser, role),
+      hasAnyRole: (...required: RoleUtilisateur[]) => hasAnyRole(tipUser, ...required),
       refreshProfile,
     }),
-    [tipUser, isLoading, error, errorStatus, refreshProfile],
+    [tipUser, isLoading, error, errorStatus, roles, refreshProfile],
   );
 
   return <TipAuthContext.Provider value={value}>{children}</TipAuthContext.Provider>;

@@ -3,7 +3,7 @@ from decimal import Decimal
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import func, or_, select
+from sqlalchemy import delete, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.services.project_status import (
@@ -13,6 +13,7 @@ from app.services.project_status import (
 from app.core.config import get_settings
 from app.core.database import get_db
 from app.models.event import Event
+from app.models.teacher import EventTeacher, Teacher
 from app.schemas.event import (
     DashboardFinancialStats,
     DashboardParticipantsStats,
@@ -23,10 +24,17 @@ from app.schemas.event import (
     EventUpdate,
     InferredEventPackage,
 )
+from app.schemas.teacher import TeacherResponse
 from tip_common.audit import record_audit_event
 from tip_common.package_types import describe_inferred_event_package
 from tip_common.redis_cache import cached_call, invalidate_prefix
 from tip_common.security import AuthenticatedUser, get_current_user, require_admin
+from tip_common.event_rules import (
+    assert_event_dates_editable,
+    filter_update_payload_for_role,
+    get_event_workflow_status,
+    validate_event_dates,
+)
 
 router = APIRouter()
 
@@ -50,27 +58,58 @@ def _event_payload_for_classify(event: Event) -> dict:
     }
 
 
-def _event_to_response(event: Event) -> EventResponse:
+def _event_to_response(event: Event, teachers: list[Teacher] | None = None) -> EventResponse:
     response = EventResponse.model_validate(event)
+    teacher_items = [TeacherResponse.model_validate(t) for t in (teachers or [])]
     inferred = describe_inferred_event_package(**_event_payload_for_classify(event))
     if inferred:
         return response.model_copy(
-            update={"inferred_package": InferredEventPackage.model_validate(inferred)},
+            update={
+                "inferred_package": InferredEventPackage.model_validate(inferred),
+                "teachers": teacher_items,
+            },
         )
-    return response
+    return response.model_copy(update={"teachers": teacher_items})
 
 
-async def _event_to_response_async(event: Event) -> EventResponse:
+async def _load_event_teachers(db: AsyncSession, event_id: UUID) -> list[Teacher]:
+    result = await db.execute(
+        select(Teacher)
+        .join(EventTeacher, EventTeacher.teacher_id == Teacher.id)
+        .where(EventTeacher.event_id == event_id)
+        .order_by(Teacher.last_name, Teacher.first_name)
+    )
+    return list(result.scalars().all())
+
+
+async def _sync_event_teachers(db: AsyncSession, event_id: UUID, teacher_ids: list[UUID]) -> None:
+    await db.execute(delete(EventTeacher).where(EventTeacher.event_id == event_id))
+    for teacher_id in teacher_ids:
+        teacher = await db.get(Teacher, teacher_id)
+        if teacher is None or not teacher.is_active:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=f"Enseignant introuvable ou inactif : {teacher_id}",
+            )
+        db.add(EventTeacher(event_id=event_id, teacher_id=teacher_id))
+
+
+async def _event_to_response_async(event: Event, db: AsyncSession) -> EventResponse:
     """Inférence enrichie (NVIDIA si clé API) pour la fiche événement."""
     from tip_common.nvidia_event_classifier import classify_event_package
 
+    teachers = await _load_event_teachers(db, event.id)
     response = EventResponse.model_validate(event)
+    teacher_items = [TeacherResponse.model_validate(t) for t in teachers]
     inferred = await classify_event_package(_event_payload_for_classify(event))
     if inferred:
         return response.model_copy(
-            update={"inferred_package": InferredEventPackage.model_validate(inferred)},
+            update={
+                "inferred_package": InferredEventPackage.model_validate(inferred),
+                "teachers": teacher_items,
+            },
         )
-    return response
+    return response.model_copy(update={"teachers": teacher_items})
 
 
 def _event_overlaps_year(start: date, end: date, year: int) -> bool:
@@ -101,6 +140,7 @@ def _top_region_counts(by_region: dict[str, int], limit: int = 12) -> dict[str, 
 
 def _apply_update(event: Event, payload: EventUpdate) -> None:
     data = payload.model_dump(exclude_unset=True)
+    data.pop("teacher_ids", None)
     contact_patch: dict[str, str] = {}
     for contact_key in ("responsible_email", "responsible_phone"):
         if contact_key in data:
@@ -121,6 +161,17 @@ def _apply_update(event: Event, payload: EventUpdate) -> None:
         event.metadata_json = meta
     for key, value in data.items():
         setattr(event, key, value)
+
+    if any(
+        key in data
+        for key in ("national_responsible_email", "national_responsible_phone", "national_responsible_name")
+    ):
+        meta = dict(event.metadata_json or {})
+        if event.national_responsible_email:
+            meta["responsible_email"] = event.national_responsible_email
+        if event.national_responsible_phone:
+            meta["responsible_phone"] = event.national_responsible_phone
+        event.metadata_json = meta
 
 
 _EVENT_SORT_COLUMNS = {
@@ -430,7 +481,7 @@ async def get_event(
     event = await db.get(Event, event_id)
     if event is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Événement introuvable")
-    return await _event_to_response_async(event)
+    return await _event_to_response_async(event, db)
 
 
 @router.patch("/{event_id}", response_model=EventResponse)
@@ -439,11 +490,25 @@ async def update_event(
     payload: EventUpdate,
     user: AuthenticatedUser = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
-) -> Event:
+) -> EventResponse:
     event = await db.get(Event, event_id)
     if event is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Événement introuvable")
-    _apply_update(event, payload)
+
+    wf_status = await get_event_workflow_status(db, event_id)
+    raw = payload.model_dump(exclude_unset=True)
+    filtered = filter_update_payload_for_role(raw, roles=list(user.roles), workflow_status=wf_status)
+
+    start = filtered.get("start_date", event.start_date)
+    end = filtered.get("end_date", event.end_date)
+    validate_event_dates(start_date=start, end_date=end)
+    if "start_date" in filtered or "end_date" in filtered:
+        assert_event_dates_editable(end_date=end or event.end_date, workflow_status=wf_status)
+
+    teacher_ids = filtered.pop("teacher_ids", None)
+    _apply_update(event, EventUpdate(**filtered))
+    if teacher_ids is not None:
+        await _sync_event_teachers(db, event_id, teacher_ids)
     event.updated_at = datetime.now(timezone.utc)
     await record_audit_event(
         db,
@@ -456,7 +521,7 @@ async def update_event(
     await db.commit()
     await db.refresh(event)
     await _invalidate_events_cache()
-    return await _event_to_response_async(event)
+    return await _event_to_response_async(event, db)
 
 
 @router.post("/{event_id}/close", response_model=EventResponse)

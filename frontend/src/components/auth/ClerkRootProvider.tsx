@@ -43,9 +43,9 @@ export default function ClerkRootProvider({ publishableKey, children }: ClerkRoo
       publishableKey={publishableKey}
       domain={domain}
       proxyUrl={proxyUrl}
-      afterSignOutUrl="/signin"
+      afterSignOutUrl="/"
       signInFallbackRedirectUrl="/"
-      signUpFallbackRedirectUrl="/signin"
+      signUpFallbackRedirectUrl="/"
     >
       {children}
     </ClerkProvider>

@@ -108,6 +108,7 @@ export default function UtilisateurDetailPage() {
         onToggle={handleToggle}
         onResend={handleResend}
         onGenerateLink={handleGenerateLink}
+        onUserUpdated={setUser}
       />
     </>
   );

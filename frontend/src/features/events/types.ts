@@ -25,6 +25,16 @@ export interface InferredEventPackage {
   confidence?: number | null;
 }
 
+export interface TeacherSummary {
+  id: string;
+  first_name: string;
+  last_name: string;
+  email: string | null;
+  phone: string | null;
+  is_active: boolean;
+  created_at: string;
+}
+
 export interface Evenement {
   id: string;
   project_number: string;
@@ -35,6 +45,11 @@ export interface Evenement {
   city: string | null;
   region: string | null;
   responsible_person: string | null;
+  national_responsible_name?: string | null;
+  national_responsible_email?: string | null;
+  national_responsible_phone?: string | null;
+  organizer_responsible_user_id?: number | null;
+  teachers?: TeacherSummary[];
   project_status: string | null;
   cost_center?: string | null;
   participants_expected?: number | null;
@@ -63,6 +78,11 @@ export interface EvenementPayload {
   responsible_person?: string | null;
   responsible_email?: string | null;
   responsible_phone?: string | null;
+  national_responsible_name?: string | null;
+  national_responsible_email?: string | null;
+  national_responsible_phone?: string | null;
+  organizer_responsible_user_id?: number | null;
+  teacher_ids?: string[];
   project_status?: string | null;
   start_date?: string | null;
   end_date?: string | null;

@@ -1,5 +1,6 @@
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Link } from "react-router";
+import { useAuth } from "@clerk/clerk-react";
 import PageMeta from "../../components/common/PageMeta";
 import Button from "../../components/ui/button/Button";
 import {
@@ -8,26 +9,36 @@ import {
   CheckCircleIcon,
   GroupIcon,
   ListIcon,
+  TaskIcon,
 } from "../../icons";
 import { useTipAuth } from "../../context/TipAuthContext";
 import { useTranslation } from "../../i18n/useTranslation";
 import { useAdminUsers } from "../admin/users/useAdminUsers";
 import EventStatCard from "../events/EventStatCard";
 import UserStatCard from "../admin/users/UserStatCard";
-import EventsBiDashboardSection from "../events/EventsBiDashboardSection";
 import EventsDashboardCalendar from "../events/EventsDashboardCalendar";
 import { useEvents } from "../events/useEvents";
 import DocumentsModuleCard from "../documents/DocumentsModuleCard";
+import { fetchWorkflowStats } from "../../api/workflow";
+import { getApiToken } from "../../lib/clerkToken";
+
 export default function DashboardAdmin() {
   const { t } = useTranslation();
   const { tipUser } = useTipAuth();
   const { users, loadUsers, isLoading: isUsersLoading } = useAdminUsers();
   const { stats, loadStats, isStatsLoading } = useEvents();
 
+  const { getToken } = useAuth();
+  const [wfStats, setWfStats] = useState<Awaited<ReturnType<typeof fetchWorkflowStats>> | null>(null);
+
   useEffect(() => {
     void loadUsers();
     void loadStats();
-  }, [loadUsers, loadStats]);
+    void (async () => {
+      const token = await getApiToken(getToken);
+      setWfStats(await fetchWorkflowStats(token, "admin"));
+    })();
+  }, [getToken, loadUsers, loadStats]);
 
   const activeUsers = users.filter((user) => user.est_actif).length;
 
@@ -68,7 +79,12 @@ export default function DashboardAdmin() {
         />
       </div>
 
-      <EventsBiDashboardSection stats={stats} isLoading={isStatsLoading} />
+      <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4 md:gap-6">
+        <EventStatCard label={t("dashboard.wfSubmitted")} value={wfStats?.submitted ?? "—"} icon={<TaskIcon className="size-6 text-brand-500" />} iconBgClassName="bg-brand-50" />
+        <EventStatCard label={t("dashboard.wfInReview")} value={wfStats?.under_procedure_review ?? "—"} icon={<TaskIcon className="size-6 text-warning-600" />} iconBgClassName="bg-warning-50" />
+        <EventStatCard label={t("dashboard.wfInValidation")} value={wfStats?.under_final_validation ?? "—"} icon={<TaskIcon className="size-6 text-info-600" />} iconBgClassName="bg-blue-light-50" />
+        <EventStatCard label={t("dashboard.wfApproved")} value={wfStats?.approved ?? "—"} icon={<TaskIcon className="size-6 text-success-600" />} iconBgClassName="bg-success-50" />
+      </div>
 
       <div className="mb-6">
         <EventsDashboardCalendar
@@ -88,6 +104,12 @@ export default function DashboardAdmin() {
             <div className="mt-6 flex flex-wrap gap-3">
               <Link to="/admin/utilisateurs">
                 <Button size="sm">{t("dashboard.manageUsers")}</Button>
+              </Link>
+              <Link to="/workflow/controle">
+                <Button size="sm" variant="outline">{t("nav.workflowControle")}</Button>
+              </Link>
+              <Link to="/workflow/validation">
+                <Button size="sm" variant="outline">{t("nav.workflowValidation")}</Button>
               </Link>
               <Link to="/evenements">
                 <Button size="sm" variant="outline">

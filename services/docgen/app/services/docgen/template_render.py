@@ -58,7 +58,7 @@ def _format_date_long_fr(value: str | date | None) -> str:
 
 
 def _contact_line(event: dict[str, Any]) -> str:
-    email = (event.get("responsible_email") or "").strip()
+    email = (event.get("national_responsible_email") or event.get("responsible_email") or "").strip()
     phone = (event.get("responsible_phone") or "").strip()
     if email and phone:
         return f"Courriel: {email}        Téléphone: {phone}"
@@ -115,7 +115,9 @@ def build_event_context(event: dict[str, Any]) -> dict[str, Any]:
         "responsible_person": resp_display,
         "responsable": resp_display,
         "responsible_formatted": resp_display,
-        "responsible_email": (event.get("responsible_email") or "").strip(),
+        "responsible_email": (
+            event.get("national_responsible_email") or event.get("responsible_email") or ""
+        ).strip(),
         "responsible_phone": (event.get("responsible_phone") or "").strip(),
         "participants_expected": event.get("participants_expected"),
         "participants_count": (

@@ -1,4 +1,4 @@
-from app.api.v1 import certificates, generations, storage_gc
+from app.api.v1 import certificates, generations, storage_gc, workflow
 from app.core.config import get_settings
 from app.services.db_migrate import apply_pending_migrations
 from tip_common.app_factory import create_service_app
@@ -16,6 +16,8 @@ app = create_service_app(
     settings=settings,
     routers=[
         (generations.router, "/generations", ["generations"]),
+        (workflow.router, "/generations", ["workflow"]),
+        (workflow.stats_router, "/workflow", ["workflow"]),
         (certificates.router, "/certificates", ["certificates"]),
         (storage_gc.router, "/generations/admin/storage-gc", ["storage-gc"]),
     ],

@@ -1,19 +1,33 @@
 from datetime import datetime
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, EmailStr, Field
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, model_validator
 
+from tip_common.roles import normalize_roles, primary_role
 
-RoleUtilisateur = Literal["administrateur", "preparateur"]
+RoleUtilisateur = Literal[
+    "administrateur",
+    "support_administratif",
+    "controle_procedure",
+    "validateur",
+    "preparateur",
+]
 
 
 class UtilisateurCreate(BaseModel):
     email: EmailStr
     nom: str = Field(min_length=1, max_length=128)
     prenom: str = Field(min_length=1, max_length=128)
-    role: RoleUtilisateur
+    role: RoleUtilisateur | None = None
+    roles: list[RoleUtilisateur] | None = None
     username: str | None = Field(default=None, min_length=2, max_length=64)
     phone: str | None = Field(default=None, max_length=32)
+
+    @model_validator(mode="after")
+    def resolve_roles(self) -> "UtilisateurCreate":
+        if not self.roles and not self.role:
+            self.role = "support_administratif"
+        return self
 
 
 class UtilisateurResponse(BaseModel):
@@ -27,6 +41,7 @@ class UtilisateurResponse(BaseModel):
     prenom: str
     phone: str | None = None
     role: str
+    roles: list[str] = Field(default_factory=list)
     est_actif: bool
     created_at: datetime
     activation_date: datetime | None = None
@@ -47,6 +62,10 @@ class UtilisateurMeResponse(UtilisateurResponse):
 class UtilisateurMeUpdate(BaseModel):
     nom: str = Field(min_length=1, max_length=128)
     prenom: str = Field(min_length=1, max_length=128)
+
+
+class UtilisateurRolesUpdate(BaseModel):
+    roles: list[RoleUtilisateur] = Field(min_length=1)
 
 
 class ToggleStatusResponse(BaseModel):

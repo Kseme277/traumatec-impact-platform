@@ -58,7 +58,6 @@ export default function PackageTemplatesManager({ isAdmin }: PackageTemplatesMan
   const [searchParams] = useSearchParams();
   const zipInputRef = useRef<HTMLInputElement>(null);
   const replaceInputRef = useRef<HTMLInputElement>(null);
-  const bootstrapAttemptedRef = useRef(false);
 
   const [catalog, setCatalog] = useState<EventPackageTypeCatalog>(FALLBACK_PACKAGE_TYPES);
   const [activityTab, setActivityTab] = useState<ActivityKind>("cours");
@@ -134,6 +133,12 @@ export default function PackageTemplatesManager({ isAdmin }: PackageTemplatesMan
           return null;
         });
         return data;
+      } catch (err) {
+        if (err instanceof ApiError && (err.status === 404 || err.status === 403)) {
+          setTemplates([]);
+          return [];
+        }
+        throw err;
       } finally {
         setIsTemplatesLoading(false);
       }
@@ -145,28 +150,10 @@ export default function PackageTemplatesManager({ isAdmin }: PackageTemplatesMan
     async (token: string | null, packageType: string, bundlesList: PackageBundle[]) => {
       const active =
         bundlesList.find((b) => canonicalPackageType(b.package_type) === packageType && b.is_active) ?? null;
-      let files = await loadTemplatesForType(token, active, packageType);
-
-      if (files.length === 0 && isAdmin && !bootstrapAttemptedRef.current) {
-        bootstrapAttemptedRef.current = true;
-        setIsBootstrapping(true);
-        try {
-          await bootstrapSystemPackages(token);
-          bundlesList = await loadBundles(token);
-          const newActive =
-            bundlesList.find((b) => canonicalPackageType(b.package_type) === packageType && b.is_active) ?? null;
-          files = await loadTemplatesForType(token, newActive, packageType);
-        } catch (err) {
-          if (err instanceof ApiError) {
-            setLoadError(err.message);
-          }
-        } finally {
-          setIsBootstrapping(false);
-        }
-      }
+      const files = await loadTemplatesForType(token, active, packageType);
       return { bundlesList, files };
     },
-    [isAdmin, loadBundles, loadTemplatesForType],
+    [loadTemplatesForType],
   );
 
   const refreshAll = useCallback(async () => {
@@ -179,16 +166,20 @@ export default function PackageTemplatesManager({ isAdmin }: PackageTemplatesMan
       const typesData = await fetchPackageTypes(token).catch(() => ({} as Partial<EventPackageTypeCatalog>));
       setCatalog(mergePackageCatalog(typesData));
 
-      let bundlesData = await loadBundles(token).catch(() => [] as PackageBundle[]);
+      const bundlesData = await loadBundles(token).catch(() => [] as PackageBundle[]);
       await syncTypeData(token, selectedType, bundlesData);
     } catch (err) {
       const message =
         err instanceof ApiError
           ? err.message
-          : err instanceof DOMException && err.name === "AbortError"
-            ? t("documents.catalogTimeout")
-            : t("documents.loadTemplatesFailed");
+          : err instanceof TypeError
+            ? t("documents.catalogUnavailable")
+            : err instanceof DOMException && err.name === "AbortError"
+              ? t("documents.catalogTimeout")
+              : t("documents.loadTemplatesFailed");
       setLoadError(message);
+      setTemplates([]);
+      setBundles([]);
     } finally {
       setIsLoading(false);
     }

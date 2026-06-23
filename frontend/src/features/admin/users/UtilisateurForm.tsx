@@ -2,11 +2,15 @@ import { FormEvent, useEffect, useMemo, useState } from "react";
 import { useAuth } from "@clerk/clerk-react";
 import Label from "../../../components/form/Label";
 import Input from "../../../components/form/input/InputField";
-import Select from "../../../components/form/Select";
 import Button from "../../../components/ui/button/Button";
 import { checkInvitationEmail } from "../../../api/users";
 import { useTranslation } from "../../../i18n/useTranslation";
-import type { RoleUtilisateur, UtilisateurCreatePayload } from "../../auth/types";
+import {
+  ALL_ROLES,
+  normalizeRoles,
+  type RoleUtilisateur,
+  type UtilisateurCreatePayload,
+} from "../../auth/types";
 
 interface UtilisateurFormProps {
   initial?: UtilisateurCreatePayload;
@@ -16,8 +20,16 @@ interface UtilisateurFormProps {
   onCancel?: () => void;
 }
 
+const ROLE_I18N: Record<RoleUtilisateur, string> = {
+  administrateur: "users.roleAdminFull",
+  support_administratif: "users.roleSupport",
+  controle_procedure: "users.roleControle",
+  validateur: "users.roleValidateur",
+  preparateur: "users.roleSupport",
+};
+
 export default function UtilisateurForm({
-  initial = { email: "", nom: "", prenom: "", role: "preparateur" },
+  initial = { email: "", nom: "", prenom: "", roles: ["support_administratif"] },
   isSubmitting = false,
   submitLabel,
   onSubmit,
@@ -25,18 +37,32 @@ export default function UtilisateurForm({
 }: UtilisateurFormProps) {
   const { t } = useTranslation();
   const { getToken } = useAuth();
-  const [form, setForm] = useState<UtilisateurCreatePayload>(initial);
+  const [form, setForm] = useState<UtilisateurCreatePayload>({
+    ...initial,
+    roles: normalizeRoles(initial.roles, initial.role ?? "support_administratif"),
+  });
   const [emailHint, setEmailHint] = useState<string | null>(null);
   const [emailBlocked, setEmailBlocked] = useState(false);
   const [suggestedEmail, setSuggestedEmail] = useState<string | null>(null);
 
-  const roleOptions = useMemo(
-    () => [
-      { value: "preparateur", label: t("users.rolePreparer") },
-      { value: "administrateur", label: t("users.roleAdminFull") },
-    ],
+  const selectableRoles = useMemo(
+    () => ALL_ROLES.map((role) => ({ role, label: t(ROLE_I18N[role]) })),
     [t],
   );
+
+  const selectedRoles = normalizeRoles(form.roles, form.role);
+
+  const toggleRole = (role: RoleUtilisateur) => {
+    setForm((current) => {
+      const roles = normalizeRoles(current.roles, current.role);
+      const next = roles.includes(role) ? roles.filter((r) => r !== role) : [...roles, role];
+      return {
+        ...current,
+        role: undefined,
+        roles: next.length ? next : ["support_administratif"],
+      };
+    });
+  };
 
   useEffect(() => {
     const value = form.email.trim();
@@ -75,7 +101,10 @@ export default function UtilisateurForm({
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
     if (emailBlocked) return;
-    const payload = suggestedEmail ? { ...form, email: suggestedEmail } : form;
+    const roles = normalizeRoles(form.roles, form.role);
+    const payload = suggestedEmail
+      ? { ...form, email: suggestedEmail, roles, role: roles[0] }
+      : { ...form, roles, role: roles[0] };
     await onSubmit(payload);
   };
 
@@ -153,13 +182,25 @@ export default function UtilisateurForm({
 
       <div>
         <Label>
-          {t("common.role")} <span className="text-error-500">*</span>
+          {t("users.rolesLabel")} <span className="text-error-500">*</span>
         </Label>
-        <Select
-          options={roleOptions}
-          defaultValue={form.role}
-          onChange={(value) => setForm({ ...form, role: value as RoleUtilisateur })}
-        />
+        <p className="mb-3 text-theme-xs text-gray-500 dark:text-gray-400">{t("users.rolesHint")}</p>
+        <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+          {selectableRoles.map(({ role, label }) => (
+            <label
+              key={role}
+              className="flex cursor-pointer items-center gap-3 rounded-xl border border-gray-200 px-4 py-3 dark:border-gray-800"
+            >
+              <input
+                type="checkbox"
+                className="size-4 rounded border-gray-300 text-brand-500 focus:ring-brand-500"
+                checked={selectedRoles.includes(role)}
+                onChange={() => toggleRole(role)}
+              />
+              <span className="text-sm text-gray-800 dark:text-white/90">{label}</span>
+            </label>
+          ))}
+        </div>
       </div>
 
       <div className="flex flex-wrap justify-end gap-3 border-t border-gray-100 pt-6 dark:border-gray-800">
@@ -168,7 +209,7 @@ export default function UtilisateurForm({
             {t("common.cancel")}
           </Button>
         )}
-        <Button type="submit" size="sm" disabled={isSubmitting || emailBlocked}>
+        <Button type="submit" size="sm" disabled={isSubmitting || emailBlocked || selectedRoles.length === 0}>
           {isSubmitting ? t("common.sending") : resolvedSubmitLabel}
         </Button>
       </div>

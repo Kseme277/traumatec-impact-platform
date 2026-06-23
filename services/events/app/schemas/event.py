@@ -5,6 +5,8 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from app.schemas.teacher import TeacherResponse
+
 EventStatus = Literal["imported", "in_progress", "ready", "generated", "error"]
 PreparationTheme = Literal["operatory", "pbo", "iec"]
 
@@ -18,6 +20,10 @@ class EventBase(BaseModel):
     city: str | None = Field(default=None, max_length=128)
     region: str | None = Field(default=None, max_length=128)
     responsible_person: str | None = Field(default=None, max_length=255)
+    national_responsible_name: str | None = Field(default=None, max_length=255)
+    national_responsible_email: str | None = Field(default=None, max_length=255)
+    national_responsible_phone: str | None = Field(default=None, max_length=32)
+    organizer_responsible_user_id: int | None = None
     responsible_email: str | None = Field(default=None, max_length=255)
     responsible_phone: str | None = Field(default=None, max_length=64)
     project_status: str | None = Field(default=None, max_length=128)
@@ -47,6 +53,10 @@ class EventUpdate(BaseModel):
     city: str | None = Field(default=None, max_length=128)
     region: str | None = Field(default=None, max_length=128)
     responsible_person: str | None = Field(default=None, max_length=255)
+    national_responsible_name: str | None = Field(default=None, max_length=255)
+    national_responsible_email: str | None = Field(default=None, max_length=255)
+    national_responsible_phone: str | None = Field(default=None, max_length=32)
+    organizer_responsible_user_id: int | None = None
     responsible_email: str | None = Field(default=None, max_length=255)
     responsible_phone: str | None = Field(default=None, max_length=64)
     project_status: str | None = Field(default=None, max_length=128)
@@ -54,6 +64,7 @@ class EventUpdate(BaseModel):
     end_date: date | None = None
     status: EventStatus | None = None
     package_type_override: str | None = Field(default=None, max_length=32)
+    teacher_ids: list[UUID] | None = None
 
 
 class PackageCandidate(BaseModel):
@@ -92,6 +103,11 @@ class EventResponse(BaseModel):
     city: str | None
     region: str | None
     responsible_person: str | None
+    national_responsible_name: str | None = None
+    national_responsible_email: str | None = None
+    national_responsible_phone: str | None = None
+    organizer_responsible_user_id: int | None = None
+    teachers: list[TeacherResponse] = Field(default_factory=list)
     project_status: str | None
     cost_center: str | None
     participants_expected: int | None

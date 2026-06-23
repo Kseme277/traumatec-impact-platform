@@ -19,7 +19,7 @@ function isMacPlatform() {
 export default function GlobalSearch() {
   const navigate = useNavigate();
   const { getToken } = useAuth();
-  const { isAdmin } = useTipAuth();
+  const { isAdmin, hasRole } = useTipAuth();
   const { t } = useTranslation();
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -31,11 +31,11 @@ export default function GlobalSearch() {
 
   const pageResults = useMemo(
     () =>
-      filterSearchEntries(query, SEARCH_ENTRIES, { adminOnly: isAdmin }).map((entry) => ({
+      filterSearchEntries(query, SEARCH_ENTRIES, { adminOnly: isAdmin, hasRole }).map((entry) => ({
         ...entry,
         kind: "page" as const,
       })),
-    [query, isAdmin],
+    [query, isAdmin, hasRole],
   );
 
   const results = useMemo(() => [...pageResults, ...dynamicResults], [pageResults, dynamicResults]);

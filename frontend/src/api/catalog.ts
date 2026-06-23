@@ -57,7 +57,7 @@ export function fetchTemplates(
   if (options?.packageType) params.set("package_type", options.packageType);
   if (options?.bundleId) params.set("bundle_id", options.bundleId);
   const q = params.toString() ? `?${params}` : "";
-  return fetchJson<PackageTemplate[]>(`/v1/templates/${q}`, token);
+  return fetchJson<PackageTemplate[]>(`/v1/templates${q}`, token);
 }
 
 export function fetchTemplateEditorConfig(
