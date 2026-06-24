@@ -3,7 +3,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "react-router";
 import PageMeta from "../components/common/PageMeta";
 import ComponentCard from "../components/common/ComponentCard";
-import DataTablePagination from "../components/common/DataTablePagination";
+import CompactListPagination from "../components/common/CompactListPagination";
 import Button from "../components/ui/button/Button";
 import Badge from "../components/ui/badge/Badge";
 import WorkflowFileReviewList from "../features/workflow/WorkflowFileReviewList";
@@ -175,7 +175,7 @@ export default function WorkflowValidationPage() {
             </li>
           ))}
         </ul>
-        <DataTablePagination
+        <CompactListPagination
           page={pagination.page}
           totalPages={pagination.totalPages}
           totalItems={pagination.totalItems}
