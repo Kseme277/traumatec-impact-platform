@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "react-router";
 import PageMeta from "../components/common/PageMeta";
 import ComponentCard from "../components/common/ComponentCard";
+import DataTablePagination from "../components/common/DataTablePagination";
 import Button from "../components/ui/button/Button";
 import Badge from "../components/ui/badge/Badge";
 import Select from "../components/form/Select";
@@ -21,7 +22,10 @@ import type { Utilisateur } from "../features/auth/types";
 import type { WorkflowQueueItem, WorkflowState } from "../api/workflow";
 import { ApiError } from "../api/client";
 import { confirmAction, promptComment, showError, showSuccess } from "../lib/swal";
+import { usePagination } from "../hooks/usePagination";
 import { useTranslation } from "../i18n/useTranslation";
+
+const WORKFLOW_QUEUE_PAGE_SIZE = 8;
 
 export default function WorkflowControlePage() {
   const { getToken } = useAuth();
@@ -147,6 +151,8 @@ export default function WorkflowControlePage() {
     !!selected &&
     ["under_procedure_review", "submitted"].includes(selected.workflow_status);
 
+  const queuePagination = usePagination(queue, WORKFLOW_QUEUE_PAGE_SIZE, `controle-${queue.length}`);
+
   return (
     <>
       <PageMeta title={t("nav.workflowControle")} description={t("workflow.controleDesc")} />
@@ -162,7 +168,7 @@ export default function WorkflowControlePage() {
             <p className="mt-2 text-xs text-gray-400">{t("workflow.queueControleHint")}</p>
           ) : null}
           <ul className="space-y-2">
-            {queue.map((item) => (
+            {queuePagination.paginatedItems.map((item) => (
               <li key={item.id}>
                 <button
                   type="button"
@@ -177,6 +183,14 @@ export default function WorkflowControlePage() {
               </li>
             ))}
           </ul>
+          <DataTablePagination
+            page={queuePagination.page}
+            totalPages={queuePagination.totalPages}
+            totalItems={queuePagination.totalItems}
+            rangeStart={queuePagination.rangeStart}
+            rangeEnd={queuePagination.rangeEnd}
+            onPageChange={queuePagination.setPage}
+          />
         </ComponentCard>
         <ComponentCard title={t("workflow.packageDetail")}>
           {!selected ? (

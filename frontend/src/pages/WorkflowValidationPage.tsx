@@ -3,6 +3,7 @@ import { useCallback, useEffect, useState } from "react";
 import { useSearchParams } from "react-router";
 import PageMeta from "../components/common/PageMeta";
 import ComponentCard from "../components/common/ComponentCard";
+import DataTablePagination from "../components/common/DataTablePagination";
 import Button from "../components/ui/button/Button";
 import Badge from "../components/ui/badge/Badge";
 import WorkflowFileReviewList from "../features/workflow/WorkflowFileReviewList";
@@ -18,7 +19,10 @@ import { workflowStatusLabel } from "../features/auth/types";
 import type { WorkflowQueueItem, WorkflowState } from "../api/workflow";
 import { ApiError } from "../api/client";
 import { confirmAction, promptComment, showError, showSuccess } from "../lib/swal";
+import { usePagination } from "../hooks/usePagination";
 import { useTranslation } from "../i18n/useTranslation";
+
+const WORKFLOW_QUEUE_PAGE_SIZE = 8;
 
 export default function WorkflowValidationPage() {
   const { getToken } = useAuth();
@@ -139,26 +143,47 @@ export default function WorkflowValidationPage() {
 
   const canReviewFiles = selected?.workflow_status === "under_final_validation";
 
-  function renderQueueList(items: WorkflowQueueItem[], emptyMessage: string) {
+  const pendingPagination = usePagination(queue, WORKFLOW_QUEUE_PAGE_SIZE, `pending-${queue.length}`);
+  const deliveryPagination = usePagination(
+    deliveryQueue,
+    WORKFLOW_QUEUE_PAGE_SIZE,
+    `delivery-${deliveryQueue.length}`,
+  );
+
+  function renderQueueList(
+    items: WorkflowQueueItem[],
+    emptyMessage: string,
+    pagination: ReturnType<typeof usePagination<WorkflowQueueItem>>,
+  ) {
     if (loading) return <p className="text-sm text-gray-500">{t("common.loading")}</p>;
     if (items.length === 0) return <p className="text-sm text-gray-500">{emptyMessage}</p>;
     return (
-      <ul className="space-y-2">
-        {items.map((item) => (
-          <li key={item.id}>
-            <button
-              type="button"
-              className="w-full rounded-xl border border-gray-200 p-3 text-left hover:bg-gray-50 dark:border-gray-800 dark:hover:bg-white/5"
-              onClick={() => void selectJob(item.id)}
-            >
-              <div className="flex items-center justify-between gap-2">
-                <span className="font-medium text-sm">{item.project_number ?? item.event_title}</span>
-                <Badge color="warning" size="sm">{workflowStatusLabel(item.workflow_status, t)}</Badge>
-              </div>
-            </button>
-          </li>
-        ))}
-      </ul>
+      <>
+        <ul className="space-y-2">
+          {pagination.paginatedItems.map((item) => (
+            <li key={item.id}>
+              <button
+                type="button"
+                className="w-full rounded-xl border border-gray-200 p-3 text-left hover:bg-gray-50 dark:border-gray-800 dark:hover:bg-white/5"
+                onClick={() => void selectJob(item.id)}
+              >
+                <div className="flex items-center justify-between gap-2">
+                  <span className="font-medium text-sm">{item.project_number ?? item.event_title}</span>
+                  <Badge color="warning" size="sm">{workflowStatusLabel(item.workflow_status, t)}</Badge>
+                </div>
+              </button>
+            </li>
+          ))}
+        </ul>
+        <DataTablePagination
+          page={pagination.page}
+          totalPages={pagination.totalPages}
+          totalItems={pagination.totalItems}
+          rangeStart={pagination.rangeStart}
+          rangeEnd={pagination.rangeEnd}
+          onPageChange={pagination.setPage}
+        />
+      </>
     );
   }
 
@@ -170,10 +195,10 @@ export default function WorkflowValidationPage() {
       <div className="grid gap-6 xl:grid-cols-[minmax(280px,360px)_1fr]">
         <div className="space-y-6">
           <ComponentCard title={t("workflow.queueValidation")}>
-            {renderQueueList(queue, t("workflow.queueValidationEmpty"))}
+            {renderQueueList(queue, t("workflow.queueValidationEmpty"), pendingPagination)}
           </ComponentCard>
           <ComponentCard title={t("workflow.queueDelivery")}>
-            {renderQueueList(deliveryQueue, t("workflow.queueDeliveryEmpty"))}
+            {renderQueueList(deliveryQueue, t("workflow.queueDeliveryEmpty"), deliveryPagination)}
           </ComponentCard>
         </div>
         <ComponentCard title={t("workflow.packageDetail")}>

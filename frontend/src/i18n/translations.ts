@@ -1089,7 +1089,7 @@ const fr = {
   },
   guides: {
     title: "Guides procédures",
-    desc: "Templates et génération des paquets",
+    desc: "Procédures métier et modèles",
     descLong: "Consultez les procédures métier et téléchargez les modèles de préparation (Op, PBO, IEC).",
     sidebarDesc: "Procédures métier et modèles",
     open: "Ouvrir Guides →",
@@ -2508,7 +2508,7 @@ const en: typeof fr = {
   },
   guides: {
     title: "Procedure guides",
-    desc: "templates and document packages",
+    desc: "Business procedures and templates",
     descLong: "Browse procedures and download preparation templates (Op, PBO, IEC).",
     sidebarDesc: "Business procedures and templates",
     open: "Open Guides →",
