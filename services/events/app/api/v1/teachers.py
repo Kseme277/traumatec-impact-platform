@@ -6,7 +6,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.database import get_db
 from app.models.teacher import Teacher
-from app.schemas.teacher import TeacherCreate, TeacherListResponse, TeacherResponse, TeacherUpdate
+from app.schemas.teacher import (
+    TeacherCreate,
+    TeacherListResponse,
+    TeacherResponse,
+    TeacherSyncFromParticipantsResult,
+    TeacherUpdate,
+)
+from app.services.teacher_sync import sync_all_enseignants_from_participants
 from tip_common.audit import record_audit_event
 from tip_common.security import AuthenticatedUser, get_current_user, require_admin
 
@@ -87,3 +94,22 @@ async def update_teacher(
     await db.commit()
     await db.refresh(teacher)
     return teacher
+
+
+@router.post("/sync-from-participants", response_model=TeacherSyncFromParticipantsResult)
+async def sync_teachers_from_participants(
+    user: AuthenticatedUser = Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
+) -> TeacherSyncFromParticipantsResult:
+    """Migre les enseignants des imports certificats vers le référentiel teachers."""
+    stats = await sync_all_enseignants_from_participants(db)
+    await record_audit_event(
+        db,
+        actor_id=user.id,
+        action="teacher.sync_from_participants",
+        entity_type="teacher",
+        entity_id="bulk",
+        payload=stats,
+    )
+    await db.commit()
+    return TeacherSyncFromParticipantsResult.model_validate(stats)

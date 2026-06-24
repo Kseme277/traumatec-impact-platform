@@ -1,13 +1,16 @@
 import { useAuth } from "@clerk/clerk-react";
 import { Loader2, Send, Sparkles } from "lucide-react";
+import ChatTypingDots from "./ChatTypingDots";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router";
+import { assistantChat } from "../../api/assistant";
 import { SEARCH_ENTRIES } from "../../config/searchIndex";
 import { useCommandAssistant } from "../../context/CommandAssistantContext";
 import { useTutorial } from "../../context/TutorialContext";
 import { useTipAuth } from "../../context/TipAuthContext";
 import { useTranslation } from "../../i18n/useTranslation";
 import { buildAssistantHelpText, getAssistantExampleCommands } from "../../lib/assistantExamples";
+import { getApiToken } from "../../lib/clerkToken";
 import { parseCommand, resolveNavigatePath } from "../../lib/commandParser";
 import {
   listUpcomingEvents,
@@ -32,6 +35,7 @@ interface AssistantMessage {
   role: MessageRole;
   text: string;
   tone?: "default" | "success" | "error" | "pending";
+  typing?: boolean;
 }
 
 type PendingIntentType =
@@ -57,7 +61,7 @@ function isMacPlatform() {
 }
 
 export default function CommandAssistant() {
-  const { isOpen, close, open } = useCommandAssistant();
+  const { isOpen, close, open, consumeSeedMessage } = useCommandAssistant();
   const { startTutorial } = useTutorial();
   const { getToken } = useAuth();
   const { isAdmin } = useTipAuth();
@@ -70,6 +74,7 @@ export default function CommandAssistant() {
   const [messages, setMessages] = useState<AssistantMessage[]>([]);
   const [isRunning, setIsRunning] = useState(false);
   const [pendingChoice, setPendingChoice] = useState<PendingChoice<Evenement | Utilisateur> | null>(null);
+  const seedSubmitRef = useRef<string | null>(null);
 
   const appendMessage = useCallback((message: Omit<AssistantMessage, "id">) => {
     setMessages((prev) => [...prev, { ...message, id: nextId() }]);
@@ -80,7 +85,7 @@ export default function CommandAssistant() {
       const copy = [...prev];
       for (let i = copy.length - 1; i >= 0; i -= 1) {
         if (copy[i].role === "assistant" && copy[i].tone === "pending") {
-          copy[i] = { ...copy[i], text, tone };
+          copy[i] = { ...copy[i], text, tone, typing: false };
           return copy;
         }
       }
@@ -99,12 +104,17 @@ export default function CommandAssistant() {
   useEffect(() => {
     if (!isOpen) {
       setMessages([]);
+      seedSubmitRef.current = null;
       return;
     }
     setInput("");
     setPendingChoice(null);
+    const seed = consumeSeedMessage();
     setMessages([{ id: nextId(), role: "assistant", text: t("assistant.welcome") }]);
-  }, [isOpen, t]);
+    if (seed) {
+      seedSubmitRef.current = seed;
+    }
+  }, [consumeSeedMessage, isOpen, t]);
 
   useEffect(() => {
     if (isOpen) {
@@ -239,6 +249,23 @@ export default function CommandAssistant() {
     [appendMessage, executeResendInvitation, executeToggleUser, t],
   );
 
+  const askAi = useCallback(
+    async (text: string, priorMessages: AssistantMessage[]) => {
+      appendMessage({ role: "assistant", text: "", tone: "pending", typing: true });
+      try {
+        const token = await getApiToken(getToken);
+        const history = priorMessages
+          .filter((message) => message.tone !== "pending")
+          .map((message) => ({ role: message.role, content: message.text }));
+        const response = await assistantChat(token, text, history);
+        updateLastAssistant(response.reply, "default");
+      } catch {
+        updateLastAssistant(t("assistant.aiError"), "error");
+      }
+    },
+    [appendMessage, getToken, t, updateLastAssistant],
+  );
+
   const handleSubmit = useCallback(
     async (raw?: string) => {
       const text = (raw ?? input).trim();
@@ -256,19 +283,18 @@ export default function CommandAssistant() {
       }
 
       if (intent.type === "start_tutorial") {
-        appendMessage({
-          role: "assistant",
-          text: t("assistant.tutorialStarting"),
-          tone: "success",
-        });
         close();
-        window.setTimeout(() => startTutorial(), 350);
+        window.setTimeout(() => startTutorial(), 200);
         return;
       }
 
       if (intent.type === "unknown") {
-        appendMessage({ role: "assistant", text: t("assistant.unknown"), tone: "error" });
-        showHelp();
+        setIsRunning(true);
+        try {
+          await askAi(text, messages);
+        } finally {
+          setIsRunning(false);
+        }
         return;
       }
 
@@ -372,11 +398,13 @@ export default function CommandAssistant() {
     },
     [
       appendMessage,
+      askAi,
       close,
       getToken,
       input,
       isAdmin,
       isRunning,
+      messages,
       navigate,
       pickEvent,
       pickUser,
@@ -386,6 +414,13 @@ export default function CommandAssistant() {
       updateLastAssistant,
     ],
   );
+
+  useEffect(() => {
+    if (!isOpen || isRunning || !seedSubmitRef.current) return;
+    const seed = seedSubmitRef.current;
+    seedSubmitRef.current = null;
+    void handleSubmit(seed);
+  }, [handleSubmit, isOpen, isRunning]);
 
   const handlePick = async (item: Evenement | Utilisateur) => {
     if (!pendingChoice || isRunning) return;
@@ -451,8 +486,13 @@ export default function CommandAssistant() {
           {messages.map((message) => (
             <div
               key={message.id}
-              className={`flex ${message.role === "user" ? "justify-end" : "justify-start"}`}
+              className={`flex gap-2 ${message.role === "user" ? "justify-end" : "justify-start"}`}
             >
+              {message.role === "assistant" && (
+                <span className="mt-0.5 flex size-8 shrink-0 items-center justify-center rounded-lg bg-brand-50 text-brand-500 dark:bg-brand-500/10">
+                  <Sparkles className="size-4" />
+                </span>
+              )}
               <div
                 className={`max-w-[85%] rounded-2xl px-4 py-2.5 text-sm whitespace-pre-wrap ${
                   message.role === "user"
@@ -466,10 +506,16 @@ export default function CommandAssistant() {
                           : "bg-gray-50 text-gray-700 dark:bg-white/[0.03] dark:text-gray-300"
                 }`}
               >
-                {message.tone === "pending" && (
-                  <Loader2 className="mr-2 inline size-4 animate-spin align-[-2px]" />
+                {message.tone === "pending" && message.typing ? (
+                  <ChatTypingDots />
+                ) : (
+                  <>
+                    {message.tone === "pending" && (
+                      <Loader2 className="mr-2 inline size-4 animate-spin align-[-2px]" />
+                    )}
+                    {message.text}
+                  </>
                 )}
-                {message.text}
               </div>
             </div>
           ))}

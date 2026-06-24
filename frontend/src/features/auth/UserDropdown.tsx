@@ -8,6 +8,7 @@ import { isGuidesConfigured, openGuides } from "../../config/guides";
 import { resolveClerkAvatar } from "../../lib/clerkAvatar";
 import { useTranslation } from "../../i18n/useTranslation";
 import { normalizeRoles, roleLabel } from "./types";
+import { confirmAction } from "../../lib/swal";
 
 export default function UserDropdown() {
   const { t } = useTranslation();
@@ -28,6 +29,14 @@ export default function UserDropdown() {
   const closeDropdown = () => setIsOpen(false);
 
   const handleSignOut = async () => {
+    const confirmed = await confirmAction({
+      title: t("confirm.logoutTitle"),
+      text: t("confirm.logoutText"),
+      confirmText: t("confirm.proceed"),
+      cancelText: t("common.cancel"),
+      icon: "question",
+    });
+    if (!confirmed.isConfirmed) return;
     closeDropdown();
     await signOut({ redirectUrl: "/signin" });
   };

@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
+import { useAuth } from "@clerk/clerk-react";
 import AdminBreadcrumb from "../components/common/AdminBreadcrumb";
 import ComponentCard from "../components/common/ComponentCard";
 import PageMeta from "../components/common/PageMeta";
@@ -16,6 +17,12 @@ import ProjectStatusBadge from "../features/events/ProjectStatusBadge";
 import { isEventFinished, isEventOpen } from "../features/events/projectStatus";
 import { useTipAuth } from "../context/TipAuthContext";
 import { useTranslation } from "../i18n/useTranslation";
+import { fetchGenerationHistory, downloadGenerationZip } from "../api/docgen";
+import { getApiToken } from "../lib/clerkToken";
+import GenerationHistoryPanel from "../features/documents/GenerationHistoryPanel";
+import type { GenerationJob } from "../features/documents/types";
+import { ApiError } from "../api/client";
+import { showError } from "../lib/swal";
 
 function DetailRow({
   label,
@@ -43,11 +50,14 @@ function DetailRow({
 export default function EvenementDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
+  const { getToken } = useAuth();
   const { isAdmin } = useTipAuth();
   const { t } = useTranslation();
   const { loadEvent, close, remove, update } = useEvents();
   const [event, setEvent] = useState<Evenement | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const [generationHistory, setGenerationHistory] = useState<GenerationJob[]>([]);
+  const [historyLoading, setHistoryLoading] = useState(false);
 
   useEffect(() => {
     if (!id) return;
@@ -57,6 +67,31 @@ export default function EvenementDetailPage() {
       .catch(() => setEvent(null))
       .finally(() => setIsLoading(false));
   }, [id, loadEvent]);
+
+  useEffect(() => {
+    if (!id) return;
+    setHistoryLoading(true);
+    void (async () => {
+      try {
+        const token = await getApiToken(getToken);
+        setGenerationHistory(await fetchGenerationHistory(token, id));
+      } catch {
+        setGenerationHistory([]);
+      } finally {
+        setHistoryLoading(false);
+      }
+    })();
+  }, [getToken, id]);
+
+  const handleDownloadJob = async (job: GenerationJob) => {
+    try {
+      const token = await getApiToken(getToken);
+      await downloadGenerationZip(token, job.id, job.zip_filename ?? "paquet.zip");
+    } catch (err) {
+      const message = err instanceof ApiError ? err.message : t("documents.downloadFailed");
+      await showError(t("common.error"), message);
+    }
+  };
 
   if (isLoading) {
     return <AuthLoadingScreen message={t("events.loading")} />;
@@ -182,6 +217,11 @@ export default function EvenementDetailPage() {
                 {t("events.edit")}
               </Button>
             </Link>
+            <Link to={`/documents/generation?event=${event.id}`}>
+              <Button size="sm" variant="outline" className="w-full">
+                {t("nav.generation")}
+              </Button>
+            </Link>
             <Link to={`/certificats?event=${event.id}`}>
               <Button size="sm" variant="outline" className="w-full">
                 {t("participants.generateFromEvent")}
@@ -218,6 +258,19 @@ export default function EvenementDetailPage() {
           </div>
         </ComponentCard>
       </div>
+
+      <ComponentCard
+        className="mt-6"
+        title={t("documents.history")}
+        desc={t("documents.historyEventDesc")}
+      >
+        <GenerationHistoryPanel
+          jobs={generationHistory}
+          loading={historyLoading}
+          eventId={event.id}
+          onDownload={(job) => void handleDownloadJob(job)}
+        />
+      </ComponentCard>
     </>
   );
 }

@@ -43,6 +43,18 @@ export function updateTeacher(token: string | null, id: string, payload: Partial
   });
 }
 
+export interface TeacherSyncResult {
+  processed: number;
+  teachers_created: number;
+  event_links_created: number;
+}
+
+export function syncTeachersFromParticipants(token: string | null) {
+  return apiFetch<TeacherSyncResult>("/v1/teachers/sync-from-participants", token, {
+    method: "POST",
+  });
+}
+
 export function teacherLabel(teacher: Teacher): string {
   const name = `${teacher.first_name} ${teacher.last_name}`.trim();
   if (teacher.email) return `${name} — ${teacher.email}`;

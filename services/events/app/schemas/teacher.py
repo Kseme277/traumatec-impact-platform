@@ -39,3 +39,9 @@ class TeacherResponse(BaseModel):
 class TeacherListResponse(BaseModel):
     items: list[TeacherResponse]
     total: int
+
+
+class TeacherSyncFromParticipantsResult(BaseModel):
+    processed: int
+    teachers_created: int
+    event_links_created: int

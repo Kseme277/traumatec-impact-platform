@@ -4,26 +4,21 @@ import { useTranslation } from "../../i18n/useTranslation";
 interface TipSplashLoaderProps {
   message?: string;
   className?: string;
-  /** Plein écran (auth) ou intégré (tableau, carte). */
-  variant?: "fullscreen" | "inline";
   showMessage?: boolean;
 }
 
 export default function TipSplashLoader({
   message,
   className = "",
-  variant = "fullscreen",
   showMessage = true,
 }: TipSplashLoaderProps) {
   const { t } = useTranslation();
   const displayMessage = message ?? t("auth.loadingWorkspace");
-  const isFullscreen = variant === "fullscreen";
 
   return (
     <div
       className={[
-        "tip-splash relative flex flex-col items-center justify-center overflow-hidden",
-        isFullscreen ? "min-h-screen p-6" : "tip-splash--inline py-16 px-6",
+        "tip-splash relative flex min-h-screen flex-col items-center justify-center overflow-hidden p-6",
         className,
       ]
         .filter(Boolean)

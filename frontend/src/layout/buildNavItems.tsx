@@ -1,7 +1,6 @@
 import {
   Award,
   BadgeCheck,
-  Bell,
   FileText,
   LayoutGrid,
   List,
@@ -35,15 +34,6 @@ export function buildNavItemDefs(t: (key: string) => string): NavItemDef[] {
       path: "/certificats",
       tourId: "nav-certificates",
       roles: ["administrateur", "support_administratif"],
-    },
-    // Prédictions ML — masqué temporairement (route /predictions toujours accessible en direct)
-    {
-      id: "notifications",
-      icon: <Bell className="size-6" strokeWidth={1.75} />,
-      name: t("nav.notifications"),
-      path: "/notifications",
-      tourId: "nav-notifications",
-      roles: ["administrateur", "support_administratif", "controle_procedure", "validateur"],
     },
     {
       id: "documents",

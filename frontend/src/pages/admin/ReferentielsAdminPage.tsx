@@ -2,8 +2,16 @@ import { useAuth } from "@clerk/clerk-react";
 import { FormEvent, useCallback, useEffect, useState } from "react";
 import AdminBreadcrumb from "../../components/common/AdminBreadcrumb";
 import ComponentCard from "../../components/common/ComponentCard";
+import DataTablePagination from "../../components/common/DataTablePagination";
 import PageMeta from "../../components/common/PageMeta";
 import TableLoader from "../../components/common/TableLoader";
+import {
+  DATA_TABLE,
+  DATA_TABLE_HEAD,
+  DATA_TABLE_ROW,
+  DATA_TABLE_TD,
+  DATA_TABLE_TH,
+} from "../../components/common/dataTableClasses";
 import Label from "../../components/form/Label";
 import Input from "../../components/form/input/InputField";
 import Switch from "../../components/form/switch/Switch";
@@ -20,13 +28,17 @@ import {
 import {
   createTeacher,
   fetchTeachers,
+  syncTeachersFromParticipants,
   updateTeacher,
   type Teacher,
   type TeacherPayload,
 } from "../../api/teachers";
 import { getApiToken } from "../../lib/clerkToken";
-import { showError, showSuccess } from "../../lib/swal";
+import { confirmAction, showError, showSuccess } from "../../lib/swal";
+import { usePagination } from "../../hooks/usePagination";
 import { useTranslation } from "../../i18n/useTranslation";
+
+const REFERENTIALS_PAGE_SIZE = 10;
 
 type Tab = "nationals" | "teachers";
 
@@ -34,7 +46,6 @@ const emptyNational: NationalContactPayload = {
   full_name: "",
   email: "",
   phone: "",
-  country: "",
   is_active: true,
 };
 
@@ -58,6 +69,10 @@ export default function ReferentielsAdminPage() {
   const [nationalForm, setNationalForm] = useState<NationalContactPayload>(emptyNational);
   const [teacherForm, setTeacherForm] = useState<TeacherPayload>(emptyTeacher);
   const [saving, setSaving] = useState(false);
+  const [syncingTeachers, setSyncingTeachers] = useState(false);
+
+  const nationalsPagination = usePagination(nationals, REFERENTIALS_PAGE_SIZE, `nationals-${nationals.length}`);
+  const teachersPagination = usePagination(teachers, REFERENTIALS_PAGE_SIZE, `teachers-${teachers.length}`);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -96,7 +111,6 @@ export default function ReferentielsAdminPage() {
       full_name: contact.full_name,
       email: contact.email ?? "",
       phone: contact.phone ?? "",
-      country: contact.country ?? "",
       is_active: contact.is_active,
     });
   }
@@ -119,11 +133,11 @@ export default function ReferentielsAdminPage() {
     try {
       const token = await getApiToken(getToken);
       const payload = {
-        ...nationalForm,
         full_name: nationalForm.full_name.trim(),
         email: nationalForm.email?.trim() || null,
         phone: nationalForm.phone?.trim() || null,
-        country: nationalForm.country?.trim() || null,
+        country: null,
+        is_active: nationalForm.is_active ?? true,
       };
       if (editingNationalId) {
         await updateNationalContact(token, editingNationalId, payload);
@@ -170,6 +184,30 @@ export default function ReferentielsAdminPage() {
     }
   }
 
+  async function handleSyncTeachersFromCertificates() {
+    const confirmed = await confirmAction({
+      title: "Importer les enseignants des certificats ?",
+      text: "Les enseignants détectés lors des imports d'inscriptions seront ajoutés au référentiel (nom, email, téléphone) et reliés aux événements concernés.",
+      confirmText: t("confirm.proceed"),
+      cancelText: t("common.cancel"),
+    });
+    if (!confirmed.isConfirmed) return;
+    setSyncingTeachers(true);
+    try {
+      const token = await getApiToken(getToken);
+      const result = await syncTeachersFromParticipants(token);
+      await load();
+      await showSuccess(
+        "Synchronisation terminée",
+        `${result.processed} enseignant(s) traité(s) — ${result.teachers_created} créé(s), ${result.event_links_created} lien(s) événement ajouté(s).`,
+      );
+    } catch (err) {
+      showError(t("common.error"), err instanceof ApiError ? err.message : t("common.error"));
+    } finally {
+      setSyncingTeachers(false);
+    }
+  }
+
   return (
     <>
       <PageMeta title="Référentiels | TIP" description="Responsables nationaux et enseignants" />
@@ -181,8 +219,10 @@ export default function ReferentielsAdminPage() {
       <div className="mb-6 flex gap-2">
         <button
           type="button"
-          className={`rounded-lg px-4 py-2 text-sm font-medium ${
-            tab === "nationals" ? "bg-brand-500 text-white" : "border border-gray-200 dark:border-gray-700"
+          className={`rounded-lg px-4 py-2 text-sm font-medium transition ${
+            tab === "nationals"
+              ? "bg-brand-500 text-white"
+              : "border border-gray-200 text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-white/5"
           }`}
           onClick={() => setTab("nationals")}
         >
@@ -190,8 +230,10 @@ export default function ReferentielsAdminPage() {
         </button>
         <button
           type="button"
-          className={`rounded-lg px-4 py-2 text-sm font-medium ${
-            tab === "teachers" ? "bg-brand-500 text-white" : "border border-gray-200 dark:border-gray-700"
+          className={`rounded-lg px-4 py-2 text-sm font-medium transition ${
+            tab === "teachers"
+              ? "bg-brand-500 text-white"
+              : "border border-gray-200 text-gray-700 hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-white/5"
           }`}
           onClick={() => setTab("teachers")}
         >
@@ -232,14 +274,6 @@ export default function ReferentielsAdminPage() {
                   placeholder="+221 77 000 00 00"
                 />
               </div>
-              <div>
-                <Label>Pays</Label>
-                <Input
-                  value={nationalForm.country ?? ""}
-                  onChange={(e) => setNationalForm({ ...nationalForm, country: e.target.value })}
-                  placeholder="Sénégal"
-                />
-              </div>
               <div className="flex items-center gap-3">
                 <Switch
                   label="Actif"
@@ -265,30 +299,28 @@ export default function ReferentielsAdminPage() {
               <TableLoader message={t("common.loading")} />
             ) : (
               <div className="overflow-x-auto">
-                <table className="min-w-full text-sm">
-                  <thead className="bg-gray-50 dark:bg-gray-900">
+                <table className={DATA_TABLE}>
+                  <thead className={DATA_TABLE_HEAD}>
                     <tr>
-                      <th className="px-3 py-2 text-left">Nom</th>
-                      <th className="px-3 py-2 text-left">Email</th>
-                      <th className="px-3 py-2 text-left">Téléphone</th>
-                      <th className="px-3 py-2 text-left">Pays</th>
-                      <th className="px-3 py-2 text-left">Statut</th>
-                      <th className="px-3 py-2 text-left" />
+                      <th className={DATA_TABLE_TH}>Nom</th>
+                      <th className={DATA_TABLE_TH}>Email</th>
+                      <th className={DATA_TABLE_TH}>Téléphone</th>
+                      <th className={DATA_TABLE_TH}>Statut</th>
+                      <th className={DATA_TABLE_TH} />
                     </tr>
                   </thead>
                   <tbody>
-                    {nationals.map((c) => (
-                      <tr key={c.id} className="border-t border-gray-100 dark:border-gray-800">
-                        <td className="px-3 py-2">{c.full_name}</td>
-                        <td className="px-3 py-2">{c.email ?? "—"}</td>
-                        <td className="px-3 py-2">{c.phone ?? "—"}</td>
-                        <td className="px-3 py-2">{c.country ?? "—"}</td>
-                        <td className="px-3 py-2">
+                    {nationalsPagination.paginatedItems.map((c) => (
+                      <tr key={c.id} className={DATA_TABLE_ROW}>
+                        <td className={DATA_TABLE_TD}>{c.full_name}</td>
+                        <td className={DATA_TABLE_TD}>{c.email ?? "—"}</td>
+                        <td className={DATA_TABLE_TD}>{c.phone ?? "—"}</td>
+                        <td className={DATA_TABLE_TD}>
                           <Badge color={c.is_active ? "success" : "light"} size="sm">
                             {c.is_active ? "Actif" : "Inactif"}
                           </Badge>
                         </td>
-                        <td className="px-3 py-2">
+                        <td className={DATA_TABLE_TD}>
                           <Button type="button" size="sm" variant="outline" onClick={() => startEditNational(c)}>
                             Modifier
                           </Button>
@@ -297,6 +329,14 @@ export default function ReferentielsAdminPage() {
                     ))}
                   </tbody>
                 </table>
+                <DataTablePagination
+                  page={nationalsPagination.page}
+                  totalPages={nationalsPagination.totalPages}
+                  totalItems={nationalsPagination.totalItems}
+                  rangeStart={nationalsPagination.rangeStart}
+                  rangeEnd={nationalsPagination.rangeEnd}
+                  onPageChange={nationalsPagination.setPage}
+                />
               </div>
             )}
           </ComponentCard>
@@ -358,34 +398,45 @@ export default function ReferentielsAdminPage() {
           </ComponentCard>
 
           <ComponentCard className="lg:col-span-2" title="Liste des enseignants">
+            <div className="mb-4 flex flex-wrap justify-end gap-2">
+              <Button
+                type="button"
+                size="sm"
+                variant="outline"
+                disabled={syncingTeachers || loading}
+                onClick={() => void handleSyncTeachersFromCertificates()}
+              >
+                {syncingTeachers ? t("common.loading") : "Importer depuis les certificats"}
+              </Button>
+            </div>
             {loading ? (
               <TableLoader message={t("common.loading")} />
             ) : (
               <div className="overflow-x-auto">
-                <table className="min-w-full text-sm">
-                  <thead className="bg-gray-50 dark:bg-gray-900">
+                <table className={DATA_TABLE}>
+                  <thead className={DATA_TABLE_HEAD}>
                     <tr>
-                      <th className="px-3 py-2 text-left">Nom</th>
-                      <th className="px-3 py-2 text-left">Email</th>
-                      <th className="px-3 py-2 text-left">Téléphone</th>
-                      <th className="px-3 py-2 text-left">Statut</th>
-                      <th className="px-3 py-2 text-left" />
+                      <th className={DATA_TABLE_TH}>Nom</th>
+                      <th className={DATA_TABLE_TH}>Email</th>
+                      <th className={DATA_TABLE_TH}>Téléphone</th>
+                      <th className={DATA_TABLE_TH}>Statut</th>
+                      <th className={DATA_TABLE_TH} />
                     </tr>
                   </thead>
                   <tbody>
-                    {teachers.map((teacher) => (
-                      <tr key={teacher.id} className="border-t border-gray-100 dark:border-gray-800">
-                        <td className="px-3 py-2">
+                    {teachersPagination.paginatedItems.map((teacher) => (
+                      <tr key={teacher.id} className={DATA_TABLE_ROW}>
+                        <td className={DATA_TABLE_TD}>
                           {teacher.first_name} {teacher.last_name}
                         </td>
-                        <td className="px-3 py-2">{teacher.email ?? "—"}</td>
-                        <td className="px-3 py-2">{teacher.phone ?? "—"}</td>
-                        <td className="px-3 py-2">
+                        <td className={DATA_TABLE_TD}>{teacher.email ?? "—"}</td>
+                        <td className={DATA_TABLE_TD}>{teacher.phone ?? "—"}</td>
+                        <td className={DATA_TABLE_TD}>
                           <Badge color={teacher.is_active ? "success" : "light"} size="sm">
                             {teacher.is_active ? "Actif" : "Inactif"}
                           </Badge>
                         </td>
-                        <td className="px-3 py-2">
+                        <td className={DATA_TABLE_TD}>
                           <Button type="button" size="sm" variant="outline" onClick={() => startEditTeacher(teacher)}>
                             Modifier
                           </Button>
@@ -394,6 +445,14 @@ export default function ReferentielsAdminPage() {
                     ))}
                   </tbody>
                 </table>
+                <DataTablePagination
+                  page={teachersPagination.page}
+                  totalPages={teachersPagination.totalPages}
+                  totalItems={teachersPagination.totalItems}
+                  rangeStart={teachersPagination.rangeStart}
+                  rangeEnd={teachersPagination.rangeEnd}
+                  onPageChange={teachersPagination.setPage}
+                />
               </div>
             )}
           </ComponentCard>

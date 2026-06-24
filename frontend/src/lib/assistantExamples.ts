@@ -2,6 +2,15 @@
 
 export const ASSISTANT_EXAMPLE_SECTIONS = [
   {
+    titleKey: "assistant.helpSectionAi",
+    exampleKeys: [
+      "assistant.exampleMetrics",
+      "assistant.exampleSearchEvent",
+      "assistant.exampleWorkflow",
+    ],
+    adminOnly: false,
+  },
+  {
     titleKey: "assistant.helpSectionDiscovery",
     exampleKeys: ["assistant.exampleStartTutorial"],
     adminOnly: false,

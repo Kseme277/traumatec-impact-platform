@@ -13,7 +13,7 @@ export const TUTORIAL_STEPS: TutorialStepConfig[] = [
     id: "welcome",
     titleKey: "tutorial.steps.welcome.title",
     bodyKey: "tutorial.steps.welcome.body",
-    route: "/",
+    route: "/dashboard",
     center: true,
   },
   {
@@ -21,7 +21,7 @@ export const TUTORIAL_STEPS: TutorialStepConfig[] = [
     target: "nav-dashboard",
     titleKey: "tutorial.steps.dashboard.title",
     bodyKey: "tutorial.steps.dashboard.body",
-    route: "/",
+    route: "/dashboard",
   },
   {
     id: "events",
@@ -42,7 +42,7 @@ export const TUTORIAL_STEPS: TutorialStepConfig[] = [
     target: "nav-documents",
     titleKey: "tutorial.steps.documents.title",
     bodyKey: "tutorial.steps.documents.body",
-    route: "/documents/templates",
+    route: "/documents/generation",
   },
   {
     id: "generation",
@@ -113,7 +113,7 @@ export const TUTORIAL_STEPS: TutorialStepConfig[] = [
     id: "finish",
     titleKey: "tutorial.steps.finish.title",
     bodyKey: "tutorial.steps.finish.body",
-    route: "/",
+    route: "/dashboard",
     center: true,
   },
 ];

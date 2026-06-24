@@ -1,4 +1,4 @@
-import TipSplashLoader from "../../components/brand/TipSplashLoader";
+import AuthLoadingScreen from "../../components/auth/AuthLoadingScreen";
 import PageMeta from "../../components/common/PageMeta";
 import { useTipAuth } from "../../context/TipAuthContext";
 import { useTranslation } from "../../i18n/useTranslation";
@@ -15,7 +15,7 @@ export default function Home() {
   const { tipUser, isLoading, hasRole } = useTipAuth();
 
   if (isLoading || !tipUser) {
-    return <TipSplashLoader message={t("dashboard.loading")} variant="fullscreen" />;
+    return <AuthLoadingScreen message={t("dashboard.loading")} />;
   }
 
   let dashboard = <DashboardPreparateur />;

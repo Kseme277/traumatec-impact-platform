@@ -6,10 +6,19 @@ import { useSidebar } from "../context/SidebarContext";
 import { ThemeToggleButton } from "../components/common/ThemeToggleButton";
 import GlobalSearch from "../components/header/GlobalSearch";
 import LanguageDropdown from "../components/header/LanguageDropdown";
+import NotificationDropdown from "../components/header/NotificationDropdown";
 import UserDropdown from "../features/auth/UserDropdown";
+import { useTipAuth } from "../context/TipAuthContext";
 
 const AppHeader: React.FC = () => {
   const [isApplicationMenuOpen, setApplicationMenuOpen] = useState(false);
+  const { hasAnyRole } = useTipAuth();
+  const showNotifications = hasAnyRole(
+    "administrateur",
+    "support_administratif",
+    "controle_procedure",
+    "validateur",
+  );
 
   const { isMobileOpen, toggleSidebar, toggleMobileSidebar } = useSidebar();
 
@@ -108,6 +117,11 @@ const AppHeader: React.FC = () => {
             <div data-tour="header-language">
               <LanguageDropdown />
             </div>
+            {showNotifications ? (
+              <div data-tour="header-notifications">
+                <NotificationDropdown />
+              </div>
+            ) : null}
           </div>
           <div data-tour="header-user">
             <UserDropdown />

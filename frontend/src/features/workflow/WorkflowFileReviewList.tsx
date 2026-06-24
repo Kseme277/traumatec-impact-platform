@@ -11,7 +11,7 @@ import {
 import type { WorkflowFileReview } from "../../api/workflow";
 import { getApiToken } from "../../lib/clerkToken";
 import { ApiError } from "../../api/client";
-import { showError, showSuccess } from "../../lib/swal";
+import { confirmAction, showError, showSuccess } from "../../lib/swal";
 import { useTranslation } from "../../i18n/useTranslation";
 
 interface WorkflowFileReviewListProps {
@@ -38,6 +38,7 @@ export default function WorkflowFileReviewList({
   const [activeCode, setActiveCode] = useState<string | null>(null);
   const [editorConfig, setEditorConfig] = useState<OnlyOfficeEditorConfig | null>(null);
   const [editorLoading, setEditorLoading] = useState(false);
+  const [previewUnavailable, setPreviewUnavailable] = useState(false);
   const [remarks, setRemarks] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState<string | null>(null);
 
@@ -47,17 +48,21 @@ export default function WorkflowFileReviewList({
     async (templateCode: string) => {
       setActiveCode(templateCode);
       setEditorConfig(null);
+      setPreviewUnavailable(false);
       setEditorLoading(true);
       try {
         const token = await getApiToken(getToken);
         const config = await fetchPackageFileEditorConfig(token, jobId, templateCode);
         setEditorConfig(config);
       } catch (err) {
+        setEditorConfig(null);
         if (err instanceof ApiError && err.status === 422) {
-          setEditorConfig(null);
+          setPreviewUnavailable(true);
         } else {
-          setActiveCode(null);
-          showError(t("common.error"), err instanceof ApiError ? err.message : t("common.error"));
+          showError(
+            t("common.error"),
+            err instanceof ApiError ? err.message : t("common.unknownError"),
+          );
         }
       } finally {
         setEditorLoading(false);
@@ -82,13 +87,15 @@ export default function WorkflowFileReviewList({
     }
   }, [files, activeCode, loadPreview]);
 
-  async function handleDownload(templateCode: string, event: React.MouseEvent) {
-    event.stopPropagation();
+  async function handleDownload(templateCode: string) {
     try {
       const token = await getApiToken(getToken);
       await downloadPackageFile(token, jobId, templateCode);
     } catch (err) {
-      showError(t("common.error"), err instanceof ApiError ? err.message : t("common.error"));
+      showError(
+        t("common.error"),
+        err instanceof ApiError ? err.message : t("common.unknownError"),
+      );
     }
   }
 
@@ -98,6 +105,13 @@ export default function WorkflowFileReviewList({
       showError(t("common.error"), t("workflow.remarkRequired"));
       return;
     }
+    const confirmed = await confirmAction({
+      title: status === "approved" ? t("confirm.approveFileTitle") : t("confirm.rejectFileTitle"),
+      confirmText: t("confirm.proceed"),
+      cancelText: t("common.cancel"),
+      icon: status === "approved" ? "question" : "warning",
+    });
+    if (!confirmed.isConfirmed) return;
     setSubmitting(templateCode);
     try {
       const token = await getApiToken(getToken);
@@ -105,7 +119,10 @@ export default function WorkflowFileReviewList({
       showSuccess(status === "approved" ? t("workflow.fileApproved") : t("workflow.fileRejected"));
       onUpdated();
     } catch (err) {
-      showError(t("common.error"), err instanceof ApiError ? err.message : t("common.error"));
+      showError(
+        t("common.error"),
+        err instanceof ApiError ? err.message : t("common.unknownError"),
+      );
     } finally {
       setSubmitting(null);
     }
@@ -147,79 +164,67 @@ export default function WorkflowFileReviewList({
                   : "border-gray-200 dark:border-gray-800"
               }`}
             >
-              <button
-                type="button"
-                className="flex w-full items-start justify-between gap-3 p-3 text-left"
-                onClick={() => selectFile(file)}
-              >
-                <div className="min-w-0 flex-1">
+              <div className="flex flex-wrap items-start justify-between gap-3 p-3">
+                <button
+                  type="button"
+                  className="min-w-0 flex-1 text-left"
+                  onClick={() => selectFile(file)}
+                >
                   <p className="text-sm font-medium break-all">{displayName}</p>
-                  {file.file_path && file.file_path !== file.template_code ? (
-                    <p className="text-xs text-gray-500">{file.template_code}</p>
-                  ) : null}
                   {file.comment ? (
                     <p className="mt-1 text-xs text-gray-600 dark:text-gray-400">
                       {t("workflow.remark")} : {file.comment}
                     </p>
                   ) : null}
+                </button>
+                <div className="flex flex-wrap items-center gap-2">
+                  <Badge color={fileStatusColor(file.status)} size="sm">
+                    {t(`workflow.fileStatus.${file.status}`)}
+                  </Badge>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => void loadPreview(file.template_code)}
+                  >
+                    {t("workflow.viewFile")}
+                  </Button>
+                  <Button size="sm" variant="outline" onClick={() => void handleDownload(file.template_code)}>
+                    {t("common.download")}
+                  </Button>
                 </div>
-                <Badge color={fileStatusColor(file.status)} size="sm">
-                  {t(`workflow.fileStatus.${file.status}`)}
-                </Badge>
-              </button>
+              </div>
 
-              {isActive ? (
-                <div className="space-y-3 border-t border-gray-200 px-3 pb-3 pt-3 dark:border-gray-800">
+              {isActive && canReview ? (
+                <div className="space-y-2 border-t border-gray-200 px-3 pb-3 pt-3 dark:border-gray-800">
+                  <label className="text-xs font-medium text-gray-600 dark:text-gray-400">
+                    {t("workflow.remarkFor")} {displayName}
+                  </label>
+                  <textarea
+                    className="w-full rounded-lg border border-gray-200 bg-white p-2 text-sm dark:border-gray-700 dark:bg-gray-900"
+                    rows={2}
+                    placeholder={t("workflow.remarkPlaceholder")}
+                    value={remarks[file.template_code] ?? ""}
+                    onChange={(e) =>
+                      setRemarks((prev) => ({ ...prev, [file.template_code]: e.target.value }))
+                    }
+                  />
                   <div className="flex flex-wrap gap-2">
                     <Button
                       size="sm"
-                      variant="outline"
-                      onClick={() => void loadPreview(file.template_code)}
+                      disabled={submitting === file.template_code}
+                      onClick={() => void handleReview(file.template_code, "approved")}
                     >
-                      {t("workflow.viewFile")}
+                      {t("workflow.validateFile")}
                     </Button>
                     <Button
                       size="sm"
                       variant="outline"
-                      onClick={(e) => void handleDownload(file.template_code, e)}
+                      disabled={submitting === file.template_code}
+                      onClick={() => void handleReview(file.template_code, "rejected")}
                     >
-                      {t("common.download")}
+                      {t("workflow.rejectFile")}
                     </Button>
                   </div>
-
-                  {canReview ? (
-                    <div className="space-y-2 rounded-lg bg-white/60 p-3 dark:bg-gray-900/40">
-                      <label className="text-xs font-medium text-gray-600 dark:text-gray-400">
-                        {t("workflow.remarkFor")} {displayName}
-                      </label>
-                      <textarea
-                        className="w-full rounded-lg border border-gray-200 bg-white p-2 text-sm dark:border-gray-700 dark:bg-gray-900"
-                        rows={2}
-                        placeholder={t("workflow.remarkPlaceholder")}
-                        value={remarks[file.template_code] ?? ""}
-                        onChange={(e) =>
-                          setRemarks((prev) => ({ ...prev, [file.template_code]: e.target.value }))
-                        }
-                      />
-                      <div className="flex flex-wrap gap-2">
-                        <Button
-                          size="sm"
-                          disabled={submitting === file.template_code}
-                          onClick={() => void handleReview(file.template_code, "approved")}
-                        >
-                          {t("workflow.validateFile")}
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          disabled={submitting === file.template_code}
-                          onClick={() => void handleReview(file.template_code, "rejected")}
-                        >
-                          {t("workflow.rejectFile")}
-                        </Button>
-                      </div>
-                    </div>
-                  ) : null}
                 </div>
               ) : null}
             </li>
@@ -237,6 +242,7 @@ export default function WorkflowFileReviewList({
               onClick={() => {
                 setActiveCode(null);
                 setEditorConfig(null);
+                setPreviewUnavailable(false);
               }}
             >
               {t("documents.closeEditor")}
@@ -253,16 +259,20 @@ export default function WorkflowFileReviewList({
                 onClose={() => {
                   setActiveCode(null);
                   setEditorConfig(null);
+                  setPreviewUnavailable(false);
                 }}
               />
-            ) : (
-              <p className="p-4 text-sm text-gray-500">{t("workflow.previewUnavailable")}</p>
-            )}
+            ) : previewUnavailable ? (
+              <div className="space-y-3 p-4">
+                <p className="text-sm text-gray-500">{t("workflow.previewUnavailable")}</p>
+                <Button size="sm" onClick={() => void handleDownload(activeCode)}>
+                  {t("common.download")}
+                </Button>
+              </div>
+            ) : null}
           </div>
         </div>
-      ) : (
-        <p className="text-xs text-gray-500">{t("workflow.selectFileHint")}</p>
-      )}
+      ) : null}
     </div>
   );
 }

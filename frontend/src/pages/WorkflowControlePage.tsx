@@ -20,7 +20,7 @@ import { workflowStatusLabel } from "../features/auth/types";
 import type { Utilisateur } from "../features/auth/types";
 import type { WorkflowQueueItem, WorkflowState } from "../api/workflow";
 import { ApiError } from "../api/client";
-import { showError, showSuccess } from "../lib/swal";
+import { confirmAction, promptComment, showError, showSuccess } from "../lib/swal";
 import { useTranslation } from "../i18n/useTranslation";
 
 export default function WorkflowControlePage() {
@@ -80,6 +80,12 @@ export default function WorkflowControlePage() {
   }
 
   async function handleAssign(jobId: string, reviewerId?: number) {
+    const confirmed = await confirmAction({
+      title: t("confirm.assignReviewerTitle"),
+      confirmText: t("confirm.proceed"),
+      cancelText: t("common.cancel"),
+    });
+    if (!confirmed.isConfirmed) return;
     try {
       const token = await getApiToken(getToken);
       const state = await assignReviewer(token, jobId, reviewerId);
@@ -93,6 +99,13 @@ export default function WorkflowControlePage() {
 
   async function handleComplete() {
     if (!selected) return;
+    const confirmed = await confirmAction({
+      title: t("confirm.completeControleTitle"),
+      text: t("confirm.completeControleText"),
+      confirmText: t("confirm.proceed"),
+      cancelText: t("common.cancel"),
+    });
+    if (!confirmed.isConfirmed) return;
     try {
       const token = await getApiToken(getToken);
       const state = await completeProcedure(token, selected.job_id);
@@ -106,11 +119,17 @@ export default function WorkflowControlePage() {
 
   async function handleReject() {
     if (!selected) return;
-    const comment = window.prompt(t("workflow.rejectReason"));
-    if (!comment?.trim()) return;
+    const prompt = await promptComment({
+      title: t("confirm.rejectPackageTitle"),
+      text: t("confirm.rejectPackageText"),
+      placeholder: t("confirm.rejectReasonPlaceholder"),
+      confirmText: t("confirm.proceed"),
+      cancelText: t("common.cancel"),
+    });
+    if (!prompt.isConfirmed || !prompt.value) return;
     try {
       const token = await getApiToken(getToken);
-      const state = await rejectProcedure(token, selected.job_id, comment.trim());
+      const state = await rejectProcedure(token, selected.job_id, prompt.value);
       setSelected(state);
       await loadQueue();
       showSuccess(t("workflow.packageRejected"));

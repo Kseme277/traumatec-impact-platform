@@ -104,7 +104,7 @@ async def list_job_files(
     return state["files"]
 
 
-@router.post("/{job_id}/files/{template_code}/review", response_model=WorkflowStateResponse)
+@router.post("/{job_id}/files/{template_code:path}/review", response_model=WorkflowStateResponse)
 async def review_file(
     job_id: UUID,
     template_code: str,
@@ -123,7 +123,7 @@ async def review_file(
     return WorkflowStateResponse(**state)
 
 
-@router.get("/{job_id}/files/{template_code}/editor-config", response_model=CertificateEditorConfigResponse)
+@router.get("/{job_id}/files/{template_code:path}/editor-config", response_model=CertificateEditorConfigResponse)
 async def package_file_editor_config(
     job_id: UUID,
     template_code: str,
@@ -154,7 +154,7 @@ async def package_file_editor_config(
     )
 
 
-@router.get("/{job_id}/files/{template_code}/onlyoffice-file")
+@router.get("/{job_id}/files/{template_code:path}/onlyoffice-file")
 async def package_file_onlyoffice(
     job_id: UUID,
     template_code: str,
@@ -182,7 +182,7 @@ async def package_file_onlyoffice(
     )
 
 
-@router.get("/{job_id}/files/{template_code}/download")
+@router.get("/{job_id}/files/{template_code:path}/download")
 async def package_file_download(
     job_id: UUID,
     template_code: str,

@@ -16,6 +16,8 @@ import type { Evenement, EvenementPayload, EventStatus, PreparationTheme } from 
 import { getProjectStatusFormOptions } from "./projectStatus";
 import { inferActivityKind, themeFormOptionsForEvent } from "./themeOptions";
 import { buildEventTypeOptions, matchEventTypeOption } from "./eventTypeOptions";
+import { validateEventFormPayload } from "./eventGenerationReadiness";
+import { confirmAction, showError } from "../../lib/swal";
 import type { Utilisateur } from "../auth/types";
 import type { Teacher } from "../../api/teachers";
 import type { NationalContact } from "../../api/nationalContacts";
@@ -223,10 +225,10 @@ export default function EvenementForm({
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
     const isNonop = themeChoice === "operatory-nonop";
-    await onSubmit({
+    const payload: EvenementPayload = {
       ...form,
       event_type: form.event_type || null,
-      responsible_person: form.responsible_person || null,
+      responsible_person: form.responsible_person || form.national_responsible_name || null,
       national_responsible_name: form.national_responsible_name || null,
       national_responsible_email: form.national_responsible_email || null,
       national_responsible_phone: form.national_responsible_phone || null,
@@ -243,7 +245,23 @@ export default function EvenementForm({
         : ((isNonop ? "operatory" : form.preparation_theme) as PreparationTheme | null) || null,
       package_type_override: isNonop ? "NONOP_C" : null,
       status: form.status as EventStatus,
+    };
+
+    const issues = validateEventFormPayload(payload, t);
+    if (issues.length > 0) {
+      await showError(t("common.required"), issues.join("\n"));
+      return;
+    }
+
+    const confirmed = await confirmAction({
+      title: initial ? t("confirm.saveEventTitle") : t("confirm.createEventTitle"),
+      text: initial ? t("confirm.saveEventText") : t("confirm.createEventText"),
+      confirmText: t("confirm.proceed"),
+      cancelText: t("common.cancel"),
     });
+    if (!confirmed.isConfirmed) return;
+
+    await onSubmit(payload);
   };
 
   const resolvedSubmitLabel = submitLabel ?? t("common.save");
@@ -287,11 +305,13 @@ export default function EvenementForm({
 
       <div className="rounded-xl border border-gray-100 p-4 dark:border-gray-800">
         <p className="mb-4 text-sm font-medium text-gray-700 dark:text-gray-300">
-          Responsable national (ne se connecte pas au TIP)
+          {t("events.nationalResponsibleSection")}
         </p>
         <div className="space-y-4">
           <div>
-            <Label>Contact national</Label>
+            <Label>
+              {t("events.nationalContactLabel")} <span className="text-error-500">*</span>
+            </Label>
             <Select
               options={nationalOptions}
               value={nationalContactId}
@@ -304,28 +324,50 @@ export default function EvenementForm({
               </p>
             ) : null}
           </div>
-          {nationalContactId ? (
-            <div className="grid grid-cols-1 gap-3 rounded-lg bg-gray-50 p-3 text-sm dark:bg-gray-800/50 sm:grid-cols-3">
-              <div>
-                <span className="text-gray-500">Nom</span>
-                <p className="font-medium">{form.national_responsible_name || "—"}</p>
-              </div>
-              <div>
-                <span className="text-gray-500">Email</span>
-                <p className="font-medium">{form.national_responsible_email || "—"}</p>
-              </div>
-              <div>
-                <span className="text-gray-500">Téléphone</span>
-                <p className="font-medium">{form.national_responsible_phone || "—"}</p>
-              </div>
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+            <div>
+              <Label>
+                {t("events.responsible")} <span className="text-error-500">*</span>
+              </Label>
+              <Input
+                value={form.national_responsible_name ?? ""}
+                onChange={(e) =>
+                  setForm({ ...form, national_responsible_name: e.target.value, responsible_person: e.target.value })
+                }
+                placeholder={t("events.responsiblePlaceholder")}
+              />
             </div>
-          ) : null}
+            <div>
+              <Label>
+                {t("events.responsibleEmail")} <span className="text-error-500">*</span>
+              </Label>
+              <Input
+                type="email"
+                value={form.national_responsible_email ?? ""}
+                onChange={(e) => setForm({ ...form, national_responsible_email: e.target.value })}
+                placeholder="responsable@exemple.org"
+              />
+            </div>
+            <div>
+              <Label>
+                {t("events.responsiblePhone")} <span className="text-error-500">*</span>
+              </Label>
+              <Input
+                type="tel"
+                value={form.national_responsible_phone ?? ""}
+                onChange={(e) => setForm({ ...form, national_responsible_phone: e.target.value })}
+                placeholder="+221 77 000 00 00"
+              />
+            </div>
+          </div>
         </div>
       </div>
 
       <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
         <div>
-          <Label>Responsable organisation (support administratif)</Label>
+          <Label>
+            {t("events.organizerResponsible")} <span className="text-error-500">*</span>
+          </Label>
           <Select
             options={organizerOptions}
             value={form.organizer_responsible_user_id ? String(form.organizer_responsible_user_id) : ""}
@@ -414,7 +456,7 @@ export default function EvenementForm({
 
       <div>
         <MultiSelect
-          label="Enseignants"
+          label={t("events.teachersOptional")}
           placeholder="— Sélectionner un ou plusieurs enseignants —"
           options={teacherSelectOptions}
           value={form.teacher_ids ?? []}

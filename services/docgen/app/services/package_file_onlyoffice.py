@@ -4,14 +4,15 @@ from __future__ import annotations
 
 import hashlib
 import hmac
-import json
 import time
 from pathlib import Path
+from urllib.parse import quote
 from uuid import UUID
 
 from fastapi import HTTPException, status
 
 from app.core.config import Settings
+from app.services.package_workflow import trace_package_files
 from tip_common.storage import get_object_storage
 
 CONTENT_TYPES = {
@@ -105,7 +106,7 @@ def build_package_file_editor_config(
     file_token = create_access_token(settings, job_id, template_code, "file")
     base = settings.docgen_internal_url.rstrip("/")
     prefix = settings.api_v1_prefix.rstrip("/")
-    encoded = template_code.replace("/", "%2F")
+    encoded = quote(template_code, safe="")
     file_url = (
         f"{base}{prefix}/generations/{job_id}/files/{encoded}/onlyoffice-file"
         f"?token={file_token}"

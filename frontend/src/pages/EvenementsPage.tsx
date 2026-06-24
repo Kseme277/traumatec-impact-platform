@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Search } from "lucide-react";
-import { Link } from "react-router";
+import { Link, useSearchParams } from "react-router";
 import AdminBreadcrumb from "../components/common/AdminBreadcrumb";
 import ComponentCard from "../components/common/ComponentCard";
 import PageMeta from "../components/common/PageMeta";
@@ -43,6 +43,7 @@ import { showSuccess } from "../lib/swal";
 export default function EvenementsPage() {
   const { t, localeTag } = useTranslation();
   const { isAdmin } = useTipAuth();
+  const [searchParams] = useSearchParams();
   const importModal = useModal();
   const {
     events,
@@ -64,6 +65,13 @@ export default function EvenementsPage() {
   const [country, setCountry] = useState("");
   const [sortBy, setSortBy] = useState<EventSortField>(DEFAULT_EVENT_SORT);
   const [sortDir, setSortDir] = useState(DEFAULT_EVENT_SORT_DIR);
+
+  useEffect(() => {
+    const statusFromUrl = searchParams.get("status");
+    if (statusFromUrl) {
+      setProjectStatus(statusFromUrl);
+    }
+  }, [searchParams]);
 
   const statusFilterOptions = useMemo(() => getProjectStatusFilterOptions(t), [t]);
   const sortOptions = useMemo(() => buildSortSelectOptions(t), [t]);
@@ -159,24 +167,28 @@ export default function EvenementsPage() {
           value={isLoading ? "—" : total}
           icon={<ListIcon className="size-6 text-brand-500 dark:text-brand-400" />}
           iconBgClassName="bg-brand-50 dark:bg-brand-500/15"
+          to="/evenements"
         />
         <EventStatCard
           label={t("events.open")}
           value={isLoading ? "—" : openCount}
           icon={<CalenderIcon className="size-6 text-warning-600 dark:text-warning-500" />}
           iconBgClassName="bg-warning-50 dark:bg-warning-500/15"
+          to="/evenements?status=Open"
         />
         <EventStatCard
           label={t("events.closed")}
           value={isLoading ? "—" : closedCount}
           icon={<CheckCircleIcon className="size-6 text-success-600 dark:text-success-500" />}
           iconBgClassName="bg-success-50 dark:bg-success-500/15"
+          to="/evenements?status=Closed"
         />
         <EventStatCard
           label={t("events.cancelled")}
           value={isLoading ? "—" : cancelledCount}
           icon={<CloseIcon className="size-6 text-error-600 dark:text-error-500" />}
           iconBgClassName="bg-error-50 dark:bg-error-500/15"
+          to="/evenements?status=Cancelled"
         />
       </div>
 

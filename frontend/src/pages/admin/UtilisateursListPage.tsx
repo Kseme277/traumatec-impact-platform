@@ -69,18 +69,22 @@ export default function UtilisateursListPage() {
           value={isLoading ? "—" : users.length}
           icon={<GroupIcon className="size-6 text-brand-500 dark:text-brand-400" />}
           iconBgClassName="bg-brand-50 dark:bg-brand-500/15"
+          to="/admin/utilisateurs"
         />
         <UserStatCard
           label={t("users.activeCount")}
           value={isLoading ? "—" : activeCount}
           icon={<CheckCircleIcon className="size-6 text-success-600 dark:text-success-500" />}
           iconBgClassName="bg-success-50 dark:bg-success-500/15"
+          to="/admin/utilisateurs"
+          hint={t("dashboard.metricHintUsers")}
         />
         <UserStatCard
           label={t("users.inactiveCount")}
           value={isLoading ? "—" : users.length - activeCount}
           icon={<ErrorIcon className="size-6 text-error-600 dark:text-error-500" />}
           iconBgClassName="bg-error-50 dark:bg-error-500/15"
+          to="/admin/utilisateurs"
         />
       </div>
 

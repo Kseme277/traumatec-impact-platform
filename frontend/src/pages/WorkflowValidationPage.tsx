@@ -17,7 +17,7 @@ import { getApiToken } from "../lib/clerkToken";
 import { workflowStatusLabel } from "../features/auth/types";
 import type { WorkflowQueueItem, WorkflowState } from "../api/workflow";
 import { ApiError } from "../api/client";
-import { showError, showSuccess } from "../lib/swal";
+import { confirmAction, promptComment, showError, showSuccess } from "../lib/swal";
 import { useTranslation } from "../i18n/useTranslation";
 
 export default function WorkflowValidationPage() {
@@ -78,6 +78,12 @@ export default function WorkflowValidationPage() {
 
   async function handleApprove() {
     if (!selected) return;
+    const confirmed = await confirmAction({
+      title: t("confirm.approvePackageTitle"),
+      confirmText: t("confirm.proceed"),
+      cancelText: t("common.cancel"),
+    });
+    if (!confirmed.isConfirmed) return;
     try {
       const token = await getApiToken(getToken);
       const state = await approveValidator(token, selected.job_id);
@@ -91,11 +97,17 @@ export default function WorkflowValidationPage() {
 
   async function handleReject() {
     if (!selected) return;
-    const comment = window.prompt(t("workflow.rejectReason"));
-    if (!comment?.trim()) return;
+    const prompt = await promptComment({
+      title: t("confirm.rejectPackageTitle"),
+      text: t("confirm.rejectPackageText"),
+      placeholder: t("confirm.rejectReasonPlaceholder"),
+      confirmText: t("confirm.proceed"),
+      cancelText: t("common.cancel"),
+    });
+    if (!prompt.isConfirmed || !prompt.value) return;
     try {
       const token = await getApiToken(getToken);
-      const state = await rejectValidator(token, selected.job_id, comment.trim());
+      const state = await rejectValidator(token, selected.job_id, prompt.value);
       setSelected(state);
       await loadQueue();
       showSuccess(t("workflow.packageRejected"));
@@ -106,6 +118,13 @@ export default function WorkflowValidationPage() {
 
   async function handleMailto() {
     if (!selected) return;
+    const confirmed = await confirmAction({
+      title: t("confirm.sendMailtoTitle"),
+      text: t("confirm.sendMailtoText"),
+      confirmText: t("confirm.proceed"),
+      cancelText: t("common.cancel"),
+    });
+    if (!confirmed.isConfirmed) return;
     try {
       const token = await getApiToken(getToken);
       const { mailto_url } = await fetchDeliveryMailto(token, selected.job_id);

@@ -1,7 +1,7 @@
 from datetime import date
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.responses import Response
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -25,23 +25,31 @@ async def recent_generations(
     user: AuthenticatedUser = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
     limit: int = 30,
+    platform: bool = Query(default=False),
 ) -> list[GenerationNotificationResponse]:
-    """Notifications de fin de tâche DocGen (Redis/RQ) pour l'utilisateur courant."""
+    """Dernières générations DocGen — utilisateur courant ou plateforme (admin / support)."""
     cap = min(max(limit, 1), 100)
+    platform_wide = platform and (
+        user.is_admin or "support_administratif" in user.roles
+    )
+    where_sql = "" if platform_wide else "WHERE j.requested_by_id = :user_id"
+    params: dict = {"limit": cap}
+    if not platform_wide:
+        params["user_id"] = user.id
+
     result = await db.execute(
         text(
-            """
-            SELECT j.id, j.event_id, j.status, j.zip_filename, j.error_message,
+            f"""
+            SELECT j.id, j.event_id, j.status, j.workflow_status, j.zip_filename, j.error_message,
                    j.created_at, j.completed_at, e.title AS event_title
             FROM docgen.generation_jobs j
             LEFT JOIN events.events e ON e.id = j.event_id
-            WHERE j.requested_by_id = :user_id
-              AND j.status IN ('completed', 'failed', 'running', 'queued')
+            {where_sql}
             ORDER BY COALESCE(j.completed_at, j.created_at) DESC
             LIMIT :limit
             """
         ),
-        {"user_id": user.id, "limit": cap},
+        params,
     )
     rows = result.mappings().all()
     return [
@@ -50,6 +58,7 @@ async def recent_generations(
             event_id=row["event_id"],
             event_title=row["event_title"],
             status=row["status"],
+            workflow_status=row["workflow_status"],
             zip_filename=row["zip_filename"],
             error_message=row["error_message"],
             created_at=row["created_at"],

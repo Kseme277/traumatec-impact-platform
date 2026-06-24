@@ -48,6 +48,7 @@ class GenerationNotificationResponse(BaseModel):
     event_id: UUID
     event_title: str | None = None
     status: str
+    workflow_status: str | None = "generated"
     zip_filename: str | None = None
     error_message: str | None = None
     created_at: datetime

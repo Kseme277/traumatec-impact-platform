@@ -12,7 +12,7 @@ import ClerkUserAvatar from "../../components/auth/ClerkUserAvatar";
 import { useTipAuth } from "../../context/TipAuthContext";
 import { useTranslation } from "../../i18n/useTranslation";
 import { roleLabel, type UtilisateurUpdatePayload } from "../auth/types";
-import { showError, showSuccess } from "../../lib/swal";
+import { confirmAction, showError, showSuccess } from "../../lib/swal";
 
 function ReadOnlyField({ label, value }: { label: string; value: string }) {
   return (
@@ -54,6 +54,13 @@ export default function MonProfilForm() {
       await showError(t("common.required"), t("profile.requiredFields"));
       return;
     }
+
+    const confirmed = await confirmAction({
+      title: t("confirm.saveProfileTitle"),
+      confirmText: t("confirm.proceed"),
+      cancelText: t("common.cancel"),
+    });
+    if (!confirmed.isConfirmed) return;
 
     setIsSubmitting(true);
     try {

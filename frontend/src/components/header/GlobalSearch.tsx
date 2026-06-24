@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router";
 import { useAuth } from "@clerk/clerk-react";
+import { Sparkles } from "lucide-react";
 import { fetchAuditEvents } from "../../api/audit";
 import { fetchEvents } from "../../api/events";
 import { fetchAllUsers } from "../../api/users";
 import { filterSearchEntries, SEARCH_ENTRIES, type SearchEntry } from "../../config/searchIndex";
+import { useCommandAssistant } from "../../context/CommandAssistantContext";
 import { useTipAuth } from "../../context/TipAuthContext";
 import { useTranslation } from "../../i18n/useTranslation";
 
@@ -20,6 +22,7 @@ export default function GlobalSearch() {
   const navigate = useNavigate();
   const { getToken } = useAuth();
   const { isAdmin, hasRole } = useTipAuth();
+  const { openWithMessage } = useCommandAssistant();
   const { t } = useTranslation();
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -60,6 +63,15 @@ export default function GlobalSearch() {
     },
     [closePalette, navigate],
   );
+
+  const askAssistant = useCallback(() => {
+    const trimmed = query.trim();
+    if (trimmed.length < 2) return;
+    closePalette();
+    openWithMessage(trimmed);
+  }, [closePalette, openWithMessage, query]);
+
+  const trimmedQuery = query.trim();
 
   useEffect(() => {
     const handleKeyDown = (event: KeyboardEvent) => {
@@ -218,6 +230,26 @@ export default function GlobalSearch() {
             </div>
 
             <div className="max-h-[420px] overflow-y-auto p-2">
+              {trimmedQuery.length >= 2 && (
+                <button
+                  type="button"
+                  onClick={askAssistant}
+                  className="mb-2 flex w-full items-center gap-3 rounded-xl border border-brand-200 bg-brand-50/80 px-4 py-3 text-left transition hover:bg-brand-50 dark:border-brand-500/30 dark:bg-brand-500/10 dark:hover:bg-brand-500/15"
+                >
+                  <span className="flex size-9 items-center justify-center rounded-lg bg-brand-500 text-white">
+                    <Sparkles className="size-4" />
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block text-sm font-medium text-brand-700 dark:text-brand-300">
+                      {t("assistant.askFromSearch").replace("{query}", trimmedQuery)}
+                    </span>
+                    <span className="mt-0.5 block text-xs text-brand-600/80 dark:text-brand-200/70">
+                      {t("assistant.subtitle")}
+                    </span>
+                  </span>
+                </button>
+              )}
+
               {results.length === 0 ? (
                 <p className="px-4 py-8 text-center text-sm text-gray-500 dark:text-gray-400">
                   {isSearching ? t("search.loading") : t("search.noResults")}

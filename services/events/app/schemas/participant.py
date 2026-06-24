@@ -47,6 +47,7 @@ class ParticipantImportResult(BaseModel):
     already_in_event_count: int = 0
     known_from_other_events_count: int = 0
     enseignants_count: int = 0
+    teachers_synced_count: int = 0
     participants_count: int = 0
     source_event_title: str | None = None
     warnings: list[str] = Field(default_factory=list)

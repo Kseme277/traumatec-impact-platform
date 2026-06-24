@@ -63,6 +63,10 @@ const AppSidebar: React.FC = () => {
         setOpenSubmenu(index);
         submenuMatched = true;
       }
+      if (nav.subItems && location.pathname.startsWith("/admin")) {
+        setOpenSubmenu(index);
+        submenuMatched = true;
+      }
     });
     if (!submenuMatched) {
       setOpenSubmenu(null);
@@ -125,12 +129,18 @@ const AppSidebar: React.FC = () => {
                 to={nav.path}
                 data-tour={nav.tourId}
                 className={`menu-item group ${
-                  isActive(nav.path) ? "menu-item-active" : "menu-item-inactive"
+                  isActive(nav.path) ||
+                  (nav.path.startsWith("/documents") && location.pathname.startsWith("/documents"))
+                    ? "menu-item-active"
+                    : "menu-item-inactive"
                 }`}
               >
                 <span
                   className={`menu-item-icon-size ${
-                    isActive(nav.path) ? "menu-item-icon-active" : "menu-item-icon-inactive"
+                    isActive(nav.path) ||
+                    (nav.path.startsWith("/documents") && location.pathname.startsWith("/documents"))
+                      ? "menu-item-icon-active"
+                      : "menu-item-icon-inactive"
                   }`}
                 >
                   {nav.icon}

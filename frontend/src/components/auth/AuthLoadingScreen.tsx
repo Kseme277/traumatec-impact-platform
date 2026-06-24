@@ -5,5 +5,5 @@ interface AuthLoadingScreenProps {
 }
 
 export default function AuthLoadingScreen({ message }: AuthLoadingScreenProps) {
-  return <TipSplashLoader message={message} variant="fullscreen" />;
+  return <TipSplashLoader message={message} />;
 }

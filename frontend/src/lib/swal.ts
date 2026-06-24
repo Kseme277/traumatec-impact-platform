@@ -4,7 +4,7 @@ const brandColor = "#465fff";
 
 export async function confirmAction(options: {
   title: string;
-  text: string;
+  text?: string;
   confirmText?: string;
   cancelText?: string;
   icon?: "warning" | "question" | "info";
@@ -21,6 +21,42 @@ export async function confirmAction(options: {
     reverseButtons: true,
     focusCancel: true,
   });
+}
+
+export async function promptComment(options: {
+  title: string;
+  text?: string;
+  placeholder?: string;
+  confirmText?: string;
+  cancelText?: string;
+  required?: boolean;
+}) {
+  const result = await Swal.fire({
+    title: options.title,
+    text: options.text,
+    input: "textarea",
+    inputPlaceholder: options.placeholder ?? "",
+    inputAttributes: { "aria-label": options.placeholder ?? "" },
+    showCancelButton: true,
+    confirmButtonColor: brandColor,
+    cancelButtonColor: "#667085",
+    confirmButtonText: options.confirmText ?? "Confirmer",
+    cancelButtonText: options.cancelText ?? "Annuler",
+    reverseButtons: true,
+    focusCancel: true,
+    preConfirm: (value) => {
+      const trimmed = String(value ?? "").trim();
+      if (options.required !== false && !trimmed) {
+        Swal.showValidationMessage(options.placeholder ?? "Required");
+        return false;
+      }
+      return trimmed;
+    },
+  });
+  return {
+    isConfirmed: result.isConfirmed,
+    value: result.isConfirmed ? String(result.value ?? "").trim() : "",
+  };
 }
 
 export function showSuccess(title: string, text?: string) {

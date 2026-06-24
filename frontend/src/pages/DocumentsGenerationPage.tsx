@@ -1,4 +1,4 @@
-import { Fragment, useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router";
 import { useAuth } from "@clerk/clerk-react";
 import AdminBreadcrumb from "../components/common/AdminBreadcrumb";
@@ -8,16 +8,8 @@ import AuthLoadingScreen from "../components/auth/AuthLoadingScreen";
 import TipAnimatedLogo from "../components/brand/TipAnimatedLogo";
 import Label from "../components/form/Label";
 import Input from "../components/form/input/InputField";
-import Select from "../components/form/Select";
 import Button from "../components/ui/button/Button";
 import Badge from "../components/ui/badge/Badge";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHeader,
-  TableRow,
-} from "../components/ui/table";
 import { fetchEvent, updateEvent } from "../api/events";
 import { fetchPackageBundles, fetchTemplates } from "../api/catalog";
 import type { PackageBundle, PackageTemplate } from "../features/documents/types";
@@ -46,6 +38,7 @@ import {
   suggestPreparationTheme,
   themeFormOptionsForEvent,
 } from "../features/events/themeOptions";
+import { validateEventForGeneration } from "../features/events/eventGenerationReadiness";
 import {
   downloadGenerationZip,
   fetchGenerationHistory,
@@ -55,26 +48,15 @@ import { submitPackage } from "../api/workflow";
 import { workflowStatusLabel } from "../features/auth/types";
 import { ApiError } from "../api/client";
 import { getApiToken } from "../lib/clerkToken";
+import GenerationHistoryPanel from "../features/documents/GenerationHistoryPanel";
 import GenerationLogPanel from "../features/documents/GenerationLogPanel";
 import type { GenerationJob } from "../features/documents/types";
 import { jobStatusColor, jobStatusLabel } from "../features/documents/types";
 import { useTranslation } from "../i18n/useTranslation";
-import { showError, showSuccess } from "../lib/swal";
+import { confirmAction, showError, showSuccess } from "../lib/swal";
 import PackageDueEventsPanel from "../features/events/PackageDueEventsPanel";
 import { needsPackageGenerationHighlight } from "../features/events/packageGenerationUrgency";
-
-function contactFromEvent(event: Evenement | null): { email: string; phone: string } {
-  if (!event) return { email: "", phone: "" };
-  const meta = event.metadata_json;
-  return {
-    email: String(event.responsible_email ?? meta?.responsible_email ?? "").trim(),
-    phone: String(event.responsible_phone ?? meta?.responsible_phone ?? "").trim(),
-  };
-}
-
-function isValidResponsibleEmail(email: string): boolean {
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
-}
+import Select from "../components/form/Select";
 
 function eventOptionLabel(event: Evenement): string {
   const dates = formatEventDateRange(event);
@@ -100,15 +82,12 @@ export default function DocumentsGenerationPage() {
   const [activeJob, setActiveJob] = useState<GenerationJob | null>(null);
   const [history, setHistory] = useState<GenerationJob[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
-  const [expandedHistoryJobId, setExpandedHistoryJobId] = useState<string | null>(null);
   const [eventDetail, setEventDetail] = useState<Evenement | null>(null);
   const [eventPackageFiles, setEventPackageFiles] = useState<PackageTemplate[]>([]);
   const [eventPackageBundle, setEventPackageBundle] = useState<PackageBundle | null>(null);
   const [packagePreviewLoading, setPackagePreviewLoading] = useState(false);
   const [eventSearchQuery, setEventSearchQuery] = useState("");
   const [eventTypeFilter, setEventTypeFilter] = useState("");
-  const [responsibleEmail, setResponsibleEmail] = useState("");
-  const [responsiblePhone, setResponsiblePhone] = useState("");
 
   const generationEventFilters = useMemo<EvenementFilters>(
     () => ({ upcoming: true, project_status: "Open" }),
@@ -130,18 +109,6 @@ export default function DocumentsGenerationPage() {
     () => events.filter(needsPackageGenerationHighlight),
     [events],
   );
-
-  useEffect(() => {
-    if (!selectedEventId) {
-      setResponsibleEmail("");
-      setResponsiblePhone("");
-      return;
-    }
-    const source = eventDetail ?? events.find((event) => event.id === selectedEventId) ?? null;
-    const contact = contactFromEvent(source);
-    setResponsibleEmail(contact.email);
-    setResponsiblePhone(contact.phone);
-  }, [selectedEventId, eventDetail, events]);
 
   useEffect(() => {
     if (!selectedEventId || !isLoaded || !isSignedIn) {
@@ -247,7 +214,6 @@ export default function DocumentsGenerationPage() {
     if (!selectedEventId) {
       setThemeDraft("");
       setActiveJob(null);
-      setExpandedHistoryJobId(null);
       return;
     }
 
@@ -262,7 +228,6 @@ export default function DocumentsGenerationPage() {
     }
 
     setActiveJob(null);
-    setExpandedHistoryJobId(null);
   }, [
     selectedEventId,
     selectedEvent?.preparation_theme,
@@ -318,10 +283,12 @@ export default function DocumentsGenerationPage() {
     && !isPreparationTheme(themeDraft)
     && packageCandidates.length === 0,
   );
-  const needsContact = Boolean(
-    selectedEvent && selectedIsGeneratable && (!responsibleEmail.trim() || !responsiblePhone.trim()),
+  const readinessSource = eventDetail ?? selectedEvent ?? null;
+  const readinessIssues = useMemo(
+    () => (readinessSource ? validateEventForGeneration(readinessSource, t) : []),
+    [readinessSource, t],
   );
-  const contactEmailInvalid = Boolean(responsibleEmail.trim() && !isValidResponsibleEmail(responsibleEmail));
+  const needsEventData = Boolean(selectedEvent && selectedIsGeneratable && readinessIssues.length > 0);
   const themeSelectOptions = useMemo(() => {
     if (!selectedEvent) return [];
     return themeFormOptionsForEvent(selectedEvent, t).filter((opt) => opt.value !== "");
@@ -329,6 +296,12 @@ export default function DocumentsGenerationPage() {
 
   const applyPackageCandidate = async (candidate: PackageCandidate) => {
     if (!selectedEvent) return;
+    const confirmed = await confirmAction({
+      title: t("confirm.saveThemeTitle"),
+      confirmText: t("confirm.proceed"),
+      cancelText: t("common.cancel"),
+    });
+    if (!confirmed.isConfirmed) return;
     const override = candidate.package_type === "NONOP_C" ? "NONOP_C" : null;
     const updated = await update(selectedEvent.id, {
       preparation_theme: (candidate.preparation_theme as PreparationTheme | null) || null,
@@ -346,42 +319,6 @@ export default function DocumentsGenerationPage() {
   const classifierLabel = (classifier?: string | null): string => {
     if (classifier === "nvidia") return t("documents.classifierNvidia");
     return t("documents.classifierRules");
-  };
-
-  const saveResponsibleContact = async (): Promise<Evenement | null> => {
-    if (!selectedEvent) return null;
-
-    const email = responsibleEmail.trim();
-    const phone = responsiblePhone.trim();
-
-    if (!email || !phone) {
-      await showError(t("documents.responsibleContactRequiredTitle"), t("documents.responsibleContactRequiredDesc"));
-      return null;
-    }
-    if (!isValidResponsibleEmail(email)) {
-      await showError(t("documents.responsibleEmailInvalidTitle"), t("documents.responsibleEmailInvalidDesc"));
-      return null;
-    }
-
-    const existing = contactFromEvent(selectedEvent);
-    if (existing.email === email && existing.phone === phone) {
-      return selectedEvent;
-    }
-
-    try {
-      const token = await getApiToken(getToken);
-      const updated = await updateEvent(token, selectedEvent.id, {
-        responsible_email: email,
-        responsible_phone: phone,
-      });
-      setEventDetail(updated);
-      await loadEvents(generationEventFilters);
-      return updated;
-    } catch (err) {
-      const message = err instanceof ApiError ? err.message : t("profile.saveFailed");
-      await showError(t("common.error"), message);
-      return null;
-    }
   };
 
   const saveTheme = async (options?: { quiet?: boolean }): Promise<Evenement | null> => {
@@ -456,7 +393,23 @@ export default function DocumentsGenerationPage() {
       return;
     }
 
-    let eventForGeneration = selectedEvent;
+    const eventForReadiness = eventDetail ?? selectedEvent;
+    const issues = validateEventForGeneration(eventForReadiness, t);
+    if (issues.length > 0) {
+      await showError(t("events.readinessTitle"), issues.join("\n"));
+      return;
+    }
+
+    const confirmed = await confirmAction({
+      title: t("confirm.generateTitle"),
+      text: t("confirm.generateText"),
+      confirmText: t("confirm.proceed"),
+      cancelText: t("common.cancel"),
+      icon: "question",
+    });
+    if (!confirmed.isConfirmed) return;
+
+    let eventForGeneration = eventForReadiness;
 
     const canGenerateWithoutTheme =
       isFacultyEvent
@@ -469,16 +422,16 @@ export default function DocumentsGenerationPage() {
       eventForGeneration = updated;
     }
 
-    const withContact = await saveResponsibleContact();
-    if (!withContact) {
-      return;
-    }
-    eventForGeneration = withContact;
-
     await runGeneration(eventForGeneration);
   };
 
   const handleSaveThemeOnly = async () => {
+    const confirmed = await confirmAction({
+      title: t("confirm.saveThemeTitle"),
+      confirmText: t("confirm.proceed"),
+      cancelText: t("common.cancel"),
+    });
+    if (!confirmed.isConfirmed) return;
     const updated = await saveTheme();
     if (updated?.preparation_theme) {
       await showSuccess(t("documents.themeSaved"), themeLabel(updated.preparation_theme));
@@ -503,6 +456,13 @@ export default function DocumentsGenerationPage() {
       job.workflow_status === "validator_rejected");
 
   const handleSubmit = async (job: GenerationJob) => {
+    const confirmed = await confirmAction({
+      title: t("confirm.submitWorkflowTitle"),
+      text: t("confirm.submitWorkflowText"),
+      confirmText: t("confirm.proceed"),
+      cancelText: t("common.cancel"),
+    });
+    if (!confirmed.isConfirmed) return;
     try {
       const token = await getApiToken(getToken);
       const { workflow } = await submitPackage(token, job.id);
@@ -697,51 +657,25 @@ export default function DocumentsGenerationPage() {
               </div>
             )}
 
-            {selectedEvent && selectedIsGeneratable && (
-              <div className="rounded-xl border border-gray-100 p-4 dark:border-gray-800">
+            {selectedEvent && selectedIsGeneratable && needsEventData && (
+              <div className="rounded-xl border border-warning-200 bg-warning-50/80 p-4 dark:border-warning-500/30 dark:bg-warning-500/10">
                 <p className="text-sm font-medium text-gray-800 dark:text-white/90">
-                  {t("documents.responsibleContactTitle")}
+                  {t("events.readinessTitle")}
                 </p>
-                <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                  {t("documents.responsibleContactDesc")}
+                <p className="mt-1 text-sm text-gray-600 dark:text-gray-300">
+                  {t("events.readinessDesc")}
                 </p>
-                {selectedEvent.responsible_person && (
-                  <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">
-                    {t("events.responsible")} :{" "}
-                    <span className="font-medium text-gray-800 dark:text-white/90">
-                      {selectedEvent.responsible_person}
-                    </span>
-                  </p>
-                )}
-                <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
-                  <div>
-                    <Label>
-                      {t("events.responsibleEmail")} <span className="text-error-500">*</span>
-                    </Label>
-                    <Input
-                      type="email"
-                      value={responsibleEmail}
-                      onChange={(e) => setResponsibleEmail(e.target.value)}
-                      placeholder="responsable@exemple.org"
-                    />
-                    {contactEmailInvalid && (
-                      <p className="mt-1 text-xs text-error-600 dark:text-error-400">
-                        {t("documents.responsibleEmailInvalidDesc")}
-                      </p>
-                    )}
-                  </div>
-                  <div>
-                    <Label>
-                      {t("events.responsiblePhone")} <span className="text-error-500">*</span>
-                    </Label>
-                    <Input
-                      type="tel"
-                      value={responsiblePhone}
-                      onChange={(e) => setResponsiblePhone(e.target.value)}
-                      placeholder="+221 77 000 00 00"
-                    />
-                  </div>
-                </div>
+                <ul className="mt-3 list-inside list-disc space-y-1 text-sm text-warning-700 dark:text-warning-400">
+                  {readinessIssues.map((issue) => (
+                    <li key={issue}>{issue}</li>
+                  ))}
+                </ul>
+                <Link
+                  to={`/evenements/${selectedEvent.id}/modifier`}
+                  className="mt-4 inline-flex text-sm font-medium text-brand-600 hover:underline dark:text-brand-400"
+                >
+                  {t("events.editEventLink")}
+                </Link>
               </div>
             )}
 
@@ -841,8 +775,7 @@ export default function DocumentsGenerationPage() {
                   themeInferenceLoading ||
                   !selectedEvent ||
                   !selectedIsGeneratable ||
-                  needsContact ||
-                  contactEmailInvalid ||
+                  needsEventData ||
                   (showThemePanel && needsTheme)
                 }
                 onClick={() => void handleGenerate()}
@@ -891,92 +824,13 @@ export default function DocumentsGenerationPage() {
         <ComponentCard title={t("documents.history")} desc={t("documents.historyDesc")}>
           {!selectedEventId ? (
             <p className="text-sm text-gray-500 dark:text-gray-400">{t("documents.selectEvent")}</p>
-          ) : historyLoading ? (
-            <p className="text-sm text-gray-500 dark:text-gray-400">{t("common.loading")}</p>
-          ) : history.length === 0 ? (
-            <p className="text-sm text-gray-500 dark:text-gray-400">{t("documents.noGeneration")}</p>
           ) : (
-            <div className="overflow-x-auto">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableCell isHeader className="px-2 py-2 text-xs">
-                      {t("common.status")}
-                    </TableCell>
-                    <TableCell isHeader className="px-2 py-2 text-xs">
-                      {t("common.date")}
-                    </TableCell>
-                    <TableCell isHeader className="px-2 py-2 text-xs">
-                      {t("common.file")}
-                    </TableCell>
-                    <TableCell isHeader className="px-2 py-2 text-xs text-right">
-                      {t("documents.generationLogs")}
-                    </TableCell>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {history.map((job) => (
-                    <Fragment key={job.id}>
-                      <TableRow>
-                        <TableCell className="px-2 py-2">
-                          <div className="flex flex-col gap-1">
-                            <Badge color={jobStatusColor(job.status)} size="sm">
-                              {jobStatusLabel(job.status, t)}
-                            </Badge>
-                            {job.workflow_status ? (
-                              <Badge color="light" size="sm">
-                                {workflowStatusLabel(job.workflow_status)}
-                              </Badge>
-                            ) : null}
-                          </div>
-                        </TableCell>
-                        <TableCell className="px-2 py-2 text-xs text-gray-500">
-                          {new Date(job.created_at).toLocaleString(localeTag)}
-                        </TableCell>
-                        <TableCell className="px-2 py-2 text-right">
-                          {job.status === "completed" && job.zip_available !== false && (
-                            <button
-                              type="button"
-                              className="text-xs font-medium text-brand-500 hover:underline"
-                              onClick={() => void handleDownload(job)}
-                            >
-                              ZIP
-                            </button>
-                          )}
-                          {job.status === "completed" && job.zip_available === false && (
-                            <span className="text-xs text-gray-400">{t("documents.zipExpiredShort")}</span>
-                          )}
-                        </TableCell>
-                        <TableCell className="px-2 py-2 text-right">
-                          {(job.logs?.length ?? 0) > 0 && (
-                            <button
-                              type="button"
-                              className="text-xs font-medium text-brand-500 hover:underline"
-                              onClick={() =>
-                                setExpandedHistoryJobId((current) =>
-                                  current === job.id ? null : job.id,
-                                )
-                              }
-                            >
-                              {expandedHistoryJobId === job.id
-                                ? t("documents.hideLogs")
-                                : t("documents.viewLogs")}
-                            </button>
-                          )}
-                        </TableCell>
-                      </TableRow>
-                      {expandedHistoryJobId === job.id && (job.logs?.length ?? 0) > 0 && (
-                        <TableRow>
-                          <TableCell colSpan={4} className="px-2 py-2">
-                            <GenerationLogPanel logs={job.logs ?? []} maxHeightClass="max-h-48" />
-                          </TableCell>
-                        </TableRow>
-                      )}
-                    </Fragment>
-                  ))}
-                </TableBody>
-              </Table>
-            </div>
+            <GenerationHistoryPanel
+              jobs={history}
+              loading={historyLoading}
+              eventId={selectedEventId}
+              onDownload={(job) => void handleDownload(job)}
+            />
           )}
         </ComponentCard>
       </div>

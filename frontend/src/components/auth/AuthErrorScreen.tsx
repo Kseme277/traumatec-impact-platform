@@ -2,6 +2,7 @@ import { useClerk } from "@clerk/clerk-react";
 import GridShape from "../common/GridShape";
 import PageMeta from "../common/PageMeta";
 import { useTranslation } from "../../i18n/useTranslation";
+import { confirmAction } from "../../lib/swal";
 import { LockIcon } from "../../icons";
 
 interface AuthErrorScreenProps {
@@ -73,6 +74,18 @@ export default function AuthErrorScreen({
   const { signOut } = useClerk();
   const presentation = resolveErrorPresentation(statusCode, title, t);
 
+  const handleSignOut = async () => {
+    const confirmed = await confirmAction({
+      title: t("confirm.logoutTitle"),
+      text: t("confirm.logoutText"),
+      confirmText: t("confirm.proceed"),
+      cancelText: t("common.cancel"),
+      icon: "question",
+    });
+    if (!confirmed.isConfirmed) return;
+    await signOut({ redirectUrl: "/signin" });
+  };
+
   return (
     <>
       <PageMeta
@@ -114,7 +127,7 @@ export default function AuthErrorScreen({
             )}
             <button
               type="button"
-              onClick={() => void signOut({ redirectUrl: "/signin" })}
+              onClick={() => void handleSignOut()}
               className="inline-flex items-center justify-center rounded-lg border border-gray-300 bg-white px-5 py-3.5 text-sm font-medium text-gray-700 shadow-theme-xs hover:bg-gray-50 hover:text-gray-800 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-400 dark:hover:bg-white/[0.03] dark:hover:text-gray-200"
             >
               {t("common.signOut")}

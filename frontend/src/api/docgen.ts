@@ -27,14 +27,17 @@ export interface GenerationNotification {
   event_id: string;
   event_title: string | null;
   status: string;
+  workflow_status?: string | null;
   zip_filename: string | null;
   error_message: string | null;
   created_at: string;
   completed_at: string | null;
 }
 
-export function fetchRecentGenerationJobs(token: string | null, limit = 30) {
-  return fetchJson<GenerationNotification[]>(`/v1/generations/recent?limit=${limit}`, token);
+export function fetchRecentGenerationJobs(token: string | null, limit = 30, platformWide = false) {
+  const params = new URLSearchParams({ limit: String(limit) });
+  if (platformWide) params.set("platform", "true");
+  return fetchJson<GenerationNotification[]>(`/v1/generations/recent?${params}`, token);
 }
 
 async function fetchJson<T>(path: string, token: string | null, options: RequestInit = {}): Promise<T> {

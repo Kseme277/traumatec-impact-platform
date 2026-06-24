@@ -1,7 +1,10 @@
 import { useEffect, useMemo, useState } from "react";
-import { City, Country, State } from "country-state-city";
+import { City, Country } from "country-state-city";
 import Label from "./Label";
 import Select from "./Select";
+import Input from "./input/InputField";
+import { useTranslation } from "../../i18n/useTranslation";
+import { TIP_GEO_REGIONS } from "../../features/events/tipRegions";
 
 interface GeoLocationSelectProps {
   country: string;
@@ -18,12 +21,23 @@ export default function GeoLocationSelect({
   onChange,
   disabled = false,
 }: GeoLocationSelectProps) {
+  const { t } = useTranslation();
   const [countryCode, setCountryCode] = useState("");
-  const [regionCode, setRegionCode] = useState("");
 
   const countries = useMemo(
     () => Country.getAllCountries().map((c) => ({ value: c.isoCode, label: c.name })),
     [],
+  );
+
+  const regionOptions = useMemo(
+    () => [
+      { value: "", label: "—" },
+      ...TIP_GEO_REGIONS.map((name) => ({ value: name, label: name })),
+      ...(region && !TIP_GEO_REGIONS.includes(region as (typeof TIP_GEO_REGIONS)[number])
+        ? [{ value: region, label: region }]
+        : []),
+    ],
+    [region],
   );
 
   useEffect(() => {
@@ -37,71 +51,67 @@ export default function GeoLocationSelect({
     setCountryCode(match?.isoCode ?? "");
   }, [country]);
 
-  useEffect(() => {
-    if (!countryCode || !region) {
-      setRegionCode("");
-      return;
-    }
-    const states = State.getStatesOfCountry(countryCode);
-    const match = states.find(
-      (s) => s.name.toLowerCase() === region.toLowerCase() || s.isoCode === region,
-    );
-    setRegionCode(match?.isoCode ?? "");
-  }, [countryCode, region]);
-
-  const regions = useMemo(() => {
+  const cities = useMemo(() => {
     if (!countryCode) return [];
-    return State.getStatesOfCountry(countryCode).map((s) => ({
-      value: s.isoCode,
-      label: s.name,
-    }));
+    const list = City.getCitiesOfCountry(countryCode) ?? [];
+    const names = [...new Set(list.map((c) => c.name))].sort((a, b) => a.localeCompare(b, "fr"));
+    return names.map((name) => ({ value: name, label: name }));
   }, [countryCode]);
 
-  const cities = useMemo(() => {
-    if (!countryCode || !regionCode) return [];
-    return City.getCitiesOfState(countryCode, regionCode).map((c) => ({
-      value: c.name,
-      label: c.name,
-    }));
-  }, [countryCode, regionCode]);
+  const cityOptions = useMemo(() => {
+    const base = [{ value: "", label: "—" }, ...cities];
+    if (city && !cities.some((c) => c.value === city)) {
+      return [{ value: "", label: "—" }, { value: city, label: city }, ...cities];
+    }
+    return base;
+  }, [cities, city]);
+
+  const useCityInput = Boolean(countryCode && cities.length === 0);
 
   return (
     <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
       <div>
-        <Label>Pays</Label>
+        <Label>{t("events.country")}</Label>
         <Select
           options={[{ value: "", label: "—" }, ...countries]}
           value={countryCode}
           onChange={(iso) => {
             const c = Country.getCountryByCode(iso);
             setCountryCode(iso);
-            setRegionCode("");
-            onChange({ country: c?.name ?? "", region: "", city: "" });
+            onChange({ country: c?.name ?? "", region, city: "" });
           }}
           disabled={disabled}
         />
       </div>
       <div>
-        <Label>Région</Label>
+        <Label>{t("events.region")}</Label>
         <Select
-          options={[{ value: "", label: "—" }, ...regions]}
-          value={regionCode}
-          onChange={(iso) => {
-            const s = State.getStatesOfCountry(countryCode).find((st) => st.isoCode === iso);
-            setRegionCode(iso);
-            onChange({ country, region: s?.name ?? "", city: "" });
-          }}
-          disabled={disabled || !countryCode}
+          options={regionOptions}
+          value={region}
+          onChange={(value) => onChange({ country, region: value, city })}
+          disabled={disabled}
         />
+        <p className="mt-1 text-theme-xs text-gray-500 dark:text-gray-400">
+          {t("events.regionHint")}
+        </p>
       </div>
       <div>
-        <Label>Ville</Label>
-        <Select
-          options={[{ value: "", label: "—" }, ...cities]}
-          value={city}
-          onChange={(name) => onChange({ country, region, city: name })}
-          disabled={disabled || !regionCode}
-        />
+        <Label>{t("events.city")}</Label>
+        {useCityInput ? (
+          <Input
+            value={city}
+            placeholder={t("events.cityPlaceholder")}
+            onChange={(e) => onChange({ country, region, city: e.target.value })}
+            disabled={disabled || !countryCode}
+          />
+        ) : (
+          <Select
+            options={cityOptions}
+            value={city}
+            onChange={(name) => onChange({ country, region, city: name })}
+            disabled={disabled || !countryCode}
+          />
+        )}
       </div>
     </div>
   );

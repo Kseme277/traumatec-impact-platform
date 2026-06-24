@@ -1,4 +1,4 @@
-import TipSplashLoader from "../brand/TipSplashLoader";
+import SpinnerLoader from "./SpinnerLoader";
 
 interface TableLoaderProps {
   message?: string;
@@ -9,11 +9,5 @@ export default function TableLoader({
   message = "Chargement des données…",
   className = "",
 }: TableLoaderProps) {
-  return (
-    <TipSplashLoader
-      message={message}
-      variant="inline"
-      className={className}
-    />
-  );
+  return <SpinnerLoader message={message} className={className} />;
 }

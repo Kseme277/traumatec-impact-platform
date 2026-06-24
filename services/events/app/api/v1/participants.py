@@ -18,6 +18,7 @@ from app.schemas.participant import (
     ParticipantStatsResponse,
 )
 from app.services.participant_import import REGISTRATION_COLUMNS_HELP, parse_registration_workbook
+from app.services.teacher_sync import sync_teacher_from_import_row
 from tip_common.audit import record_audit_event
 from tip_common.participant_identity import dedupe_participant_records, participant_identity_key
 from tip_common.redis_cache import invalidate_prefix
@@ -254,6 +255,7 @@ async def import_participants(
     participants_count = 0
     already_in_event_count = 0
     imported = 0
+    teachers_synced = 0
 
     for row in rows:
         if row["identity_key"] in existing_in_event_keys:
@@ -282,6 +284,10 @@ async def import_participants(
         imported += 1
         existing_in_event_keys.add(row["identity_key"])
 
+        if row["certificate_role"] == "enseignant":
+            await sync_teacher_from_import_row(db, event_id, row)
+            teachers_synced += 1
+
     if duplicate_in_file_count > 0:
         warnings.append(
             f"{duplicate_in_file_count} doublon(s) ignoré(s) dans le fichier (même e-mail ou même nom)."
@@ -294,6 +300,11 @@ async def import_participants(
         warnings.append(
             f"{known_from_other_events_count} participant(s) déjà présent(s) sur d'autres événements "
             "(historique conservé pour le détail participant)."
+        )
+    if teachers_synced > 0:
+        warnings.append(
+            f"{teachers_synced} enseignant(s) synchronisé(s) vers le référentiel "
+            "(Administration → Référentiels → Enseignants)."
         )
 
     ctx = dict(event.certificate_context_json or {})
@@ -323,6 +334,7 @@ async def import_participants(
             "actor_name": f"{user.prenom} {user.nom}".strip(),
             "enseignants_count": enseignants,
             "participants_count": participants_count,
+            "teachers_synced_count": teachers_synced,
             "total_in_event": total_in_event,
         },
     )
@@ -337,6 +349,7 @@ async def import_participants(
         known_from_other_events_count=known_from_other_events_count,
         enseignants_count=enseignants,
         participants_count=participants_count,
+        teachers_synced_count=teachers_synced,
         source_event_title=source_event_title,
         warnings=warnings,
     )

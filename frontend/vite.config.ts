@@ -41,6 +41,7 @@ function directApiProxies(): Record<string, ProxyOptions> {
     "/api/v1/teachers": proxyTo(8002),
     "/api/v1/national-contacts": proxyTo(8002),
     "/api/v1/participants": proxyTo(8002, { timeout: 600_000 }),
+    "/api/v1/assistant": proxyTo(8002),
     "/api/v1/users": proxyTo(8001),
     "/api/v1/auth": proxyTo(8001),
     "/api/v1/audit": proxyTo(8001),

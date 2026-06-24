@@ -24,9 +24,9 @@ interface UtilisateurDetailCardProps {
 
 function DetailRow({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div className="flex flex-col gap-1 border-b border-gray-100 py-4 last:border-0 dark:border-gray-800 sm:flex-row sm:items-center sm:justify-between">
-      <span className="text-theme-sm font-medium text-gray-500 dark:text-gray-400">{label}</span>
-      <div className="text-theme-sm text-gray-800 dark:text-white/90">{children}</div>
+    <div className="flex flex-col gap-1 border-b border-gray-100 py-4 last:border-0 dark:border-gray-800 sm:flex-row sm:items-start sm:justify-between sm:gap-6">
+      <span className="shrink-0 text-theme-sm font-medium text-gray-500 dark:text-gray-400 sm:pt-1">{label}</span>
+      <div className="min-w-0 flex-1 text-theme-sm text-gray-800 dark:text-white/90">{children}</div>
     </div>
   );
 }
@@ -68,7 +68,7 @@ export default function UtilisateurDetailCard({
         </DetailRow>
         <DetailRow label={t("common.email")}>{user.email}</DetailRow>
         <DetailRow label={t("users.rolesLabel")}>
-          <div className="w-full max-w-md">
+          <div className="w-full">
             <UserRolesEditor
               user={user}
               disabled={isSelf}
