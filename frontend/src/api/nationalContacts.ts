@@ -52,7 +52,6 @@ export function updateNationalContact(
 
 export function nationalContactLabel(contact: NationalContact): string {
   const parts = [contact.full_name];
-  if (contact.email) parts.push(contact.email);
-  if (contact.phone) parts.push(contact.phone);
+  
   return parts.join(" — ");
 }

@@ -212,6 +212,7 @@ export default function EvenementForm({
   }, [initial, scopesEventsToOrganizer, tipUser?.id]);
 
   useEffect(() => {
+    if (!nationalContacts.length) return;
     const name = form.national_responsible_name?.trim().toLowerCase();
     const email = form.national_responsible_email?.trim().toLowerCase();
     const match = nationalContacts.find((c) => {
@@ -219,6 +220,18 @@ export default function EvenementForm({
       return name && c.full_name.trim().toLowerCase() === name;
     });
     setNationalContactId(match?.id ?? "");
+    if (!match) return;
+    setForm((prev) => {
+      const patch: Partial<EvenementPayload> = {};
+      if (!prev.national_responsible_email?.trim() && match.email) {
+        patch.national_responsible_email = match.email;
+      }
+      if (!prev.national_responsible_phone?.trim() && match.phone) {
+        patch.national_responsible_phone = match.phone;
+      }
+      if (Object.keys(patch).length === 0) return prev;
+      return { ...prev, ...patch };
+    });
   }, [nationalContacts, form.national_responsible_name, form.national_responsible_email]);
 
   function applyNationalContact(contactId: string) {
@@ -226,12 +239,13 @@ export default function EvenementForm({
     if (!contactId) return;
     const contact = nationalContacts.find((c) => c.id === contactId);
     if (!contact) return;
-    setForm({
-      ...form,
+    setForm((prev) => ({
+      ...prev,
       national_responsible_name: contact.full_name,
+      responsible_person: contact.full_name,
       national_responsible_email: contact.email ?? "",
       national_responsible_phone: contact.phone ?? "",
-    });
+    }));
   }
 
   const handleSubmit = async (event: FormEvent) => {
