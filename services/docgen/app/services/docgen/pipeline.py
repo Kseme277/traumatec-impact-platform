@@ -701,7 +701,9 @@ def run_docgen_job(job_id: str) -> None:
                     text(
                         """
                         UPDATE docgen.generation_jobs
-                        SET status = 'completed', completed_at = now(), workflow_status = 'generated'
+                        SET status = 'completed', completed_at = now(), workflow_status = 'generated',
+                            phase_started_at = now(),
+                            phase_due_at = now() + interval '7 days'
                         WHERE id = :id
                         """
                     ),

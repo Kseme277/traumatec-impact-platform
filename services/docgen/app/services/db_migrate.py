@@ -87,6 +87,11 @@ _MIGRATIONS = (
     CREATE INDEX IF NOT EXISTS idx_package_file_reviews_job
         ON docgen.package_file_reviews(generation_job_id);
     """,
+    """
+    ALTER TABLE docgen.generation_jobs
+        ADD COLUMN IF NOT EXISTS phase_started_at TIMESTAMPTZ,
+        ADD COLUMN IF NOT EXISTS phase_due_at TIMESTAMPTZ;
+    """,
 )
 
 

@@ -19,6 +19,7 @@ import { workflowStatusLabel } from "../features/auth/types";
 import type { WorkflowQueueItem, WorkflowState } from "../api/workflow";
 import { ApiError } from "../api/client";
 import { confirmAction, promptComment, showError, showSuccess } from "../lib/swal";
+import WorkflowPhaseDeadline from "../features/workflow/WorkflowPhaseDeadline";
 import { usePagination } from "../hooks/usePagination";
 import { useTranslation } from "../i18n/useTranslation";
 
@@ -171,6 +172,11 @@ export default function WorkflowValidationPage() {
                   <span className="font-medium text-sm">{item.project_number ?? item.event_title}</span>
                   <Badge color="warning" size="sm">{workflowStatusLabel(item.workflow_status, t)}</Badge>
                 </div>
+                <WorkflowPhaseDeadline
+                  phaseDueAt={item.phase_due_at}
+                  isOverdue={item.is_overdue}
+                  className="mt-2"
+                />
               </button>
             </li>
           ))}
@@ -208,6 +214,10 @@ export default function WorkflowValidationPage() {
             <div className="space-y-4">
               <p className="text-sm">{selected.project_number} — {selected.event_title}</p>
               <Badge color="info">{workflowStatusLabel(selected.workflow_status, t)}</Badge>
+              <WorkflowPhaseDeadline
+                phaseDueAt={selected.phase_due_at}
+                isOverdue={selected.is_overdue}
+              />
 
               {selected.workflow_status === "under_final_validation" ? (
                 <div className="flex flex-wrap gap-2">

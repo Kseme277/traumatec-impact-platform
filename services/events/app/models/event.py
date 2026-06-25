@@ -45,6 +45,7 @@ class Event(Base):
     national_responsible_email: Mapped[str | None] = mapped_column(String(255), nullable=True)
     national_responsible_phone: Mapped[str | None] = mapped_column(String(32), nullable=True)
     organizer_responsible_user_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    generation_ready_notified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     project_status: Mapped[str | None] = mapped_column(String(128), nullable=True)
     cost_center: Mapped[str | None] = mapped_column(String(255), nullable=True)
     participants_expected: Mapped[int | None] = mapped_column(Integer, nullable=True)

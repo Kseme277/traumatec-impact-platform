@@ -9,9 +9,11 @@ from app.core.database import AsyncSessionLocal
 from app.models.event import AnnualImport, Event
 from app.services.excel_import import parse_projects_workbook
 from app.services.import_jobs import ImportJobStatus, import_job_store
+from app.services.organizer_linking import resolve_support_user_ids_by_email
 from app.services.project_status import tip_status_from_project_status
 from app.core.config import get_settings
 from tip_common.audit import record_audit_event
+from tip_common.email_identity import normalize_email
 from tip_common.redis_cache import invalidate_prefix
 
 BATCH_SIZE = 100
@@ -85,7 +87,26 @@ async def run_annual_import_job(
             await db.flush()
             import_id = annual_import.id
 
+            import_emails = {
+                str(row.get("organizer_responsible_email")).strip()
+                for row in rows
+                if row.get("organizer_responsible_email")
+            }
+            support_by_email = await resolve_support_user_ids_by_email(db, import_emails)
+
             for index, row in enumerate(rows, start=1):
+                metadata = dict(row.get("metadata_json") or {})
+                org_email = row.get("organizer_responsible_email")
+                org_name = row.get("organizer_responsible_name")
+                if org_name:
+                    metadata["organizer_responsible_name"] = org_name
+                organizer_user_id = None
+                if org_email:
+                    normalized = normalize_email(str(org_email))
+                    organizer_user_id = support_by_email.get(normalized)
+                    if not organizer_user_id:
+                        metadata["organizer_responsible_email_import"] = str(org_email).strip()
+
                 event = Event(
                     annual_import_id=annual_import.id,
                     project_number=row["project_number"],
@@ -96,6 +117,7 @@ async def run_annual_import_job(
                     city=row.get("city"),
                     region=row.get("region"),
                     responsible_person=row.get("responsible_person"),
+                    organizer_responsible_user_id=organizer_user_id,
                     project_status=row.get("project_status"),
                     cost_center=row.get("cost_center"),
                     participants_expected=row.get("participants_expected"),
@@ -107,7 +129,7 @@ async def run_annual_import_job(
                     start_date=row.get("start_date"),
                     end_date=row.get("end_date"),
                     status=tip_status_from_project_status(row.get("project_status")),
-                    metadata_json=row.get("metadata_json"),
+                    metadata_json=metadata,
                 )
                 db.add(event)
                 imported_count += 1

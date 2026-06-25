@@ -13,6 +13,7 @@ from app.schemas.workflow import (
     DeliveryMailtoResponse,
     FileReviewPayload,
     RejectPayload,
+    SubmitPayload,
     SubmitResponse,
     WorkflowQueueItem,
     WorkflowStateResponse,
@@ -66,10 +67,11 @@ async def get_workflow_queue(
 @router.post("/{job_id}/submit", response_model=SubmitResponse)
 async def submit_package(
     job_id: UUID,
+    payload: SubmitPayload,
     user: AuthenticatedUser = Depends(require_can_submit),
     db: AsyncSession = Depends(get_db),
 ) -> SubmitResponse:
-    state = await wf.submit_job(db, job_id, user)
+    state = await wf.submit_job(db, job_id, user, payload.reviewer_id)
     return SubmitResponse(workflow=WorkflowStateResponse(**state))
 
 

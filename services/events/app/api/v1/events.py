@@ -3,7 +3,7 @@ from decimal import Decimal
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
-from sqlalchemy import delete, func, or_, select
+from sqlalchemy import delete, func, or_, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.services.project_status import (
@@ -35,6 +35,9 @@ from tip_common.event_rules import (
     get_event_workflow_status,
     validate_event_dates,
 )
+from tip_common.event_readiness import is_event_ready_for_generation
+from tip_common.event_scope import assert_event_access, scopes_events_to_organizer
+from tip_common.notifications import notify_users_with_role
 
 router = APIRouter()
 
@@ -195,6 +198,60 @@ def _apply_event_sort(query, sort_by: str | None, sort_dir: str | None):
     return query.order_by(column.desc().nullslast(), Event.created_at.desc())
 
 
+async def _notify_admins_if_event_ready(
+    db: AsyncSession,
+    event: Event,
+    *,
+    actor: AuthenticatedUser,
+) -> None:
+    if event.generation_ready_notified_at is not None:
+        return
+    payload = {
+        "project_number": event.project_number,
+        "title": event.title,
+        "country": event.country,
+        "city": event.city,
+        "region": event.region,
+        "event_type": event.event_type,
+        "preparation_theme": event.preparation_theme,
+        "responsible_person": event.responsible_person,
+        "national_responsible_name": event.national_responsible_name,
+        "national_responsible_email": event.national_responsible_email,
+        "national_responsible_phone": event.national_responsible_phone,
+        "organizer_responsible_user_id": event.organizer_responsible_user_id,
+        "metadata_json": event.metadata_json,
+    }
+    if not is_event_ready_for_generation(payload):
+        return
+
+    organizer_label = f"{actor.prenom} {actor.nom}".strip()
+    if event.organizer_responsible_user_id and event.organizer_responsible_user_id != actor.id:
+        org = await db.execute(
+            text("SELECT prenom, nom FROM identity.utilisateurs WHERE id = :id"),
+            {"id": event.organizer_responsible_user_id},
+        )
+        row = org.one_or_none()
+        if row:
+            organizer_label = f"{row.prenom} {row.nom}".strip()
+
+    title = f"Événement prêt — {event.project_number}"
+    body = (
+        f"L'événement « {event.title} » géré par {organizer_label} "
+        "est complet et peut être généré."
+    )
+    await notify_users_with_role(
+        db,
+        role="administrateur",
+        type="event.ready_for_generation",
+        title=title,
+        body=body,
+        link=f"/evenements/{event.id}",
+        payload={"event_id": str(event.id), "project_number": event.project_number},
+        exclude_user_id=actor.id if actor.is_admin else None,
+    )
+    event.generation_ready_notified_at = datetime.now(timezone.utc)
+
+
 async def _list_events_impl(
     db: AsyncSession,
     *,
@@ -206,6 +263,7 @@ async def _list_events_impl(
     sort_by: str | None,
     sort_dir: str | None,
     upcoming: bool | None,
+    organizer_user_id: int | None = None,
 ) -> EventListResponse:
     query = _apply_event_sort(select(Event), sort_by, sort_dir)
     count_query = select(func.count()).select_from(Event)
@@ -237,6 +295,8 @@ async def _list_events_impl(
     if upcoming:
         today = date.today()
         filters.append(func.coalesce(Event.end_date, Event.start_date) >= today)
+    if organizer_user_id is not None:
+        filters.append(Event.organizer_responsible_user_id == organizer_user_id)
 
     if filters:
         query = query.where(*filters)
@@ -264,10 +324,11 @@ async def list_events(
         default=None,
         description="Si true, uniquement les événements dont la date de fin (ou début) n'est pas passée",
     ),
-    _: AuthenticatedUser = Depends(get_current_user),
+    user: AuthenticatedUser = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> EventListResponse:
     settings = get_settings()
+    organizer_scope = user.id if scopes_events_to_organizer(user) else None
     key_parts = {
         "q": q,
         "status": status_filter,
@@ -277,6 +338,7 @@ async def list_events(
         "sort_by": sort_by,
         "sort_dir": sort_dir,
         "upcoming": upcoming,
+        "organizer": organizer_scope,
     }
     return await cached_call(
         redis_url=settings.redis_url,
@@ -294,14 +356,22 @@ async def list_events(
             sort_by=sort_by,
             sort_dir=sort_dir,
             upcoming=upcoming,
+            organizer_user_id=organizer_scope,
         ),
         serialize=lambda response: response.model_dump(mode="json"),
         deserialize=lambda data: EventListResponse.model_validate(data),
     )
 
 
-async def _dashboard_stats_impl(db: AsyncSession) -> DashboardStatsResponse:
-    result = await db.execute(select(Event))
+async def _dashboard_stats_impl(
+    db: AsyncSession,
+    *,
+    organizer_user_id: int | None = None,
+) -> DashboardStatsResponse:
+    query = select(Event)
+    if organizer_user_id is not None:
+        query = query.where(Event.organizer_responsible_user_id == organizer_user_id)
+    result = await db.execute(query)
     events = result.scalars().all()
 
     by_status: dict[str, int] = {}
@@ -421,18 +491,19 @@ async def _dashboard_stats_impl(db: AsyncSession) -> DashboardStatsResponse:
 
 @router.get("/stats", response_model=DashboardStatsResponse)
 async def dashboard_stats(
-    _: AuthenticatedUser = Depends(get_current_user),
+    user: AuthenticatedUser = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> DashboardStatsResponse:
     settings = get_settings()
     current_year = datetime.now(timezone.utc).year
+    organizer_scope = user.id if scopes_events_to_organizer(user) else None
     return await cached_call(
         redis_url=settings.redis_url,
         namespace="events:stats",
-        key_parts={"year": current_year},
+        key_parts={"year": current_year, "organizer": organizer_scope},
         ttl_seconds=settings.cache_ttl_stats_seconds,
         enabled=settings.cache_enabled,
-        factory=lambda: _dashboard_stats_impl(db),
+        factory=lambda: _dashboard_stats_impl(db, organizer_user_id=organizer_scope),
         serialize=lambda response: response.model_dump(mode="json"),
         deserialize=lambda data: DashboardStatsResponse.model_validate(data),
     )
@@ -475,12 +546,13 @@ async def create_event(
 @router.get("/{event_id}", response_model=EventResponse)
 async def get_event(
     event_id: UUID,
-    _: AuthenticatedUser = Depends(get_current_user),
+    user: AuthenticatedUser = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> EventResponse:
     event = await db.get(Event, event_id)
     if event is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Événement introuvable")
+    assert_event_access(user, event.organizer_responsible_user_id)
     return await _event_to_response_async(event, db)
 
 
@@ -494,6 +566,7 @@ async def update_event(
     event = await db.get(Event, event_id)
     if event is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Événement introuvable")
+    assert_event_access(user, event.organizer_responsible_user_id)
 
     wf_status = await get_event_workflow_status(db, event_id)
     raw = payload.model_dump(exclude_unset=True)
@@ -518,6 +591,7 @@ async def update_event(
         entity_id=str(event.id),
         payload={"project_number": event.project_number},
     )
+    await _notify_admins_if_event_ready(db, event, actor=user)
     await db.commit()
     await db.refresh(event)
     await _invalidate_events_cache()

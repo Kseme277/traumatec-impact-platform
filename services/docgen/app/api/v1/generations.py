@@ -15,6 +15,7 @@ from app.schemas.generation import (
     GenerationStartResponse,
 )
 from tip_common.security import AuthenticatedUser, get_current_user, require_can_generate
+from tip_common.event_scope import assert_event_access, scopes_events_to_organizer
 from tip_common.storage import get_object_storage
 
 router = APIRouter()
@@ -29,19 +30,24 @@ async def recent_generations(
 ) -> list[GenerationNotificationResponse]:
     """Dernières générations DocGen — utilisateur courant ou plateforme (admin / support)."""
     cap = min(max(limit, 1), 100)
-    platform_wide = platform and (
-        user.is_admin or "support_administratif" in user.roles
-    )
-    where_sql = "" if platform_wide else "WHERE j.requested_by_id = :user_id"
-    params: dict = {"limit": cap}
-    if not platform_wide:
-        params["user_id"] = user.id
+    scoped_support = scopes_events_to_organizer(user)
+    if scoped_support:
+        where_sql = "WHERE e.organizer_responsible_user_id = :user_id"
+        params: dict = {"limit": cap, "user_id": user.id}
+    elif platform and (user.is_admin or "support_administratif" in user.roles):
+        where_sql = ""
+        params = {"limit": cap}
+    else:
+        where_sql = "WHERE j.requested_by_id = :user_id"
+        params = {"limit": cap, "user_id": user.id}
 
     result = await db.execute(
         text(
             f"""
             SELECT j.id, j.event_id, j.status, j.workflow_status, j.zip_filename, j.error_message,
-                   j.created_at, j.completed_at, e.title AS event_title
+                   j.created_at, j.completed_at, j.phase_due_at,
+                   CASE WHEN j.phase_due_at IS NOT NULL AND j.phase_due_at < now() THEN TRUE ELSE FALSE END AS is_overdue,
+                   e.title AS event_title
             FROM docgen.generation_jobs j
             LEFT JOIN events.events e ON e.id = j.event_id
             {where_sql}
@@ -92,7 +98,8 @@ async def start_generation(
         text(
             """
             SELECT preparation_theme, project_number, title,
-                   start_date::text, end_date::text
+                   start_date::text, end_date::text,
+                   organizer_responsible_user_id
             FROM events.events
             WHERE id = :id
             """
@@ -102,6 +109,7 @@ async def start_generation(
     event = event_row.one_or_none()
     if event is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Événement introuvable")
+    assert_event_access(user, event.organizer_responsible_user_id)
 
     ref_raw = event.end_date or event.start_date
     if not ref_raw:

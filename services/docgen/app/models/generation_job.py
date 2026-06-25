@@ -25,6 +25,8 @@ class GenerationJob(Base):
     workflow_status: Mapped[str] = mapped_column(String(32), nullable=False, default="generated")
     assigned_reviewer_id: Mapped[int | None] = mapped_column(Integer)
     assigned_validator_id: Mapped[int | None] = mapped_column(Integer)
+    phase_started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    phase_due_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     error_message: Mapped[str | None] = mapped_column(Text)
     started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

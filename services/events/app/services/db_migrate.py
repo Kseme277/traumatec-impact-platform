@@ -75,6 +75,10 @@ _MIGRATIONS = (
         created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
     );
     """,
+    """
+    ALTER TABLE events.events
+        ADD COLUMN IF NOT EXISTS generation_ready_notified_at TIMESTAMPTZ;
+    """,
 )
 
 

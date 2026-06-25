@@ -44,8 +44,8 @@ import {
   fetchGenerationHistory,
   runPackageGeneration,
 } from "../api/docgen";
-import { submitPackage } from "../api/workflow";
-import { workflowStatusLabel } from "../features/auth/types";
+import { submitPackage, fetchUsersByRole } from "../api/workflow";
+import { workflowStatusLabel, type Utilisateur } from "../features/auth/types";
 import { ApiError } from "../api/client";
 import { getApiToken } from "../lib/clerkToken";
 import GenerationHistoryPanel from "../features/documents/GenerationHistoryPanel";
@@ -88,6 +88,8 @@ export default function DocumentsGenerationPage() {
   const [packagePreviewLoading, setPackagePreviewLoading] = useState(false);
   const [eventSearchQuery, setEventSearchQuery] = useState("");
   const [eventTypeFilter, setEventTypeFilter] = useState("");
+  const [reviewers, setReviewers] = useState<Utilisateur[]>([]);
+  const [submitReviewerId, setSubmitReviewerId] = useState("");
 
   const generationEventFilters = useMemo<EvenementFilters>(
     () => ({ upcoming: true, project_status: "Open" }),
@@ -97,6 +99,19 @@ export default function DocumentsGenerationPage() {
   useEffect(() => {
     void loadEvents(generationEventFilters);
   }, [generationEventFilters, loadEvents]);
+
+  useEffect(() => {
+    if (!isLoaded || !isSignedIn) return;
+    void (async () => {
+      try {
+        const token = await getApiToken(getToken);
+        const users = await fetchUsersByRole(token, "controle_procedure");
+        setReviewers(users);
+      } catch {
+        setReviewers([]);
+      }
+    })();
+  }, [getToken, isLoaded, isSignedIn]);
 
   useEffect(() => {
     const eventId = searchParams.get("event");
@@ -456,26 +471,40 @@ export default function DocumentsGenerationPage() {
       job.workflow_status === "validator_rejected");
 
   const handleSubmit = async (job: GenerationJob) => {
+    const reviewerId = Number(submitReviewerId);
+    if (!reviewerId) {
+      await showError(t("common.error"), t("workflow.selectReviewer"));
+      return;
+    }
+    const reviewer = reviewers.find((user) => user.id === reviewerId);
     const confirmed = await confirmAction({
       title: t("confirm.submitWorkflowTitle"),
-      text: t("confirm.submitWorkflowText"),
+      text: t("confirm.submitWorkflowText").replace(
+        "{reviewer}",
+        reviewer ? `${reviewer.prenom} ${reviewer.nom}` : String(reviewerId),
+      ),
       confirmText: t("confirm.proceed"),
       cancelText: t("common.cancel"),
     });
     if (!confirmed.isConfirmed) return;
     try {
       const token = await getApiToken(getToken);
-      const { workflow } = await submitPackage(token, job.id);
+      const { workflow } = await submitPackage(token, job.id, reviewerId);
       setActiveJob({ ...job, workflow_status: workflow.workflow_status });
-      await showSuccess("Paquet soumis pour contrôle procédure");
+      await showSuccess(t("workflow.submitted"));
       if (selectedEventId) {
         const token2 = await getApiToken(getToken);
         setHistory(await fetchGenerationHistory(token2, selectedEventId));
       }
     } catch (err) {
-      await showError(t("common.error"), err instanceof Error ? err.message : t("common.error"));
+      await showError(t("common.error"), err instanceof ApiError ? err.message : t("common.error"));
     }
   };
+
+  const reviewerOptions = reviewers.map((user) => ({
+    value: String(user.id),
+    label: `${user.prenom} ${user.nom}`,
+  }));
 
   if (isLoading) {
     return <AuthLoadingScreen message={t("documents.loadingReady")} />;
@@ -796,9 +825,22 @@ export default function DocumentsGenerationPage() {
                 </Button>
               )}
               {activeJob && canSubmitWorkflow(activeJob) ? (
-                <Button size="sm" onClick={() => void handleSubmit(activeJob)}>
-                  Soumettre pour contrôle
-                </Button>
+                <div className="flex w-full flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
+                  <div className="min-w-[220px] flex-1">
+                    <Label>{t("workflow.assignReviewer")}</Label>
+                    <Select
+                      options={[
+                        { value: "", label: t("workflow.selectReviewerPlaceholder") },
+                        ...reviewerOptions,
+                      ]}
+                      value={submitReviewerId}
+                      onChange={setSubmitReviewerId}
+                    />
+                  </div>
+                  <Button size="sm" onClick={() => void handleSubmit(activeJob)}>
+                    {t("workflow.submitForReview")}
+                  </Button>
+                </div>
               ) : null}
               {activeJob?.workflow_status ? (
                 <Badge color="info" size="sm">

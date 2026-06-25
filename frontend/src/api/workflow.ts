@@ -38,6 +38,9 @@ export interface WorkflowState {
   zip_filename: string | null;
   files: WorkflowFileReview[];
   history: WorkflowStep[];
+  phase_started_at?: string | null;
+  phase_due_at?: string | null;
+  is_overdue?: boolean;
 }
 
 export interface WorkflowQueueItem {
@@ -52,6 +55,10 @@ export interface WorkflowQueueItem {
   assigned_reviewer_id: number | null;
   event_title: string | null;
   project_number: string | null;
+  phase_started_at?: string | null;
+  phase_due_at?: string | null;
+  is_overdue?: boolean;
+  organizer_responsible_user_id?: number | null;
 }
 
 export interface WorkflowStats {
@@ -64,6 +71,7 @@ export interface WorkflowStats {
   validator_rejected: number;
   approved: number;
   assigned_to_me: number;
+  overdue: number;
 }
 
 export function fetchWorkflowStats(
@@ -84,9 +92,10 @@ export function fetchWorkflowState(token: string | null, jobId: string) {
   return apiFetch<WorkflowState>(`/v1/generations/${jobId}/workflow`, token);
 }
 
-export function submitPackage(token: string | null, jobId: string) {
+export function submitPackage(token: string | null, jobId: string, reviewerId: number) {
   return apiFetch<{ workflow: WorkflowState; message?: string }>(`/v1/generations/${jobId}/submit`, token, {
     method: "POST",
+    body: JSON.stringify({ reviewer_id: reviewerId }),
   });
 }
 

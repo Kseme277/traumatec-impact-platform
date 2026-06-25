@@ -14,6 +14,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from tip_common.notifications import create_notification, notify_users_with_role
 from tip_common.roles import can_review_procedure, can_submit_packages, can_validate_final
+from tip_common.event_scope import assert_event_access
+from tip_common.workflow_deadlines import compute_phase_due_at, is_phase_overdue
 
 WORKFLOW_STATUSES = frozenset(
     {
@@ -80,11 +82,48 @@ def _actor_name(user) -> str:
     return f"{user.prenom} {user.nom}".strip()
 
 
+async def _set_workflow_phase(
+    db: AsyncSession,
+    job_id: UUID,
+    workflow_status: str,
+    *,
+    extra_sql: str = "",
+    extra_params: dict[str, Any] | None = None,
+) -> None:
+    now = datetime.now(timezone.utc)
+    due = compute_phase_due_at(workflow_status, from_time=now)
+    params: dict[str, Any] = {
+        "job_id": str(job_id),
+        "status": workflow_status,
+        "started": now,
+        "due": due,
+    }
+    if extra_params:
+        params.update(extra_params)
+    sets = "workflow_status = :status, phase_started_at = :started, phase_due_at = :due"
+    if extra_sql:
+        sets = f"{sets}, {extra_sql}"
+    await db.execute(
+        text(f"UPDATE docgen.generation_jobs SET {sets} WHERE id = :job_id"),
+        params,
+    )
+
+
+def _support_scope_sql(role_filter: str, user_id: int) -> tuple[str, dict[str, Any]]:
+    if role_filter != "support":
+        return "", {}
+    return (
+        " AND (e.organizer_responsible_user_id = :scope_uid OR j.requested_by_id = :scope_uid)",
+        {"scope_uid": user_id},
+    )
+
+
 async def _get_job_row(db: AsyncSession, job_id: UUID) -> dict[str, Any]:
     result = await db.execute(
         text(
             """
             SELECT j.*, e.title AS event_title, e.project_number,
+                   e.organizer_responsible_user_id,
                    COALESCE(e.national_responsible_email, nc.email) AS national_responsible_email,
                    COALESCE(e.national_responsible_name, nc.full_name) AS national_responsible_name,
                    e.responsible_person, e.metadata_json
@@ -170,11 +209,13 @@ async def _ensure_file_reviews(db: AsyncSession, job: dict[str, Any]) -> list[di
     return [dict(row) for row in result.mappings().all()]
 
 
-async def submit_job(db: AsyncSession, job_id: UUID, user) -> dict[str, Any]:
+async def submit_job(db: AsyncSession, job_id: UUID, user, reviewer_id: int) -> dict[str, Any]:
     if not can_submit_packages(list(user.roles)):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Soumission non autorisée")
 
     job = await _get_job_row(db, job_id)
+    assert_event_access(user, job.get("organizer_responsible_user_id"))
+
     if job["status"] != "completed":
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Paquet non généré")
     if job["workflow_status"] not in SUBMITTABLE:
@@ -183,36 +224,48 @@ async def submit_job(db: AsyncSession, job_id: UUID, user) -> dict[str, Any]:
             detail=f"Soumission impossible depuis l'état {job['workflow_status']}",
         )
 
-    await db.execute(
+    reviewer = await db.execute(
         text(
             """
-            UPDATE docgen.generation_jobs
-            SET workflow_status = 'submitted', assigned_reviewer_id = NULL
-            WHERE id = :job_id
+            SELECT u.id FROM identity.utilisateurs u
+            JOIN identity.user_roles ur ON ur.user_id = u.id
+            WHERE u.id = :id AND ur.role = 'controle_procedure' AND u.est_actif = TRUE
             """
         ),
-        {"job_id": str(job_id)},
+        {"id": reviewer_id},
+    )
+    if reviewer.scalar_one_or_none() is None:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Contrôleur procédure invalide ou inactif",
+        )
+
+    await _set_workflow_phase(
+        db,
+        job_id,
+        "under_procedure_review",
+        extra_sql="assigned_reviewer_id = :reviewer_id",
+        extra_params={"reviewer_id": reviewer_id},
     )
     await _append_step(
         db,
         job_id=job_id,
-        step="submitted",
+        step="under_procedure_review",
         action="submit",
         actor_id=user.id,
         actor_name=_actor_name(user),
+        comment=f"Assigné au contrôleur #{reviewer_id}",
     )
-    title = f"Paquet soumis — {job.get('project_number') or job.get('event_title')}"
-    body = f"{_actor_name(user)} a soumis un paquet pour contrôle procédure."
-    link = f"/workflow/controle?job={job_id}"
-    await notify_users_with_role(
+    title = f"Paquet assigné — {job.get('project_number') or job.get('event_title')}"
+    body = f"{_actor_name(user)} vous a assigné un paquet pour contrôle procédure."
+    await create_notification(
         db,
-        role="controle_procedure",
-        type="workflow.submitted",
+        user_id=reviewer_id,
+        type="workflow.assigned",
         title=title,
         body=body,
-        link=link,
+        link=f"/workflow/controle?job={job_id}",
         payload={"job_id": str(job_id), "event_id": str(job["event_id"])},
-        exclude_user_id=user.id,
     )
     await db.commit()
     return await get_workflow_state(db, job_id)
@@ -227,16 +280,12 @@ async def assign_reviewer(db: AsyncSession, job_id: UUID, user, reviewer_id: int
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="État incompatible pour assignation")
 
     target_id = reviewer_id or user.id
-    await db.execute(
-        text(
-            """
-            UPDATE docgen.generation_jobs
-            SET workflow_status = 'under_procedure_review',
-                assigned_reviewer_id = :reviewer_id
-            WHERE id = :job_id
-            """
-        ),
-        {"job_id": str(job_id), "reviewer_id": target_id},
+    await _set_workflow_phase(
+        db,
+        job_id,
+        "under_procedure_review",
+        extra_sql="assigned_reviewer_id = :reviewer_id",
+        extra_params={"reviewer_id": target_id},
     )
     await _append_step(
         db,
@@ -282,16 +331,12 @@ async def review_file(
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Revue non autorisée")
         step = "procedure_file_review"
         if wf_status == "submitted":
-            await db.execute(
-                text(
-                    """
-                    UPDATE docgen.generation_jobs
-                    SET workflow_status = 'under_procedure_review',
-                        assigned_reviewer_id = :reviewer_id
-                    WHERE id = :job_id
-                    """
-                ),
-                {"job_id": str(job_id), "reviewer_id": user.id},
+            await _set_workflow_phase(
+                db,
+                job_id,
+                "under_procedure_review",
+                extra_sql="assigned_reviewer_id = :reviewer_id",
+                extra_params={"reviewer_id": user.id},
             )
     elif wf_status == "under_final_validation":
         if not can_validate_final(roles):
@@ -343,16 +388,7 @@ async def complete_procedure(db: AsyncSession, job_id: UUID, user) -> dict[str, 
     if any(f["status"] == "rejected" for f in files):
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Des fichiers sont rejetés")
 
-    await db.execute(
-        text(
-            """
-            UPDATE docgen.generation_jobs
-            SET workflow_status = 'under_final_validation'
-            WHERE id = :job_id
-            """
-        ),
-        {"job_id": str(job_id)},
-    )
+    await _set_workflow_phase(db, job_id, "under_final_validation")
     await db.execute(
         text(
             """
@@ -391,12 +427,7 @@ async def reject_procedure(db: AsyncSession, job_id: UUID, user, comment: str) -
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Rejet non autorisé")
 
     job = await _get_job_row(db, job_id)
-    await db.execute(
-        text(
-            "UPDATE docgen.generation_jobs SET workflow_status = 'procedure_rejected' WHERE id = :job_id"
-        ),
-        {"job_id": str(job_id)},
-    )
+    await _set_workflow_phase(db, job_id, "procedure_rejected")
     await _append_step(
         db,
         job_id=job_id,
@@ -441,10 +472,7 @@ async def approve_validator(db: AsyncSession, job_id: UUID, user) -> dict[str, A
             detail="Des fichiers sont rejetés — corrigez ou rejetez le paquet",
         )
 
-    await db.execute(
-        text("UPDATE docgen.generation_jobs SET workflow_status = 'approved' WHERE id = :job_id"),
-        {"job_id": str(job_id)},
-    )
+    await _set_workflow_phase(db, job_id, "approved")
     await _append_step(
         db,
         job_id=job_id,
@@ -471,10 +499,7 @@ async def reject_validator(db: AsyncSession, job_id: UUID, user, comment: str) -
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Rejet non autorisé")
 
     job = await _get_job_row(db, job_id)
-    await db.execute(
-        text("UPDATE docgen.generation_jobs SET workflow_status = 'validator_rejected' WHERE id = :job_id"),
-        {"job_id": str(job_id)},
-    )
+    await _set_workflow_phase(db, job_id, "validator_rejected")
     await _append_step(
         db,
         job_id=job_id,
@@ -516,6 +541,7 @@ async def get_workflow_state(db: AsyncSession, job_id: UUID) -> dict[str, Any]:
     job = await _get_job_row(db, job_id)
     files = await _ensure_file_reviews(db, job)
     history = await get_workflow_history(db, job_id)
+    due_at = job.get("phase_due_at")
     return {
         "job_id": job["id"],
         "event_id": job["event_id"],
@@ -527,6 +553,9 @@ async def get_workflow_state(db: AsyncSession, job_id: UUID) -> dict[str, Any]:
         "assigned_validator_id": job.get("assigned_validator_id"),
         "requested_by_id": job["requested_by_id"],
         "zip_filename": job.get("zip_filename"),
+        "phase_started_at": job.get("phase_started_at"),
+        "phase_due_at": due_at,
+        "is_overdue": is_phase_overdue(due_at),
         "files": files,
         "history": history,
     }
@@ -559,34 +588,59 @@ async def list_workflow_queue(
     else:
         statuses = tuple(WORKFLOW_STATUSES)
 
+    scope_sql, scope_params = _support_scope_sql(role_filter, user_id)
+    params: dict[str, Any] = {"statuses": list(statuses), "limit": limit, **scope_params}
+
     result = await db.execute(
         text(
-            """
+            f"""
             SELECT j.id, j.event_id, j.workflow_status, j.status, j.zip_filename,
                    j.created_at, j.completed_at, j.requested_by_id,
-                   j.assigned_reviewer_id, e.title AS event_title, e.project_number
+                   j.assigned_reviewer_id, j.phase_started_at, j.phase_due_at,
+                   e.title AS event_title, e.project_number,
+                   e.organizer_responsible_user_id,
+                   CASE WHEN j.phase_due_at IS NOT NULL AND j.phase_due_at < now() THEN TRUE ELSE FALSE END AS is_overdue
             FROM docgen.generation_jobs j
             JOIN events.events e ON e.id = j.event_id
             WHERE j.status = 'completed'
               AND j.workflow_status = ANY(:statuses)
-            ORDER BY j.completed_at DESC NULLS LAST
+              {scope_sql}
+            ORDER BY j.phase_due_at ASC NULLS LAST, j.completed_at DESC NULLS LAST
             LIMIT :limit
             """
         ),
-        {"statuses": list(statuses), "limit": limit},
+        params,
     )
     return [dict(row) for row in result.mappings().all()]
 
 
 async def workflow_stats(db: AsyncSession, *, role_filter: str, user_id: int) -> dict[str, int]:
-    base = """
-        SELECT workflow_status, COUNT(*)::int AS cnt
-        FROM docgen.generation_jobs
-        WHERE status = 'completed'
-        GROUP BY workflow_status
+    scope_sql, scope_params = _support_scope_sql(role_filter, user_id)
+    base = f"""
+        SELECT j.workflow_status, COUNT(*)::int AS cnt
+        FROM docgen.generation_jobs j
+        JOIN events.events e ON e.id = j.event_id
+        WHERE j.status = 'completed'
+        {scope_sql}
+        GROUP BY j.workflow_status
     """
-    result = await db.execute(text(base))
+    result = await db.execute(text(base), scope_params)
     counts = {row.workflow_status: row.cnt for row in result.fetchall()}
+
+    overdue_result = await db.execute(
+        text(
+            f"""
+            SELECT COUNT(*)::int FROM docgen.generation_jobs j
+            JOIN events.events e ON e.id = j.event_id
+            WHERE j.status = 'completed'
+              AND j.phase_due_at IS NOT NULL
+              AND j.phase_due_at < now()
+              {scope_sql}
+            """
+        ),
+        scope_params,
+    )
+    overdue = int(overdue_result.scalar_one())
 
     assigned = 0
     if role_filter == "controle":
@@ -613,6 +667,7 @@ async def workflow_stats(db: AsyncSession, *, role_filter: str, user_id: int) ->
         "validator_rejected": counts.get("validator_rejected", 0),
         "approved": counts.get("approved", 0),
         "assigned_to_me": assigned,
+        "overdue": overdue,
     }
 
 

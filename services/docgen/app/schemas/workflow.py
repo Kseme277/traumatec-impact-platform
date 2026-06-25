@@ -44,6 +44,9 @@ class WorkflowStateResponse(BaseModel):
     assigned_validator_id: int | None = None
     requested_by_id: int
     zip_filename: str | None = None
+    phase_started_at: datetime | None = None
+    phase_due_at: datetime | None = None
+    is_overdue: bool = False
     files: list[WorkflowFileReview] = Field(default_factory=list)
     history: list[WorkflowStep] = Field(default_factory=list)
 
@@ -60,6 +63,10 @@ class WorkflowQueueItem(BaseModel):
     assigned_reviewer_id: int | None
     event_title: str | None
     project_number: str | None
+    phase_started_at: datetime | None = None
+    phase_due_at: datetime | None = None
+    is_overdue: bool = False
+    organizer_responsible_user_id: int | None = None
 
 
 class WorkflowStatsResponse(BaseModel):
@@ -72,6 +79,7 @@ class WorkflowStatsResponse(BaseModel):
     validator_rejected: int = 0
     approved: int = 0
     assigned_to_me: int = 0
+    overdue: int = 0
 
 
 class FileReviewPayload(BaseModel):
@@ -85,6 +93,10 @@ class RejectPayload(BaseModel):
 
 class AssignReviewerPayload(BaseModel):
     reviewer_id: int | None = None
+
+
+class SubmitPayload(BaseModel):
+    reviewer_id: int = Field(ge=1)
 
 
 class DeliveryMailtoResponse(BaseModel):

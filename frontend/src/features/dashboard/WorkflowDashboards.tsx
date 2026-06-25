@@ -71,9 +71,17 @@ export function DashboardSupportAdmin() {
           to="/workflow/validation"
           hint={t("dashboard.metricHintValidation")}
         />
+        <EventStatCard
+          label={t("dashboard.wfOverdue")}
+          value={stats?.overdue ?? "—"}
+          icon={<TaskIcon className="size-6 text-error-600" />}
+          iconBgClassName="bg-error-50 dark:bg-error-500/15"
+          to="/documents/generation"
+          hint={t("dashboard.metricHintOverdue")}
+        />
       </div>
       <div className="mb-6">
-        <RecentGenerationsPanel scope="platform" limit={6} />
+        <RecentGenerationsPanel scope="mine" limit={6} />
       </div>
       <div className="flex flex-wrap gap-3">
         <Link to="/documents/generation">
@@ -135,6 +143,14 @@ export function DashboardControleProcedure() {
           to="/workflow/validation"
           hint={t("dashboard.metricHintValidation")}
         />
+        <EventStatCard
+          label={t("dashboard.wfOverdue")}
+          value={stats?.overdue ?? "—"}
+          icon={<TaskIcon className="size-6 text-error-600" />}
+          iconBgClassName="bg-error-50 dark:bg-error-500/15"
+          to="/workflow/controle"
+          hint={t("dashboard.metricHintOverdue")}
+        />
       </div>
       <Link to="/workflow/controle">
         <Button size="sm">{t("dashboard.openControleQueue")}</Button>
@@ -180,6 +196,14 @@ export function DashboardValidateur() {
           iconBgClassName="bg-error-50 dark:bg-error-500/15"
           to="/workflow/validation"
           hint={t("dashboard.metricHintRejected")}
+        />
+        <EventStatCard
+          label={t("dashboard.wfOverdue")}
+          value={stats?.overdue ?? "—"}
+          icon={<TaskIcon className="size-6 text-error-600" />}
+          iconBgClassName="bg-error-50 dark:bg-error-500/15"
+          to="/workflow/validation"
+          hint={t("dashboard.metricHintOverdue")}
         />
       </div>
       <Link to="/workflow/validation">
