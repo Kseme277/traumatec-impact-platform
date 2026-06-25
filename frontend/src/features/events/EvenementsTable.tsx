@@ -1,5 +1,7 @@
 import { Link } from "react-router";
-import { ArrowDown, ArrowUp, ArrowUpDown, Eye, Check, Trash2 } from "lucide-react";
+import { ArrowDown, ArrowUp, ArrowUpDown, CalendarDays, Eye, Check, Trash2 } from "lucide-react";
+import Button from "../../components/ui/button/Button";
+import GuidedEmptyState from "../../components/common/GuidedEmptyState";
 import {
   Table,
   TableBody,
@@ -26,6 +28,7 @@ interface EvenementsTableProps {
   onClose: (event: Evenement) => void;
   onDelete: (event: Evenement) => void;
   showAdminActions?: boolean;
+  onImportClick?: () => void;
 }
 
 type SortableColumn = {
@@ -60,6 +63,7 @@ export default function EvenementsTable({
   onClose,
   onDelete,
   showAdminActions = false,
+  onImportClick,
 }: EvenementsTableProps) {
   const { t } = useTranslation();
 
@@ -73,7 +77,20 @@ export default function EvenementsTable({
 
   if (events.length === 0) {
     return (
-      <p className="py-8 text-center text-sm text-gray-500 dark:text-gray-400">{t("events.empty")}</p>
+      <GuidedEmptyState
+        icon={CalendarDays}
+        title={t("ux.noEventsTitle")}
+        message={t("ux.noEventsDesc")}
+      >
+        <Link to="/evenements/nouveau">
+          <Button size="sm">{t("events.addEvent")}</Button>
+        </Link>
+        {showAdminActions && onImportClick ? (
+          <Button size="sm" variant="outline" onClick={onImportClick}>
+            {t("events.importExcel")}
+          </Button>
+        ) : null}
+      </GuidedEmptyState>
     );
   }
 

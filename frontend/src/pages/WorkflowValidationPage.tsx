@@ -1,9 +1,14 @@
 import { useAuth } from "@clerk/clerk-react";
 import { useCallback, useEffect, useState } from "react";
-import { useSearchParams } from "react-router";
+import { Link, useSearchParams } from "react-router";
+import { ClipboardList } from "lucide-react";
 import PageMeta from "../components/common/PageMeta";
+import AdminBreadcrumb from "../components/common/AdminBreadcrumb";
 import ComponentCard from "../components/common/ComponentCard";
 import CompactListPagination from "../components/common/CompactListPagination";
+import GuidedEmptyState from "../components/common/GuidedEmptyState";
+import HelpTipAlert from "../components/common/HelpTipAlert";
+import TableLoader from "../components/common/TableLoader";
 import Button from "../components/ui/button/Button";
 import Badge from "../components/ui/badge/Badge";
 import WorkflowFileReviewList from "../features/workflow/WorkflowFileReviewList";
@@ -20,6 +25,8 @@ import type { WorkflowQueueItem, WorkflowState } from "../api/workflow";
 import { ApiError } from "../api/client";
 import { confirmAction, promptComment, showError, showSuccess } from "../lib/swal";
 import WorkflowPhaseDeadline from "../features/workflow/WorkflowPhaseDeadline";
+import WorkflowProcessGuide from "../features/workflow/WorkflowProcessGuide";
+import WorkflowStatusStepper from "../features/documents/WorkflowStatusStepper";
 import { usePagination } from "../hooks/usePagination";
 import { useTranslation } from "../i18n/useTranslation";
 
@@ -156,8 +163,20 @@ export default function WorkflowValidationPage() {
     emptyMessage: string,
     pagination: ReturnType<typeof usePagination<WorkflowQueueItem>>,
   ) {
-    if (loading) return <p className="text-sm text-gray-500">{t("common.loading")}</p>;
-    if (items.length === 0) return <p className="text-sm text-gray-500">{emptyMessage}</p>;
+    if (loading) return <TableLoader message={t("common.loading")} />;
+    if (items.length === 0) {
+      return (
+        <GuidedEmptyState
+          icon={ClipboardList}
+          title={t("ux.workflowEmptyTitle")}
+          message={emptyMessage}
+        >
+          <Link to="/workflow/controle">
+            <Button size="sm" variant="outline">{t("nav.workflowControle")}</Button>
+          </Link>
+        </GuidedEmptyState>
+      );
+    }
     return (
       <>
         <ul className="space-y-2">
@@ -196,8 +215,29 @@ export default function WorkflowValidationPage() {
   return (
     <>
       <PageMeta title={t("nav.workflowValidation")} description={t("workflow.validationDesc")} />
-      <h1 className="mb-6 text-2xl font-semibold text-gray-800 dark:text-white/90">{t("nav.workflowValidation")}</h1>
-      {error ? <p className="mb-4 text-sm text-error-600">{error}</p> : null}
+      <AdminBreadcrumb
+        pageTitle={t("nav.workflowValidation")}
+        crumbs={[{ label: t("nav.documents"), to: "/documents/generation" }]}
+      />
+
+      <div className="mb-6">
+        <HelpTipAlert
+          variant="info"
+          title={t("ux.safeModeTitle")}
+          message={t("workflow.validationDesc")}
+        />
+      </div>
+
+      <ComponentCard className="mb-6">
+        <WorkflowProcessGuide role="validateur" />
+      </ComponentCard>
+
+      {error ? (
+        <div className="mb-4">
+          <HelpTipAlert variant="error" title={t("common.error")} message={error} />
+        </div>
+      ) : null}
+
       <div className="grid gap-6 xl:grid-cols-[minmax(280px,360px)_1fr]">
         <div className="space-y-6">
           <ComponentCard title={t("workflow.queueValidation")}>
@@ -209,10 +249,15 @@ export default function WorkflowValidationPage() {
         </div>
         <ComponentCard title={t("workflow.packageDetail")}>
           {!selected ? (
-            <p className="text-sm text-gray-500">{t("workflow.selectPackage")}</p>
+            <GuidedEmptyState
+              icon={ClipboardList}
+              title={t("ux.workflowSelectTitle")}
+              message={t("ux.workflowSelectDesc")}
+            />
           ) : (
             <div className="space-y-4">
               <p className="text-sm">{selected.project_number} — {selected.event_title}</p>
+              <WorkflowStatusStepper status={selected.workflow_status} />
               <Badge color="info">{workflowStatusLabel(selected.workflow_status, t)}</Badge>
               <WorkflowPhaseDeadline
                 phaseDueAt={selected.phase_due_at}

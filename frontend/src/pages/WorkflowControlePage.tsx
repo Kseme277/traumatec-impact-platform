@@ -1,9 +1,14 @@
 import { useAuth } from "@clerk/clerk-react";
 import { useCallback, useEffect, useState } from "react";
-import { useSearchParams } from "react-router";
+import { Link, useSearchParams } from "react-router";
+import { ClipboardList } from "lucide-react";
 import PageMeta from "../components/common/PageMeta";
+import AdminBreadcrumb from "../components/common/AdminBreadcrumb";
 import ComponentCard from "../components/common/ComponentCard";
 import CompactListPagination from "../components/common/CompactListPagination";
+import GuidedEmptyState from "../components/common/GuidedEmptyState";
+import HelpTipAlert from "../components/common/HelpTipAlert";
+import TableLoader from "../components/common/TableLoader";
 import Button from "../components/ui/button/Button";
 import Badge from "../components/ui/badge/Badge";
 import Select from "../components/form/Select";
@@ -23,6 +28,8 @@ import type { WorkflowQueueItem, WorkflowState } from "../api/workflow";
 import { ApiError } from "../api/client";
 import { confirmAction, promptComment, showError, showSuccess } from "../lib/swal";
 import WorkflowPhaseDeadline from "../features/workflow/WorkflowPhaseDeadline";
+import WorkflowProcessGuide from "../features/workflow/WorkflowProcessGuide";
+import WorkflowStatusStepper from "../features/documents/WorkflowStatusStepper";
 import { usePagination } from "../hooks/usePagination";
 import { useTranslation } from "../i18n/useTranslation";
 
@@ -157,16 +164,42 @@ export default function WorkflowControlePage() {
   return (
     <>
       <PageMeta title={t("nav.workflowControle")} description={t("workflow.controleDesc")} />
-      <h1 className="mb-6 text-2xl font-semibold text-gray-800 dark:text-white/90">{t("nav.workflowControle")}</h1>
-      {error ? <p className="mb-4 text-sm text-error-600">{error}</p> : null}
+      <AdminBreadcrumb
+        pageTitle={t("nav.workflowControle")}
+        crumbs={[{ label: t("nav.documents"), to: "/documents/generation" }]}
+      />
+
+      <div className="mb-6">
+        <HelpTipAlert
+          variant="info"
+          title={t("ux.safeModeTitle")}
+          message={t("workflow.controleDesc")}
+        />
+      </div>
+
+      <ComponentCard className="mb-6">
+        <WorkflowProcessGuide role="controle" />
+      </ComponentCard>
+
+      {error ? (
+        <div className="mb-4">
+          <HelpTipAlert variant="error" title={t("common.error")} message={error} />
+        </div>
+      ) : null}
+
       <div className="grid gap-6 xl:grid-cols-[minmax(280px,360px)_1fr]">
         <ComponentCard title={t("workflow.queueControle")}>
-          {loading ? <p className="text-sm text-gray-500">{t("common.loading")}</p> : null}
+          {loading ? <TableLoader message={t("common.loading")} /> : null}
           {!loading && queue.length === 0 ? (
-            <p className="text-sm text-gray-500">{t("workflow.queueControleEmpty")}</p>
-          ) : null}
-          {!loading && queue.length === 0 ? (
-            <p className="mt-2 text-xs text-gray-400">{t("workflow.queueControleHint")}</p>
+            <GuidedEmptyState
+              icon={ClipboardList}
+              title={t("ux.workflowEmptyTitle")}
+              message={t("ux.workflowEmptyControle")}
+            >
+              <Link to="/documents/generation">
+                <Button size="sm" variant="outline">{t("nav.generation")}</Button>
+              </Link>
+            </GuidedEmptyState>
           ) : null}
           <ul className="space-y-2">
             {queuePagination.paginatedItems.map((item) => (
@@ -200,12 +233,17 @@ export default function WorkflowControlePage() {
         </ComponentCard>
         <ComponentCard title={t("workflow.packageDetail")}>
           {!selected ? (
-            <p className="text-sm text-gray-500">{t("workflow.selectPackage")}</p>
+            <GuidedEmptyState
+              icon={ClipboardList}
+              title={t("ux.workflowSelectTitle")}
+              message={t("ux.workflowSelectDesc")}
+            />
           ) : (
             <div className="space-y-4">
               <p className="text-sm text-gray-600 dark:text-gray-400">
                 {selected.project_number} — {selected.event_title}
               </p>
+              <WorkflowStatusStepper status={selected.workflow_status} />
               <Badge color="info">{workflowStatusLabel(selected.workflow_status, t)}</Badge>
               <WorkflowPhaseDeadline
                 phaseDueAt={selected.phase_due_at}

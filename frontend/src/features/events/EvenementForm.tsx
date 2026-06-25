@@ -1,4 +1,5 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
+import HelpTipAlert from "../../components/common/HelpTipAlert";
 import Label from "../../components/form/Label";
 import Input from "../../components/form/input/InputField";
 import Select from "../../components/form/Select";
@@ -266,8 +267,60 @@ export default function EvenementForm({
 
   const resolvedSubmitLabel = submitLabel ?? t("common.save");
 
+  const readinessIssues = useMemo(() => {
+    const isNonop = themeChoice === "operatory-nonop";
+    const draft: EvenementPayload = {
+      ...form,
+      event_type: form.event_type || null,
+      responsible_person: form.responsible_person || form.national_responsible_name || null,
+      national_responsible_name: form.national_responsible_name || null,
+      national_responsible_email: form.national_responsible_email || null,
+      national_responsible_phone: form.national_responsible_phone || null,
+      organizer_responsible_user_id: form.organizer_responsible_user_id ?? null,
+      teacher_ids: form.teacher_ids ?? [],
+      project_status: form.project_status || "Open",
+      country: form.country || null,
+      city: form.city || null,
+      region: form.region || null,
+      start_date: form.start_date || null,
+      end_date: form.end_date || null,
+      preparation_theme: activityKind === "faculty"
+        ? null
+        : ((isNonop ? "operatory" : form.preparation_theme) as PreparationTheme | null) || null,
+      package_type_override: isNonop ? "NONOP_C" : null,
+      status: form.status as EventStatus,
+    };
+    return validateEventFormPayload(draft, t);
+  }, [activityKind, form, t, themeChoice]);
+
+  const showImportLockedHint = Boolean(initial) && !isAdmin;
+
   return (
     <form onSubmit={handleSubmit} className="space-y-6">
+      {showImportLockedHint ? (
+        <HelpTipAlert
+          variant="info"
+          title={t("ux.importLockedTitle")}
+          message={t("ux.importLockedDesc")}
+        />
+      ) : null}
+
+      {readinessIssues.length > 0 ? (
+        <HelpTipAlert
+          variant="warning"
+          title={t("ux.formIssuesTitle")}
+          message={readinessIssues.join(" · ")}
+        />
+      ) : initial?.id ? (
+        <HelpTipAlert
+          variant="success"
+          title={t("ux.formReadyTitle")}
+          message={t("ux.formReadyDesc")}
+          linkHref={`/documents/generation?event=${initial.id}`}
+          linkText={t("ux.goToGeneration")}
+        />
+      ) : null}
+
       <div className="grid grid-cols-1 gap-6 sm:grid-cols-2">
         <div>
           <Label>

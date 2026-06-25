@@ -57,7 +57,12 @@ export function inferActivityKind(event: {
 
 /** Options thème/paquet adaptées au format AO (cours, séminaire, faculty). */
 export function themeFormOptionsForEvent(
-  event: Pick<Evenement, "event_type" | "title" | "start_date" | "end_date">,
+  event: {
+    event_type?: string | null;
+    title?: string | null;
+    start_date?: string | null;
+    end_date?: string | null;
+  },
   t: (key: string) => string,
 ): ThemeFormOption[] {
   const kind = inferActivityKind(event);

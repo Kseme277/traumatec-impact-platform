@@ -1,5 +1,8 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Link, useSearchParams } from "react-router";
+import { FileArchive } from "lucide-react";
+import HelpTipAlert from "../components/common/HelpTipAlert";
+import GuidedEmptyState from "../components/common/GuidedEmptyState";
 import { useAuth } from "@clerk/clerk-react";
 import AdminBreadcrumb from "../components/common/AdminBreadcrumb";
 import ComponentCard from "../components/common/ComponentCard";
@@ -27,9 +30,7 @@ import {
   eventMatchesSearch,
   formatEventDateRange,
   isGeneratableEvent,
-  isUpcomingEvent,
 } from "../features/events/eventDates";
-import { isEventOpen } from "../features/events/projectStatus";
 import type { PackageCandidate } from "../features/events/types";
 import {
   inferActivityKind,
@@ -45,10 +46,12 @@ import {
   runPackageGeneration,
 } from "../api/docgen";
 import { submitPackage, fetchUsersByRole } from "../api/workflow";
-import { workflowStatusLabel, type Utilisateur } from "../features/auth/types";
+import type { Utilisateur } from "../features/auth/types";
 import { ApiError } from "../api/client";
 import { getApiToken } from "../lib/clerkToken";
 import GenerationHistoryPanel from "../features/documents/GenerationHistoryPanel";
+import GenerationProcessGuide from "../features/documents/GenerationProcessGuide";
+import WorkflowStatusStepper from "../features/documents/WorkflowStatusStepper";
 import GenerationLogPanel from "../features/documents/GenerationLogPanel";
 import type { GenerationJob } from "../features/documents/types";
 import { jobStatusColor, jobStatusLabel } from "../features/documents/types";
@@ -72,7 +75,7 @@ function eventOptionLabel(event: Evenement): string {
 }
 
 export default function DocumentsGenerationPage() {
-  const { t, localeTag } = useTranslation();
+  const { t } = useTranslation();
   const { getToken, isLoaded, isSignedIn } = useAuth();
   const [searchParams] = useSearchParams();
   const { events, isLoading, loadEvents, update, isSubmitting } = useEvents();
@@ -284,7 +287,6 @@ export default function DocumentsGenerationPage() {
   const inferredPackage = eventDetail?.inferred_package ?? selectedEvent?.inferred_package ?? null;
   const packageCandidates = inferredPackage?.package_candidates ?? [];
   const isFacultyEvent = selectedEvent ? inferActivityKind(selectedEvent) === "faculty" : false;
-  const suggestedTheme = themeSourceEvent ? suggestPreparationTheme(themeSourceEvent) : "";
   const effectiveTheme =
     selectedEvent?.preparation_theme
     ?? (isPreparationTheme(themeDraft) ? themeDraft : null);
@@ -506,6 +508,12 @@ export default function DocumentsGenerationPage() {
     label: `${user.prenom} ${user.nom}`,
   }));
 
+  const workflowSubmitted = Boolean(
+    activeJob?.workflow_status &&
+      activeJob.workflow_status !== "generated" &&
+      !["procedure_rejected", "validator_rejected"].includes(activeJob.workflow_status),
+  );
+
   if (isLoading) {
     return <AuthLoadingScreen message={t("documents.loadingReady")} />;
   }
@@ -525,6 +533,15 @@ export default function DocumentsGenerationPage() {
       />
 
       <PackageDueEventsPanel events={packageDueEvents} className="mb-6" />
+
+      <ComponentCard title={t("ux.safeModeTitle")} desc={t("ux.safeModeDesc")} className="mb-6">
+        <GenerationProcessGuide
+          hasEvent={Boolean(selectedEvent)}
+          eventReady={Boolean(selectedEvent && selectedIsGeneratable && !needsEventData)}
+          hasGeneratedJob={activeJob?.status === "completed"}
+          submitted={workflowSubmitted}
+        />
+      </ComponentCard>
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-3">
         <ComponentCard
@@ -569,34 +586,26 @@ export default function DocumentsGenerationPage() {
                 )}
               </div>
               {generatableEvents.length === 0 && (
-                <div className="mt-2 space-y-2 text-sm text-gray-500 dark:text-gray-400">
-                  <p>{t("documents.noEligible")}</p>
-                  {excludedReady.length > 0 && (
-                    <ul className="list-inside list-disc">
-                      {excludedReady.slice(0, 5).map((e) => (
-                        <li key={e.id}>
-                          {e.project_number} —{" "}
-                          {!isEventOpen(e.project_status)
-                            ? t("documents.projectNotOpen")
-                            : !e.start_date && !e.end_date
-                              ? t("documents.missingDates")
-                              : !isUpcomingEvent(e)
-                                ? t("documents.pastDates")
-                                : t("documents.notReady")}
-                          {" · "}
-                          <Link to={`/evenements/${e.id}/modifier`} className="text-brand-500 hover:underline">
-                            {t("common.edit")}
-                          </Link>
-                        </li>
-                      ))}
-                    </ul>
-                  )}
-                  <p>
-                    <Link to="/evenements" className="text-brand-500 hover:underline">
-                      {t("documents.eventList")}
+                <>
+                  <GuidedEmptyState
+                    icon={FileArchive}
+                    title={t("documents.noEligible")}
+                    message={t("ux.noEventsDesc")}
+                  >
+                    <Link to="/evenements">
+                      <Button size="sm" variant="outline">{t("documents.eventList")}</Button>
                     </Link>
-                  </p>
-                </div>
+                  </GuidedEmptyState>
+                  {excludedReady.length > 0 ? (
+                    <div className="mt-4">
+                      <HelpTipAlert
+                        variant="warning"
+                        title={t("documents.notEligibleError")}
+                        message={t("ux.eventsExcludedHint").replace("{count}", String(excludedReady.length))}
+                      />
+                    </div>
+                  ) : null}
+                </>
               )}
             </div>
 
@@ -687,94 +696,80 @@ export default function DocumentsGenerationPage() {
             )}
 
             {selectedEvent && selectedIsGeneratable && needsEventData && (
-              <div className="rounded-xl border border-warning-200 bg-warning-50/80 p-4 dark:border-warning-500/30 dark:bg-warning-500/10">
-                <p className="text-sm font-medium text-gray-800 dark:text-white/90">
-                  {t("events.readinessTitle")}
-                </p>
-                <p className="mt-1 text-sm text-gray-600 dark:text-gray-300">
-                  {t("events.readinessDesc")}
-                </p>
-                <ul className="mt-3 list-inside list-disc space-y-1 text-sm text-warning-700 dark:text-warning-400">
-                  {readinessIssues.map((issue) => (
-                    <li key={issue}>{issue}</li>
-                  ))}
-                </ul>
-                <Link
-                  to={`/evenements/${selectedEvent.id}/modifier`}
-                  className="mt-4 inline-flex text-sm font-medium text-brand-600 hover:underline dark:text-brand-400"
-                >
-                  {t("events.editEventLink")}
-                </Link>
-              </div>
+              <HelpTipAlert
+                variant="warning"
+                title={t("events.readinessTitle")}
+                message={`${t("events.readinessDesc")} ${readinessIssues.join(" · ")}`}
+                linkHref={`/evenements/${selectedEvent.id}/modifier`}
+                linkText={t("events.editEventLink")}
+              />
             )}
 
-            {showThemePanel && (
-              <div className="rounded-xl border border-warning-200 bg-warning-50/80 p-4 dark:border-warning-500/30 dark:bg-warning-500/10">
-                <p className="text-sm font-medium text-gray-800 dark:text-white/90">
-                  {t("documents.themeRequiredTitle")}
+            {showThemePanel && !themeInferenceLoading && (
+              <HelpTipAlert
+                variant="warning"
+                title={t("documents.themeRequiredTitle")}
+                message={t("documents.themeRequiredDesc")}
+              />
+            )}
+
+            {showThemePanel && themeInferenceLoading ? (
+              <div
+                className="flex items-center gap-3 text-sm text-gray-500 dark:text-gray-400"
+                role="status"
+                aria-live="polite"
+                aria-busy="true"
+              >
+                <TipAnimatedLogo size="xs" iconOnly animate className="shrink-0" />
+                <span>{t("documents.loadingThemeSuggestion")}</span>
+              </div>
+            ) : showThemePanel ? (
+              <>
+                <p className="text-sm text-gray-600 dark:text-gray-300">
+                  {t("events.suggestThemePick")}
+                  {inferredPackage?.classifier === "nvidia" && (
+                    <span className="ml-1 text-xs text-brand-500">
+                      ({t("documents.classifierNvidia")})
+                    </span>
+                  )}
                 </p>
-                <p className="mt-1 text-sm text-gray-600 dark:text-gray-300">
-                  {t("documents.themeRequiredDesc")}
-                </p>
-                {themeInferenceLoading ? (
-                  <div
-                    className="mt-4 flex items-center gap-3 text-sm text-gray-500 dark:text-gray-400"
-                    role="status"
-                    aria-live="polite"
-                    aria-busy="true"
-                  >
-                    <TipAnimatedLogo size="xs" iconOnly animate className="shrink-0" />
-                    <span>{t("documents.loadingThemeSuggestion")}</span>
+                {packageCandidates.length > 0 ? (
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    {packageCandidates.map((candidate) => (
+                      <Button
+                        key={candidate.package_type}
+                        size="sm"
+                        variant={candidate.suggested ? "primary" : "outline"}
+                        disabled={isSubmitting}
+                        onClick={() => void applyPackageCandidate(candidate)}
+                      >
+                        {packageTypeLabel(candidate.package_type, t)}
+                        {candidate.suggested ? ` (${t("events.suggestedPackage")})` : ""}
+                      </Button>
+                    ))}
                   </div>
                 ) : (
-                  <>
-                    <p className="mt-2 text-sm text-gray-600 dark:text-gray-300">
-                      {t("events.suggestThemePick")}
-                      {inferredPackage?.classifier === "nvidia" && (
-                        <span className="ml-1 text-xs text-brand-500">
-                          ({t("documents.classifierNvidia")})
-                        </span>
-                      )}
-                    </p>
-                    {packageCandidates.length > 0 ? (
-                      <div className="mt-3 flex flex-wrap gap-2">
-                        {packageCandidates.map((candidate) => (
-                          <Button
-                            key={candidate.package_type}
-                            size="sm"
-                            variant={candidate.suggested ? "primary" : "outline"}
-                            disabled={isSubmitting}
-                            onClick={() => void applyPackageCandidate(candidate)}
-                          >
-                            {packageTypeLabel(candidate.package_type, t)}
-                            {candidate.suggested ? ` (${t("events.suggestedPackage")})` : ""}
-                          </Button>
-                        ))}
-                      </div>
-                    ) : (
-                      <div className="mt-4 max-w-md">
-                        <Label>{t("events.theme")}</Label>
-                        <Select
-                          placeholder={t("events.chooseTheme")}
-                          options={isFacultyEvent ? [] : themeSelectOptions}
-                          value={themeDraft}
-                          onChange={(value) => setThemeDraft(value as PreparationTheme | "")}
-                        />
-                        <div className="mt-4 flex flex-wrap gap-3">
-                          <Button
-                            size="sm"
-                            disabled={isSubmitting || (!isFacultyEvent && !isPreparationTheme(themeDraft))}
-                            onClick={() => void handleSaveThemeOnly()}
-                          >
-                            {isSubmitting ? t("common.saving") : t("documents.saveTheme")}
-                          </Button>
-                        </div>
-                      </div>
-                    )}
-                  </>
+                  <div className="mt-4 max-w-md">
+                    <Label>{t("events.theme")}</Label>
+                    <Select
+                      placeholder={t("events.chooseTheme")}
+                      options={isFacultyEvent ? [] : themeSelectOptions}
+                      value={themeDraft}
+                      onChange={(value) => setThemeDraft(value as PreparationTheme | "")}
+                    />
+                    <div className="mt-4 flex flex-wrap gap-3">
+                      <Button
+                        size="sm"
+                        disabled={isSubmitting || (!isFacultyEvent && !isPreparationTheme(themeDraft))}
+                        onClick={() => void handleSaveThemeOnly()}
+                      >
+                        {isSubmitting ? t("common.saving") : t("documents.saveTheme")}
+                      </Button>
+                    </div>
+                  </div>
                 )}
-              </div>
-            )}
+              </>
+            ) : null}
 
             {activeJob && (
               <div className="space-y-3">
@@ -824,7 +819,31 @@ export default function DocumentsGenerationPage() {
                   {t("documents.downloadZip")}
                 </Button>
               )}
-              {activeJob && canSubmitWorkflow(activeJob) ? (
+              {activeJob?.status === "completed" && activeJob.zip_available === false && (
+                <span className="text-xs text-gray-500 dark:text-gray-400">
+                  {t("documents.zipExpired")}
+                </span>
+              )}
+              {selectedEvent && (
+                <Link to={`/evenements/${selectedEvent.id}/modifier`}>
+                  <Button size="sm" variant="outline">
+                    {t("documents.editEvent")}
+                  </Button>
+                </Link>
+              )}
+            </div>
+
+            {activeJob?.workflow_status ? (
+              <div className="rounded-xl border border-gray-100 p-4 dark:border-gray-800">
+                <WorkflowStatusStepper status={activeJob.workflow_status} />
+              </div>
+            ) : null}
+
+            {activeJob && canSubmitWorkflow(activeJob) ? (
+              <ComponentCard
+                title={t("workflow.submitForReview")}
+                desc={t("workflow.selectReviewer")}
+              >
                 <div className="flex w-full flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
                   <div className="min-w-[220px] flex-1">
                     <Label>{t("workflow.assignReviewer")}</Label>
@@ -841,25 +860,8 @@ export default function DocumentsGenerationPage() {
                     {t("workflow.submitForReview")}
                   </Button>
                 </div>
-              ) : null}
-              {activeJob?.workflow_status ? (
-                <Badge color="info" size="sm">
-                  {workflowStatusLabel(activeJob.workflow_status)}
-                </Badge>
-              ) : null}
-              {activeJob?.status === "completed" && activeJob.zip_available === false && (
-                <span className="text-xs text-gray-500 dark:text-gray-400">
-                  {t("documents.zipExpired")}
-                </span>
-              )}
-              {selectedEvent && (
-                <Link to={`/evenements/${selectedEvent.id}/modifier`}>
-                  <Button size="sm" variant="outline">
-                    {t("documents.editEvent")}
-                  </Button>
-                </Link>
-              )}
-            </div>
+              </ComponentCard>
+            ) : null}
           </div>
         </ComponentCard>
 

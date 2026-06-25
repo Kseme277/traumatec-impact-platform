@@ -1,4 +1,4 @@
-import Badge from "../ui/badge/Badge";
+import Badge from "../../components/ui/badge/Badge";
 import { useTranslation } from "../../i18n/useTranslation";
 
 interface WorkflowPhaseDeadlineProps {

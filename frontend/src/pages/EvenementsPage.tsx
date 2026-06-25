@@ -265,6 +265,7 @@ export default function EvenementsPage() {
               onClose={handleClose}
               onDelete={handleDelete}
               showAdminActions={isAdmin}
+              onImportClick={importModal.openModal}
             />
             <DataTablePagination
               page={page}
