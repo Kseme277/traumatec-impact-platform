@@ -11,6 +11,7 @@ import {
 } from "../../components/ui/table";
 import TableIconButton from "../../components/common/TableIconButton";
 import { useTranslation } from "../../i18n/useTranslation";
+import { useTipAuth } from "../../context/TipAuthContext";
 import type { Evenement } from "./types";
 import { themeLabel } from "./types";
 import type { EventSortDir, EventSortField } from "./eventSort";
@@ -28,6 +29,7 @@ interface EvenementsTableProps {
   onClose: (event: Evenement) => void;
   onDelete: (event: Evenement) => void;
   showAdminActions?: boolean;
+  showCreateAction?: boolean;
   onImportClick?: () => void;
 }
 
@@ -63,9 +65,11 @@ export default function EvenementsTable({
   onClose,
   onDelete,
   showAdminActions = false,
+  showCreateAction = true,
   onImportClick,
 }: EvenementsTableProps) {
   const { t } = useTranslation();
+  const { scopesEventsToOrganizer } = useTipAuth();
 
   const sortableColumns: SortableColumn[] = [
     { key: "project_number", label: t("events.tableProject") },
@@ -80,11 +84,13 @@ export default function EvenementsTable({
       <GuidedEmptyState
         icon={CalendarDays}
         title={t("ux.noEventsTitle")}
-        message={t("ux.noEventsDesc")}
+        message={scopesEventsToOrganizer ? t("ux.supportScopeDesc") : t("ux.noEventsDesc")}
       >
-        <Link to="/evenements/nouveau">
-          <Button size="sm">{t("events.addEvent")}</Button>
-        </Link>
+        {showCreateAction ? (
+          <Link to="/evenements/nouveau">
+            <Button size="sm">{t("events.addEvent")}</Button>
+          </Link>
+        ) : null}
         {showAdminActions && onImportClick ? (
           <Button size="sm" variant="outline" onClick={onImportClick}>
             {t("events.importExcel")}

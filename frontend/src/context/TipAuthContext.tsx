@@ -20,6 +20,8 @@ interface TipAuthContextValue {
   error: string | null;
   errorStatus: number | null;
   isAdmin: boolean;
+  /** Support administratif : périmètre limité aux événements assignés */
+  scopesEventsToOrganizer: boolean;
   roles: RoleUtilisateur[];
   hasRole: (role: RoleUtilisateur) => boolean;
   hasAnyRole: (...roles: RoleUtilisateur[]) => boolean;
@@ -114,6 +116,10 @@ export function TipAuthProvider({ children }: { children: ReactNode }) {
   }, [refreshProfile]);
 
   const roles = useMemo(() => normalizeRoles(tipUser?.roles, tipUser?.role), [tipUser]);
+  const scopesEventsToOrganizer = useMemo(
+    () => hasRole(tipUser, "support_administratif") && !hasRole(tipUser, "administrateur"),
+    [tipUser],
+  );
 
   const value = useMemo(
     () => ({
@@ -122,12 +128,13 @@ export function TipAuthProvider({ children }: { children: ReactNode }) {
       error,
       errorStatus,
       isAdmin: hasRole(tipUser, "administrateur"),
+      scopesEventsToOrganizer,
       roles,
       hasRole: (role: RoleUtilisateur) => hasRole(tipUser, role),
       hasAnyRole: (...required: RoleUtilisateur[]) => hasAnyRole(tipUser, ...required),
       refreshProfile,
     }),
-    [tipUser, isLoading, error, errorStatus, roles, refreshProfile],
+    [tipUser, isLoading, error, errorStatus, roles, scopesEventsToOrganizer, refreshProfile],
   );
 
   return <TipAuthContext.Provider value={value}>{children}</TipAuthContext.Provider>;

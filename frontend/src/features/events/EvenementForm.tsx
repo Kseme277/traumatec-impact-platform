@@ -72,7 +72,7 @@ export default function EvenementForm({
 }: EvenementFormProps) {
   const { t } = useTranslation();
   const { getToken } = useAuth();
-  const { hasRole } = useTipAuth();
+  const { hasRole, scopesEventsToOrganizer, tipUser } = useTipAuth();
   const isAdmin = hasRole("administrateur");
   const [form, setForm] = useState<EvenementPayload>(emptyForm);
   const [themeChoice, setThemeChoice] = useState("");
@@ -81,7 +81,11 @@ export default function EvenementForm({
   const [supportUsers, setSupportUsers] = useState<Utilisateur[]>([]);
   const [nationalContactId, setNationalContactId] = useState("");
 
-  const fieldLocked = (field: string) => !isAdmin && IMPORT_LOCKED_FIELDS.has(field);
+  const fieldLocked = (field: string) => {
+    if (isAdmin) return false;
+    if (field === "organizer_responsible_user_id" && scopesEventsToOrganizer) return true;
+    return IMPORT_LOCKED_FIELDS.has(field);
+  };
 
   const statusOptions = useMemo(
     () => [
@@ -200,7 +204,14 @@ export default function EvenementForm({
   }, [initial]);
 
   useEffect(() => {
-    if (!nationalContacts.length) return;
+    if (initial || !scopesEventsToOrganizer || !tipUser?.id) return;
+    setForm((prev) => ({
+      ...prev,
+      organizer_responsible_user_id: tipUser.id,
+    }));
+  }, [initial, scopesEventsToOrganizer, tipUser?.id]);
+
+  useEffect(() => {
     const name = form.national_responsible_name?.trim().toLowerCase();
     const email = form.national_responsible_email?.trim().toLowerCase();
     const match = nationalContacts.find((c) => {

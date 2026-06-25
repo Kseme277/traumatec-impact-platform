@@ -1,16 +1,22 @@
-import { useNavigate } from "react-router";
+import { Navigate, useNavigate } from "react-router";
 import AdminBreadcrumb from "../components/common/AdminBreadcrumb";
 import ComponentCard from "../components/common/ComponentCard";
 import PageMeta from "../components/common/PageMeta";
 import EvenementForm from "../features/events/EvenementForm";
 import { useEvents } from "../features/events/useEvents";
+import { useTipAuth } from "../context/TipAuthContext";
 import { useTranslation } from "../i18n/useTranslation";
 import type { EvenementPayload } from "../features/events/types";
 
 export default function EvenementCreatePage() {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const { scopesEventsToOrganizer } = useTipAuth();
   const { create, isSubmitting } = useEvents();
+
+  if (scopesEventsToOrganizer) {
+    return <Navigate to="/evenements" replace />;
+  }
 
   const handleSubmit = async (payload: EvenementPayload) => {
     const event = await create(payload);

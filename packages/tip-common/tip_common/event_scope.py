@@ -8,12 +8,10 @@ from tip_common.security import AuthenticatedUser
 
 
 def scopes_events_to_organizer(user: AuthenticatedUser) -> bool:
-    """Le support ne voit que les événements dont il est responsable organisation."""
+    """Le support ne voit et ne modifie que les événements dont il est responsable organisation."""
     if user.is_admin:
         return False
-    return "support_administratif" in user.roles and not (
-        "controle_procedure" in user.roles or "validateur" in user.roles
-    )
+    return "support_administratif" in user.roles
 
 
 def assert_event_access(user: AuthenticatedUser, organizer_user_id: int | None) -> None:

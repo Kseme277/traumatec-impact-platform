@@ -516,6 +516,14 @@ async def create_event(
     db: AsyncSession = Depends(get_db),
 ) -> Event:
     data = payload.model_dump()
+    if scopes_events_to_organizer(user):
+        organizer_id = data.get("organizer_responsible_user_id")
+        if organizer_id is not None and organizer_id != user.id:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Vous ne pouvez créer un événement que pour votre propre périmètre.",
+            )
+        data["organizer_responsible_user_id"] = user.id
     contact_patch: dict[str, str] = {}
     for contact_key in ("responsible_email", "responsible_phone"):
         if contact_key in data:
@@ -607,6 +615,7 @@ async def close_event(
     event = await db.get(Event, event_id)
     if event is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Événement introuvable")
+    assert_event_access(user, event.organizer_responsible_user_id)
     event.status = "generated"
     event.updated_at = datetime.now(timezone.utc)
     await record_audit_event(

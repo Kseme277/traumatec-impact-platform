@@ -83,6 +83,7 @@ def filter_update_payload_for_role(
     filtered = dict(payload)
     for field in IMPORT_LOCKED_FIELDS:
         filtered.pop(field, None)
+    filtered.pop("organizer_responsible_user_id", None)
     return filtered
 
 

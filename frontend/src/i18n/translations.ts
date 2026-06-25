@@ -325,6 +325,8 @@ const fr = {
     workflowSelectTitle: "Sélectionnez un paquet",
     workflowSelectDesc: "Cliquez sur un élément de la liste à gauche pour afficher le détail et les actions possibles.",
     eventsExcludedHint: "{count} événement(s) existent mais ne sont pas éligibles (passé, projet fermé ou dates manquantes).",
+    supportScopeTitle: "Votre périmètre événements",
+    supportScopeDesc: "Vous ne voyez que les événements dont vous êtes responsable organisation. Seules ces fiches sont modifiables.",
     generation: {
       stepPick: "Choisir l'événement",
       stepPickHint: "Sélectionnez un événement ouvert à venir.",
@@ -1795,6 +1797,8 @@ const en: typeof fr = {
     workflowSelectTitle: "Select a package",
     workflowSelectDesc: "Click an item in the left list to see details and available actions.",
     eventsExcludedHint: "{count} event(s) exist but are not eligible (past, closed project, or missing dates).",
+    supportScopeTitle: "Your event scope",
+    supportScopeDesc: "You only see events where you are the organization responsible. Only those records can be edited.",
     generation: {
       stepPick: "Choose event",
       stepPickHint: "Pick an open upcoming event.",

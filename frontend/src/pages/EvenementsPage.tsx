@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { Search } from "lucide-react";
 import { Link, useSearchParams } from "react-router";
+import HelpTipAlert from "../components/common/HelpTipAlert";
 import AdminBreadcrumb from "../components/common/AdminBreadcrumb";
 import ComponentCard from "../components/common/ComponentCard";
 import PageMeta from "../components/common/PageMeta";
@@ -42,7 +43,7 @@ import { showSuccess } from "../lib/swal";
 
 export default function EvenementsPage() {
   const { t, localeTag } = useTranslation();
-  const { isAdmin } = useTipAuth();
+  const { isAdmin, scopesEventsToOrganizer } = useTipAuth();
   const [searchParams] = useSearchParams();
   const importModal = useModal();
   const {
@@ -122,11 +123,11 @@ export default function EvenementsPage() {
     rangeEnd,
   } = usePagination(events, 10, paginationKey);
 
-  const openCount = events.filter((event) => isEventOpen(event.project_status)).length;
-  const closedCount = events.filter(
+  const openCount = stats?.open_count ?? events.filter((event) => isEventOpen(event.project_status)).length;
+  const closedCount = stats?.closed_count ?? events.filter(
     (event) => normalizeProjectStatus(event.project_status) === "Closed",
   ).length;
-  const cancelledCount = events.filter(
+  const cancelledCount = stats?.cancelled_count ?? events.filter(
     (event) => normalizeProjectStatus(event.project_status) === "Cancelled",
   ).length;
   const packageDueCount = events.filter((event) => needsPackageGenerationHighlight(event)).length;
@@ -161,31 +162,41 @@ export default function EvenementsPage() {
       />
       <AdminBreadcrumb pageTitle={t("events.title")} crumbs={[{ label: t("nav.home"), to: "/" }]} />
 
+      {scopesEventsToOrganizer ? (
+        <div className="mb-6">
+          <HelpTipAlert
+            variant="info"
+            title={t("ux.supportScopeTitle")}
+            message={t("ux.supportScopeDesc")}
+          />
+        </div>
+      ) : null}
+
       <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4 md:gap-6">
         <EventStatCard
           label={t("events.totalEvents")}
-          value={isLoading ? "—" : total}
+          value={isStatsLoading ? "—" : (stats?.total ?? total)}
           icon={<ListIcon className="size-6 text-brand-500 dark:text-brand-400" />}
           iconBgClassName="bg-brand-50 dark:bg-brand-500/15"
           to="/evenements"
         />
         <EventStatCard
           label={t("events.open")}
-          value={isLoading ? "—" : openCount}
+          value={isStatsLoading ? "—" : openCount}
           icon={<CalenderIcon className="size-6 text-warning-600 dark:text-warning-500" />}
           iconBgClassName="bg-warning-50 dark:bg-warning-500/15"
           to="/evenements?status=Open"
         />
         <EventStatCard
           label={t("events.closed")}
-          value={isLoading ? "—" : closedCount}
+          value={isStatsLoading ? "—" : closedCount}
           icon={<CheckCircleIcon className="size-6 text-success-600 dark:text-success-500" />}
           iconBgClassName="bg-success-50 dark:bg-success-500/15"
           to="/evenements?status=Closed"
         />
         <EventStatCard
           label={t("events.cancelled")}
-          value={isLoading ? "—" : cancelledCount}
+          value={isStatsLoading ? "—" : cancelledCount}
           icon={<CloseIcon className="size-6 text-error-600 dark:text-error-500" />}
           iconBgClassName="bg-error-50 dark:bg-error-500/15"
           to="/evenements?status=Cancelled"
@@ -237,9 +248,11 @@ export default function EvenementsPage() {
                 {t("events.importExcel")}
               </Button>
             )}
-            <Link to="/evenements/nouveau">
-              <Button size="sm">{t("events.addEvent")}</Button>
-            </Link>
+            {!scopesEventsToOrganizer && (
+              <Link to="/evenements/nouveau">
+                <Button size="sm">{t("events.addEvent")}</Button>
+              </Link>
+            )}
           </div>
         </div>
 
@@ -266,6 +279,7 @@ export default function EvenementsPage() {
               onDelete={handleDelete}
               showAdminActions={isAdmin}
               onImportClick={importModal.openModal}
+              showCreateAction={!scopesEventsToOrganizer}
             />
             <DataTablePagination
               page={page}
