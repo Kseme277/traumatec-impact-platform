@@ -1,0 +1,92 @@
+# Production overrides — utiliser :
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml up -d --build
+#
+# Expose uniquement nginx (80 + 3101). Pas de reload, frontend build statique.
+
+services:
+  postgres:
+    ports: !reset []
+
+  redis:
+    ports: !reset []
+
+  minio:
+    ports: !reset []
+
+  prometheus:
+    ports: !reset []
+
+  grafana:
+    ports: !reset []
+
+  cadvisor:
+    ports: !reset []
+
+  postgres-exporter:
+    ports: !reset []
+
+  redis-exporter:
+    ports: !reset []
+
+  identity:
+    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8001", "--workers", "1"]
+    volumes: []
+    ports: !reset []
+
+  events:
+    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8002", "--workers", "1"]
+    volumes: []
+    ports: !reset []
+
+  catalog:
+    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8003", "--workers", "1"]
+    volumes: []
+    ports: !reset []
+
+  docgen:
+    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8004", "--workers", "1"]
+    volumes: []
+    ports: !reset []
+
+  docgen-worker:
+    volumes: []
+
+  analytics:
+    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8005", "--workers", "1"]
+    volumes: []
+    ports: !reset []
+
+  docgen-gc:
+    volumes: []
+
+  onlyoffice:
+    ports: !reset []
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      target: production
+      args:
+        VITE_API_BASE_URL: /api
+        VITE_CLERK_PUBLISHABLE_KEY: ${VITE_CLERK_PUBLISHABLE_KEY}
+        VITE_CLERK_PROXY_URL: /__clerk
+        VITE_CLERK_FRONTEND_API_URL: ${CLERK_ISSUER}
+        VITE_GUIDES_URL: ${VITE_GUIDES_URL}
+        VITE_GUIDES_API_URL: ${VITE_GUIDES_API_URL}
+        VITE_GUIDES_HANDOFF_URL: ${VITE_GUIDES_HANDOFF_URL:-}
+        VITE_GUIDES_COMPANY_SLUG: ${VITE_GUIDES_COMPANY_SLUG:-traumatec-cm}
+        VITE_CLERK_DOMAIN: ${VITE_CLERK_DOMAIN}
+        VITE_ONLYOFFICE_URL: ${ONLYOFFICE_PUBLIC_URL}
+    environment: {}
+    volumes: []
+    ports: !reset []
+    command: ["nginx", "-g", "daemon off;"]
+
+  nginx:
+    ports:
+      - "${NGINX_PORT:-80}:80"
+      - "${GUIDES_PROXY_PORT:-3101}:3101"
+    volumes:
+      - ./infra/nginx/nginx.prod.conf:/etc/nginx/nginx.conf:ro
+      - ./frontend/public/guidehub-handoff.html:/var/www/guidehub-handoff.html:ro

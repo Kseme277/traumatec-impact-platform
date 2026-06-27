@@ -1,18 +1,22 @@
 /**
  * Clerk proxy URL (same-origin → Clerk Frontend API via nginx or Vite proxy).
  *
- * On http://*:5173 (Vite dev, no TLS) we omit the proxy: Clerk upgrades proxy
- * URLs to HTTPS, so https://<host>:5173/__clerk/... fails. Clerk JS loads from
- * the Frontend API domain instead (add the origin in Clerk Dashboard).
+ * Clerk force HTTPS sur proxyUrl. Sans certificat TLS (http://IP ou :5173 en dev),
+ * le chargement de clerk.browser.js échoue. On charge alors depuis le domaine
+ * Clerk Frontend API (ajouter l'origine http dans le Dashboard Clerk).
  *
- * On http://*:8080 (nginx gateway), use /__clerk via window.origin.
+ * Avec TLS (https://), le proxy /__clerk via nginx fonctionne.
  */
-export function isViteDevWithoutTls(): boolean {
-  if (!import.meta.env.DEV || typeof window === "undefined") {
+export function shouldSkipClerkProxy(): boolean {
+  if (typeof window === "undefined") {
     return false;
   }
-  const { port, protocol } = window.location;
-  return port === "5173" && protocol === "http:";
+  return window.location.protocol === "http:";
+}
+
+/** @deprecated use shouldSkipClerkProxy */
+export function isViteDevWithoutTls(): boolean {
+  return import.meta.env.DEV && shouldSkipClerkProxy() && window.location.port === "5173";
 }
 
 export function resolveClerkProxyUrl(): string | undefined {
@@ -20,7 +24,7 @@ export function resolveClerkProxyUrl(): string | undefined {
     return undefined;
   }
 
-  if (isViteDevWithoutTls()) {
+  if (shouldSkipClerkProxy()) {
     return undefined;
   }
 

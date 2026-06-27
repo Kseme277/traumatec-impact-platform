@@ -1,4 +1,5 @@
 from collections.abc import Callable
+from contextlib import asynccontextmanager
 
 from fastapi import APIRouter, FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -12,6 +13,16 @@ def create_service_app(
     routers: list[tuple[APIRouter, str, list[str] | None]],
     on_startup: Callable | None = None,
 ) -> FastAPI:
+    lifespan = None
+    if on_startup:
+
+        @asynccontextmanager
+        async def _lifespan(_: FastAPI):
+            await on_startup()
+            yield
+
+        lifespan = _lifespan
+
     app = FastAPI(
         title=f"TIP — {settings.service_name}",
         version=settings.app_version,
@@ -19,6 +30,7 @@ def create_service_app(
         docs_url=f"{settings.api_v1_prefix}/docs",
         redoc_url=f"{settings.api_v1_prefix}/redoc",
         redirect_slashes=False,
+        lifespan=lifespan,
     )
 
     app.add_middleware(
@@ -42,8 +54,5 @@ def create_service_app(
         should_instrument_requests_inprogress=True,
         excluded_handlers=["/metrics"],
     ).instrument(app).expose(app, endpoint="/metrics", include_in_schema=False)
-
-    if on_startup:
-        app.add_event_handler("startup", on_startup)
 
     return app
