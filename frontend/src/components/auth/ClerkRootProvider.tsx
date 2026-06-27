@@ -46,6 +46,9 @@ export default function ClerkRootProvider({ publishableKey, children }: ClerkRoo
       afterSignOutUrl="/"
       signInFallbackRedirectUrl="/"
       signUpFallbackRedirectUrl="/"
+      signInUrl="/signin"
+      signUpUrl="/signin"
+      touchSession
     >
       {children}
     </ClerkProvider>

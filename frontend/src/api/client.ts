@@ -39,7 +39,9 @@ export async function apiFetch<T>(
   options: RequestInit = {},
 ): Promise<T> {
   const headers = new Headers(options.headers);
-  headers.set("Content-Type", "application/json");
+  if (!headers.has("Content-Type") && options.body) {
+    headers.set("Content-Type", "application/json");
+  }
   if (token) {
     headers.set("Authorization", `Bearer ${token}`);
   }
@@ -47,6 +49,8 @@ export async function apiFetch<T>(
   const response = await fetch(`${API_BASE}${path}`, {
     ...options,
     headers,
+    credentials: "same-origin",
+    cache: "no-store",
   });
 
   if (!response.ok) {

@@ -163,6 +163,7 @@ services:
       GUIDES_COMPANY_SLUG: ${GUIDES_COMPANY_SLUG:-}
       GUIDES_BRIDGE_EMAIL: ${GUIDES_BRIDGE_EMAIL:-}
       GUIDES_BRIDGE_PASSWORD: ${GUIDES_BRIDGE_PASSWORD:-}
+      REDIS_URL: redis://redis:6379/0
       PYTHONPATH: /packages/tip-common
     volumes:
       - ./services/identity/app:/app/app
@@ -171,6 +172,8 @@ services:
       - "${IDENTITY_PORT:-8001}:8001"
     depends_on:
       postgres:
+        condition: service_healthy
+      redis:
         condition: service_healthy
       minio:
         condition: service_started

@@ -5,6 +5,7 @@ import {
   openExternalTabPending,
   PopupBlockedError,
 } from "../lib/openExternal";
+import { buildGuidesHandoffPageUrl } from "../api/guides";
 
 export { PopupBlockedError };
 
@@ -60,8 +61,7 @@ function resolveGuidesHandoffHost(): string {
 }
 
 /**
- * Origine du proxy GuideHub (nginx :3101) — handoff + admin sur la même origine
- * pour que localStorage et /api/v1 fonctionnent sans page de login.
+ * Origine du proxy GuideHub (nginx :3101) — handoff + admin sur la même origine.
  */
 export function resolveGuidesProxyWebUrl(): string {
   if (configuredHandoff) return configuredHandoff;
@@ -134,42 +134,30 @@ function navigateExternal(url: string, target: "_blank" | "_self"): void {
 }
 
 export function buildGuidesHandoffUrl(session: {
-  access_token: string;
+  handoff_ticket: string;
   email: string;
   role: string;
   web_url?: string;
   proxy_web_url?: string;
   company_slug?: string;
 }): string {
-  const handoffBase = resolveGuidesHandoffUrl().replace(/\/$/, "");
-  const handoff = new URL(`${handoffBase}${GUIDES_HANDOFF_PATH}`);
   const proxyWeb = resolveGuidesProxyWebForSession(session);
-
-  handoff.searchParams.set("token", session.access_token);
-  handoff.searchParams.set("email", session.email);
-  handoff.searchParams.set("role", session.role);
-  handoff.searchParams.set("redirect", "/admin");
-  // Toujours le proxy :3101 (même origine que handoff) — pas :3100 direct.
-  handoff.searchParams.set("guides_web", proxyWeb);
-  handoff.searchParams.set("api_gateway", GUIDES_API_URL);
-  handoff.searchParams.set("company_slug", session.company_slug || GUIDES_COMPANY_SLUG);
-  return handoff.toString();
+  return buildGuidesHandoffPageUrl(
+    proxyWeb,
+    session.handoff_ticket,
+    session.company_slug || GUIDES_COMPANY_SLUG,
+  );
 }
 
-/** SSO admin via proxy :3101 (même origine). Préférer buildGuidesHandoffUrl(). */
+/** @deprecated Ne pas transmettre de JWT dans l'URL — utiliser buildGuidesHandoffUrl */
 export function buildGuidesAdminSsoUrl(session: {
-  access_token: string;
+  handoff_ticket: string;
   email: string;
   role: string;
-  web_url?: string;
   proxy_web_url?: string;
+  company_slug?: string;
 }): string {
-  const webBase = resolveGuidesProxyWebForSession(session);
-  const admin = new URL(`${webBase}/admin`);
-  admin.searchParams.set("tip_token", session.access_token);
-  admin.searchParams.set("tip_role", session.role);
-  admin.searchParams.set("tip_email", session.email);
-  return admin.toString();
+  return buildGuidesHandoffUrl(session);
 }
 
 /** @deprecated Préférer un lien <a href={GUIDES_ADMIN_HANDOFF_ROUTE} target="_blank"> */
@@ -178,13 +166,13 @@ export async function openGuidesAdmin(
 ): Promise<void> {
   const tab = openExternalTabPending();
   try {
-    const { fetchGuidesSession } = await import("../api/guides");
+    const { prepareGuidesHandoff } = await import("../api/guides");
     const token = await getApiToken();
     if (!token) {
       throw new Error("Session TIP expirée");
     }
 
-    const session = await fetchGuidesSession(token);
+    const session = await prepareGuidesHandoff(token);
     navigatePendingTab(tab, buildGuidesHandoffUrl(session));
   } catch (err) {
     closePendingTab(tab);

@@ -8,6 +8,9 @@ import ClerkRootProvider from "./components/auth/ClerkRootProvider.tsx";
 import { AppWrapper } from "./components/common/PageMeta.tsx";
 import { ThemeProvider } from "./context/ThemeContext.tsx";
 import { LanguageProvider } from "./context/LanguageContext.tsx";
+import { purgeLegacyAuthTokens } from "./lib/tokenStorage.ts";
+
+purgeLegacyAuthTokens();
 const clerkPublishableKey = import.meta.env.VITE_CLERK_PUBLISHABLE_KEY;
 
 if (!clerkPublishableKey) {

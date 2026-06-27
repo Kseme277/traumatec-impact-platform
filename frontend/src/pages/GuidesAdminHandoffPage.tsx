@@ -1,7 +1,7 @@
 import { useAuth } from "@clerk/clerk-react";
 import { useEffect, useState } from "react";
 import { Link } from "react-router";
-import { fetchGuidesSession } from "../api/guides";
+import { prepareGuidesHandoff } from "../api/guides";
 import { GuideHubHandoffShell } from "../components/GuideHubHandoffShell";
 import { buildGuidesHandoffUrl } from "../config/guides";
 import { useTranslation } from "../i18n/useTranslation";
@@ -25,7 +25,7 @@ export default function GuidesAdminHandoffPage() {
         }
 
         setStatus("Connexion sécurisée à GuideHub…");
-        const session = await fetchGuidesSession(token);
+        const session = await prepareGuidesHandoff(token);
         if (cancelled) return;
 
         setStatus("Redirection vers l'administration GuideHub…");

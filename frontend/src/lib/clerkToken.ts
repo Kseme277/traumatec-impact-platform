@@ -3,7 +3,8 @@ import type { useAuth } from "@clerk/clerk-react";
 type GetTokenFn = ReturnType<typeof useAuth>["getToken"];
 
 /**
- * Jeton Clerk pour les appels API TIP — même JWT que /users/me et les événements.
+ * Jeton Clerk pour les appels API TIP.
+ * Ne jamais persister en localStorage — Clerk gère la session via cookies HttpOnly + getToken() à la demande.
  */
 export async function getApiToken(getToken: GetTokenFn): Promise<string | null> {
   const template = import.meta.env.VITE_CLERK_JWT_TEMPLATE?.trim();

@@ -295,14 +295,10 @@
         var DEFAULT_COMPANY_SLUG = "traumatec-cm";
 
         var params = new URLSearchParams(location.search);
-        var token = params.get("token");
-        var redirect = params.get("redirect") || "/admin";
-        var email = params.get("email") || "";
-        var role = params.get("role") || "admin_company";
-        // Même origine que cette page (proxy nginx :3101) — évite la page de login.
-        var guidesWeb = (params.get("guides_web") || location.origin).replace(/\/$/, "");
-        var apiGateway = (params.get("api_gateway") || DEFAULT_API_GATEWAY).replace(/\/$/, "");
+        var ticket = params.get("ticket");
         var companySlug = params.get("company_slug") || DEFAULT_COMPANY_SLUG;
+        var guidesWeb = location.origin.replace(/\/$/, "");
+        var apiGateway = DEFAULT_API_GATEWAY.replace(/\/$/, "");
 
         var status = document.getElementById("status");
         var statusBox = document.getElementById("statusBox");
@@ -323,53 +319,68 @@
           status.textContent = message;
         }
 
-        if (!token) {
+        if (!ticket) {
           showError(
-            "Jeton GuideHub manquant. Retournez sur TIP et rouvrez « Admin GuideHub ».",
+            "Ticket handoff manquant. Retournez sur TIP et rouvrez « Admin GuideHub ».",
           );
           return;
         }
 
-        function persistSession() {
-          localStorage.setItem("traumatec_access_token", token);
+        if (history.replaceState) {
+          history.replaceState(null, "", location.pathname);
+        }
+
+        function persistSession(accessToken, email, role) {
+          try {
+            localStorage.removeItem("traumatec_access_token");
+          } catch (e) {
+            /* ignore */
+          }
+          sessionStorage.setItem("traumatec_access_token", accessToken);
           sessionStorage.setItem(
             "traumatec_auth_verified",
             JSON.stringify({ role: role, email: email || "sso@tip", at: Date.now() }),
           );
         }
 
-        try {
-          persistSession();
-        } catch (err) {
-          showError("Impossible d'enregistrer la session sur ce navigateur.");
-          return;
-        }
+        status.textContent = "Récupération sécurisée de la session…";
 
-        status.textContent = "Redirection vers l'administration GuideHub…";
-        var adminPath = redirect.startsWith("/") ? redirect : "/" + redirect;
-        var target =
-          redirect.startsWith("http://") || redirect.startsWith("https://")
-            ? redirect
-            : guidesWeb + adminPath;
-        var sep = target.indexOf("?") >= 0 ? "&" : "?";
-        target +=
-          sep +
-          "tip_token=" +
-          encodeURIComponent(token) +
-          "&tip_role=" +
-          encodeURIComponent(role) +
-          "&tip_email=" +
-          encodeURIComponent(email);
-
-        // Court délai pour laisser le navigateur committer localStorage avant navigation.
-        setTimeout(function () {
-          try {
-            persistSession();
-          } catch (e) {
-            /* ignore */
-          }
-          location.replace(target);
-        }, 80);
+        fetch(location.origin + "/api/v1/guides/handoff/consume", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "same-origin",
+          cache: "no-store",
+          body: JSON.stringify({ ticket: ticket }),
+        })
+          .then(function (response) {
+            if (!response.ok) {
+              throw new Error("Ticket expiré ou déjà utilisé.");
+            }
+            return response.json();
+          })
+          .then(function (data) {
+            if (!data || !data.access_token) {
+              throw new Error("Réponse handoff invalide.");
+            }
+            persistSession(data.access_token, data.email, data.role);
+            status.textContent = "Redirection vers l'administration GuideHub…";
+            var redirect = data.redirect || "/admin";
+            var adminPath = redirect.startsWith("/") ? redirect : "/" + redirect;
+            var target =
+              redirect.startsWith("http://") || redirect.startsWith("https://")
+                ? redirect
+                : guidesWeb + adminPath;
+            setTimeout(function () {
+              location.replace(target);
+            }, 80);
+          })
+          .catch(function (err) {
+            showError(
+              err && err.message
+                ? err.message
+                : "Handoff impossible. Relancez depuis TIP.",
+            );
+          });
       })();
     </script>
   </body>
