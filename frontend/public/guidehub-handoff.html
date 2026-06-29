@@ -193,12 +193,6 @@
         if (history.replaceState) {
           history.replaceState(null, "", location.pathname);
         }
-        try {
-          sessionStorage.removeItem("tip:guides:handoff:ticket");
-          sessionStorage.removeItem("tip:guides:handoff:company_slug");
-        } catch (e) {
-          /* ignore */
-        }
 
         function persistSession(accessToken, email, role, memberRole) {
           try {
@@ -273,6 +267,12 @@
             });
           })
           .then(function (data) {
+            try {
+              sessionStorage.removeItem("tip:guides:handoff:ticket");
+              sessionStorage.removeItem("tip:guides:handoff:company_slug");
+            } catch (e) {
+              /* ignore */
+            }
             var redirect = data.redirect || "/gh/admin";
             var adminPath = redirect.startsWith("/") ? redirect : "/" + redirect;
             manualTarget =

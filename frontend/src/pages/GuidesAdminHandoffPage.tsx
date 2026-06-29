@@ -1,19 +1,22 @@
 import { useAuth } from "@clerk/clerk-react";
-import { useEffect, useState } from "react";
-import { prepareGuidesHandoff } from "../api/guides";
+import { useEffect, useRef, useState } from "react";
+import { consumeGuidesHandoff, prepareGuidesHandoff } from "../api/guides";
 import { GuideHubHandoffShell } from "../components/GuideHubHandoffShell";
-import { buildGuidesHandoffUrl, getGuidesProxyAdminUrl } from "../config/guides";
+import { getGuidesProxyAdminUrl } from "../config/guides";
 import { useTranslation } from "../i18n/useTranslation";
 import { getApiToken } from "../lib/clerkToken";
+import { persistGuideHubSession, resolveGuideHubAdminUrl } from "../lib/guidesHandoffStorage";
 
 export default function GuidesAdminHandoffPage() {
   const { t } = useTranslation();
   const { getToken } = useAuth();
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState("Préparation de votre session…");
+  const startedRef = useRef(false);
 
   useEffect(() => {
-    let cancelled = false;
+    if (startedRef.current) return;
+    startedRef.current = true;
 
     void (async () => {
       try {
@@ -25,28 +28,27 @@ export default function GuidesAdminHandoffPage() {
 
         setStatus("Connexion sécurisée à GuideHub…");
         const session = await prepareGuidesHandoff(token);
-        if (cancelled) return;
 
-        setStatus("Redirection vers l'administration GuideHub…");
-        const handoffUrl = buildGuidesHandoffUrl({
-          ...session,
-          proxy_web_url: session.proxy_web_url,
-        });
-        window.location.replace(handoffUrl);
+        setStatus("Ouverture de l'administration GuideHub…");
+        const handoff = await consumeGuidesHandoff(session.handoff_ticket);
+
+        persistGuideHubSession(
+          handoff.access_token,
+          handoff.email,
+          handoff.role,
+          handoff.member_role,
+        );
+
+        const adminUrl = resolveGuideHubAdminUrl(handoff.redirect);
+        window.location.replace(adminUrl);
       } catch (err) {
-        if (!cancelled) {
-          setError(err instanceof Error ? err.message : t("guides.adminOpenFailed"));
-        }
+        setError(err instanceof Error ? err.message : t("guides.adminOpenFailed"));
       }
     })();
-
-    return () => {
-      cancelled = true;
-    };
   }, [getToken, t]);
 
   if (error) {
-    return <GuideHubHandoffShell status={error} error />;
+    return <GuideHubHandoffShell status={error} error manualHref={getGuidesProxyAdminUrl()} />;
   }
 
   return (

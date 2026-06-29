@@ -19,3 +19,31 @@ export function clearGuidesHandoffTicket(): void {
   sessionStorage.removeItem(TICKET_KEY);
   sessionStorage.removeItem(SLUG_KEY);
 }
+
+/** Stocke la session GuideHub pour le proxy /gh (même origine TIP). */
+export function persistGuideHubSession(
+  accessToken: string,
+  email: string,
+  role: string,
+  memberRole?: string,
+): void {
+  localStorage.setItem("traumatec_access_token", accessToken);
+  sessionStorage.setItem(
+    "traumatec_auth_verified",
+    JSON.stringify({
+      role,
+      email: email || "sso@tip",
+      memberRole: memberRole || "Administrateur",
+      at: Date.now(),
+    }),
+  );
+}
+
+export function resolveGuideHubAdminUrl(redirect?: string): string {
+  const origin = window.location.origin.replace(/\/$/, "");
+  const path = redirect?.trim() || "/gh/admin";
+  if (path.startsWith("http://") || path.startsWith("https://")) {
+    return path;
+  }
+  return `${origin}${path.startsWith("/") ? path : `/${path}`}`;
+}
