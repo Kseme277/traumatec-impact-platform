@@ -29,8 +29,6 @@ export default function DocumentsSidebarWidget() {
           {isAdmin ? (
             <a
               href={GUIDES_ADMIN_HANDOFF_ROUTE}
-              target="_blank"
-              rel="noopener noreferrer"
               className="flex w-full items-center justify-center rounded-lg border border-brand-500/40 bg-white p-3 text-sm font-medium text-brand-600 transition hover:bg-brand-50 focus:outline-none focus:ring-2 focus:ring-brand-500/40 dark:bg-gray-900 dark:text-brand-400 dark:hover:bg-brand-500/10"
             >
               {t("guides.adminOpen")}

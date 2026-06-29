@@ -142,15 +142,31 @@
         var DEFAULT_COMPANY_SLUG = "traumatec-cm";
 
         var params = new URLSearchParams(location.search);
-        var ticket = params.get("ticket");
-        var companySlug = params.get("company_slug") || DEFAULT_COMPANY_SLUG;
+        var ticket = null;
+        try {
+          ticket = sessionStorage.getItem("tip:guides:handoff:ticket");
+        } catch (e) {
+          /* ignore */
+        }
+        if (!ticket) {
+          ticket = params.get("ticket");
+        }
+        var companySlug = "traumatec-cm";
+        try {
+          companySlug =
+            sessionStorage.getItem("tip:guides:handoff:company_slug") ||
+            params.get("company_slug") ||
+            companySlug;
+        } catch (e) {
+          companySlug = params.get("company_slug") || companySlug;
+        }
         var guidesWeb = location.origin.replace(/\/$/, "");
-        var apiGateway = DEFAULT_API_GATEWAY.replace(/\/$/, "");
+        var ghApi = guidesWeb + "/gh/api/v1";
+        var manualTarget = guidesWeb + "/gh/admin";
 
         var title = document.getElementById("title");
         var status = document.getElementById("status");
         var slider = document.getElementById("slider");
-        var manualTarget = guidesWeb + "/admin";
 
         function setManualLink(href, label) {
           status.innerHTML =
@@ -177,6 +193,12 @@
         if (history.replaceState) {
           history.replaceState(null, "", location.pathname);
         }
+        try {
+          sessionStorage.removeItem("tip:guides:handoff:ticket");
+          sessionStorage.removeItem("tip:guides:handoff:company_slug");
+        } catch (e) {
+          /* ignore */
+        }
 
         function persistSession(accessToken, email, role, memberRole) {
           try {
@@ -202,7 +224,7 @@
         }
 
         function verifySession(accessToken) {
-          return fetch(location.origin + "/api/v1/auth/me", {
+          return fetch(ghApi + "/auth/me", {
             method: "GET",
             headers: { Authorization: "Bearer " + accessToken },
             credentials: "same-origin",
@@ -251,7 +273,7 @@
             });
           })
           .then(function (data) {
-            var redirect = data.redirect || "/admin";
+            var redirect = data.redirect || "/gh/admin";
             var adminPath = redirect.startsWith("/") ? redirect : "/" + redirect;
             manualTarget =
               redirect.startsWith("http://") || redirect.startsWith("https://")

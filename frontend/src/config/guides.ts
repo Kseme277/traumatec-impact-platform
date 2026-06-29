@@ -5,7 +5,7 @@ import {
   openExternalTabPending,
   PopupBlockedError,
 } from "../lib/openExternal";
-import { buildGuidesHandoffPageUrl } from "../api/guides";
+import { buildGuidesHandoffPageUrl, storeGuidesHandoffTicket } from "../api/guides";
 
 export { PopupBlockedError };
 
@@ -18,7 +18,7 @@ export { PopupBlockedError };
  * - Swagger           : {api_gateway_url}/api/docs
  * - Admin entreprise  : {web_app_url}/admin
  *
- * Handoff SSO (même origine que l'admin) : proxy TIP nginx :3101
+ * Handoff SSO (même origine HTTPS TIP) : /guidehub-handoff.html + admin /gh/admin
  */
 const DEFAULT_GUIDES_WEB = "https://guidehub.hopto.org";
 const DEFAULT_GUIDES_API = "https://guidehub.hopto.org";
@@ -49,37 +49,29 @@ export const GUIDES_WEB_URL = configuredWeb || DEFAULT_GUIDES_WEB;
 export const GUIDES_API_URL = configuredApi || DEFAULT_GUIDES_API;
 
 /**
- * Proxy handoff nginx TIP (:3101) — tourne sur la machine TIP, pas sur le serveur GuideHub.
- * En navigateur : même hostname que TIP (localhost ou IP du PC) + port 3101.
- */
-/** Hostname du poste TIP (localhost ou IP LAN) — pour le proxy nginx :3101. */
-function resolveGuidesHandoffHost(): string {
-  if (typeof window !== "undefined" && window.location.hostname) {
-    return window.location.hostname;
-  }
-  return "localhost";
-}
-
-/**
- * Origine du proxy GuideHub (nginx :3101) — handoff + admin sur la même origine.
+ * Origine TIP pour handoff (même hostname, pas de port :3101).
  */
 export function resolveGuidesProxyWebUrl(): string {
   if (configuredHandoff) return configuredHandoff;
-  return `http://${resolveGuidesHandoffHost()}:${GUIDES_HANDOFF_PORT}`;
+  if (typeof window !== "undefined" && window.location.origin) {
+    return window.location.origin.replace(/\/$/, "");
+  }
+  return `http://localhost:${GUIDES_HANDOFF_PORT}`;
 }
 
 export function resolveGuidesHandoffUrl(): string {
   return resolveGuidesProxyWebUrl();
 }
 
-/** Proxy web pour le navigateur — remplace localhost par l'IP/hostname actuel. */
+/** Ignore les anciennes URLs :3101 renvoyées par l'API — préfère l'origine courante. */
 export function resolveGuidesProxyWebForSession(session?: { proxy_web_url?: string }): string {
   const dynamic = resolveGuidesProxyWebUrl();
   const fromApi = session?.proxy_web_url?.replace(/\/$/, "");
   if (!fromApi) return dynamic;
   try {
-    const apiHost = new URL(fromApi).hostname;
-    if (apiHost === "localhost" || apiHost === "127.0.0.1") {
+    const apiUrl = new URL(fromApi);
+    const dynamicUrl = new URL(dynamic);
+    if (apiUrl.port === "3101" || apiUrl.hostname !== dynamicUrl.hostname) {
       return dynamic;
     }
     return fromApi;
@@ -99,7 +91,10 @@ export const GUIDES_API_DOCS_URL = `${GUIDES_API_URL}/api/docs`;
 export const GUIDES_COMPANY_SLUG =
   import.meta.env.VITE_GUIDES_COMPANY_SLUG?.trim() || DEFAULT_COMPANY_SLUG;
 
-export const GUIDES_HANDOFF_PATH = "/guidehub-handoff.html";
+/** Préfixe nginx same-origin (HTTPS) — admin GuideHub sous /gh/admin */
+export const GUIDES_PROXY_PATH = "/gh";
+
+export const GUIDES_HANDOFF_PAGE = "/guidehub-handoff.html";
 
 /** Route TIP ouverte via <a target="_blank"> — évite le blocage des pop-ups. */
 export const GUIDES_ADMIN_HANDOFF_ROUTE = "/guides/admin-handoff";
@@ -113,9 +108,13 @@ export function getGuidesAdminUrl(): string {
   return `${GUIDES_WEB_URL}/admin`;
 }
 
-/** Admin via proxy TIP (:3101) — nécessaire pour le SSO handoff. */
+/** Admin GuideHub via proxy same-origin (/gh/admin). */
 export function getGuidesProxyAdminUrl(): string {
-  return `${resolveGuidesProxyWebUrl()}/admin`;
+  return `${resolveGuidesProxyWebUrl()}${GUIDES_PROXY_PATH}/admin`;
+}
+
+export function getGuidesHandoffPageUrl(): string {
+  return `${resolveGuidesProxyWebUrl()}${GUIDES_HANDOFF_PAGE}`;
 }
 
 export function isGuidesConfigured(): boolean {
@@ -147,11 +146,9 @@ export function buildGuidesHandoffUrl(session: {
   company_slug?: string;
 }): string {
   const proxyWeb = resolveGuidesProxyWebForSession(session);
-  return buildGuidesHandoffPageUrl(
-    proxyWeb,
-    session.handoff_ticket,
-    session.company_slug || GUIDES_COMPANY_SLUG,
-  );
+  const slug = session.company_slug || GUIDES_COMPANY_SLUG;
+  storeGuidesHandoffTicket(session.handoff_ticket, slug);
+  return buildGuidesHandoffPageUrl(proxyWeb);
 }
 
 /** @deprecated Ne pas transmettre de JWT dans l'URL — utiliser buildGuidesHandoffUrl */

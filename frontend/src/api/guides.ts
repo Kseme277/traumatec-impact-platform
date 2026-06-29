@@ -1,5 +1,11 @@
 import { apiFetch } from "./client";
 
+export {
+  clearGuidesHandoffTicket,
+  readGuidesHandoffTicket,
+  storeGuidesHandoffTicket,
+} from "../lib/guidesHandoffStorage";
+
 export interface GuidesHandoffPrepare {
   handoff_ticket: string;
   expires_in: number;
@@ -32,14 +38,7 @@ export async function fetchGuidesSession(token: string): Promise<GuidesHandoffPr
   return apiFetch<GuidesHandoffPrepare>("/v1/guides/session", token);
 }
 
-export function buildGuidesHandoffPageUrl(
-  proxyWebUrl: string,
-  ticket: string,
-  companySlug: string,
-): string {
+export function buildGuidesHandoffPageUrl(proxyWebUrl: string): string {
   const base = proxyWebUrl.replace(/\/$/, "");
-  const url = new URL(`${base}/guidehub-handoff.html`);
-  url.searchParams.set("ticket", ticket);
-  url.searchParams.set("company_slug", companySlug);
-  return url.toString();
+  return `${base}/guidehub-handoff.html`;
 }
