@@ -1,88 +1,103 @@
 import type { ReactNode } from "react";
-import TipAnimatedLogo from "./brand/TipAnimatedLogo";
+import { Link } from "react-router";
 
 type GuideHubHandoffShellProps = {
-  title: string;
-  lead: string;
+  title?: string;
   status: string;
   error?: boolean;
+  manualHref?: string;
+  manualLabel?: string;
   children?: ReactNode;
 };
 
+function HandoffSlider() {
+  return (
+    <div className="relative mx-auto mb-10 h-0.5 w-full max-w-[400px]" aria-hidden>
+      <div className="absolute inset-0 bg-[#4a8df8]" />
+      <div className="handoff-dot absolute top-0 h-0.5 w-1.5 bg-[#222]" />
+      <div className="handoff-dot handoff-dot-delay-1 absolute top-0 h-0.5 w-1.5 bg-[#222]" />
+      <div className="handoff-dot handoff-dot-delay-2 absolute top-0 h-0.5 w-1.5 bg-[#222]" />
+      <style>{`
+        @keyframes handoff-loading {
+          from { left: 0; }
+          to { left: 100%; }
+        }
+        .handoff-dot {
+          animation: handoff-loading 2s infinite;
+        }
+        .handoff-dot-delay-1 {
+          animation-delay: 0.5s;
+        }
+        .handoff-dot-delay-2 {
+          animation-delay: 1s;
+        }
+      `}</style>
+    </div>
+  );
+}
+
 /**
- * Même gabarit visuel que public/guidehub-handoff.html (Outfit, panneau brand, status-box).
+ * Page handoff TIP → GuideHub (même gabarit que public/guidehub-handoff.html).
  */
 export function GuideHubHandoffShell({
-  title,
-  lead,
+  title = "Un instant…",
   status,
   error = false,
+  manualHref,
+  manualLabel = "Cliquez ici.",
   children,
 }: GuideHubHandoffShellProps) {
   return (
-    <div className="guidehub-handoff-root flex min-h-screen bg-white font-[Outfit,system-ui,sans-serif] text-gray-800 antialiased">
-      <div className="flex flex-1 items-center justify-center px-6 py-8">
-        <div className="w-full max-w-md">
-          <div className="mb-4 inline-flex items-center gap-2 rounded-full bg-gray-100 px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-brand-600">
-            GuideHub
-          </div>
-          <h1 className="mb-2 text-3xl font-semibold leading-tight text-gray-900">{title}</h1>
-          <p className="mb-7 text-[0.9375rem] leading-relaxed text-gray-500">{lead}</p>
+    <div className="flex min-h-screen flex-col items-center justify-center bg-[#222] px-6 py-10 text-center font-[Raleway,system-ui,sans-serif] font-thin text-[#4a8df8] antialiased">
+      <link
+        rel="stylesheet"
+        href="https://fonts.googleapis.com/css2?family=Raleway:wght@100;400&display=swap"
+      />
 
-          <div
-            className={`rounded-2xl border px-6 py-5 ${
-              error
-                ? "border-[#fecdca] bg-error-50"
-                : "border-gray-200 bg-gray-50"
-            }`}
-          >
-            <div className="flex items-center gap-3.5">
-              {!error ? (
-                <TipAnimatedLogo size="xs" iconOnly animate className="shrink-0" />
-              ) : null}
-              <p
-                role="status"
-                aria-live="polite"
-                className={`m-0 text-[0.9375rem] leading-relaxed ${
-                  error ? "text-[#b42318]" : "text-gray-700"
-                }`}
-              >
-                {status}
-              </p>
-            </div>
-          </div>
+      <p className="mb-6 text-xs font-normal uppercase tracking-[0.2em] opacity-70">
+        GuideHub · Traumatec
+      </p>
 
-          {children}
-        </div>
-      </div>
+      <h1 className="mb-10 text-[clamp(2rem,6vw,3rem)] font-thin leading-tight text-[#4a8df8]">
+        {error ? "Connexion impossible" : title}
+      </h1>
 
-      <aside
-        className="relative hidden flex-1 items-center justify-center overflow-hidden bg-brand-950 lg:flex"
-        aria-hidden
+      {!error ? <HandoffSlider /> : null}
+
+      <p
+        role="status"
+        aria-live="polite"
+        className={`m-0 max-w-md text-base font-thin leading-relaxed ${
+          error ? "text-[#f97066]" : "text-[#4a8df8]"
+        }`}
       >
-        <div
-          className="absolute inset-0 opacity-35"
-          style={{
-            backgroundImage:
-              "linear-gradient(rgba(255,255,255,0.06) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.06) 1px, transparent 1px)",
-            backgroundSize: "48px 48px",
-            maskImage: "radial-gradient(circle at center, black, transparent 75%)",
-          }}
-        />
-        <div className="relative z-10 max-w-xs px-8 text-center">
-          <div className="mx-auto mb-5 inline-flex size-12 items-center justify-center rounded-xl bg-brand-500 shadow-[0_10px_30px_rgba(70,95,255,0.35)]">
-            <svg viewBox="0 0 24 24" className="size-6" fill="none" aria-hidden>
-              <rect x="4" y="3" width="3.5" height="18" rx="1.5" fill="white" />
-              <rect x="10" y="8" width="3.5" height="13" rx="1.5" fill="white" opacity="0.9" />
-              <rect x="16" y="5" width="3.5" height="16" rx="1.5" fill="white" opacity="0.7" />
-            </svg>
-          </div>
-          <h2 className="mb-2 text-2xl font-semibold text-white">Traumatec</h2>
-          <p className="m-0 text-sm leading-relaxed text-white/60">
-            Guides procédures Traumatec et administration entreprise.
-          </p>
+        {status}
+        {!error && manualHref ? (
+          <>
+            {" "}
+            Pas de redirection ?{" "}
+            <a
+              href={manualHref}
+              className="font-normal text-[#4a8df8] underline underline-offset-[3px] hover:opacity-85"
+            >
+              {manualLabel}
+            </a>
+          </>
+        ) : null}
+      </p>
+
+      {children ? <div className="mt-8">{children}</div> : null}
+
+      {error ? (
+        <div className="mt-8">
+          <Link
+            to="/dashboard"
+            className="text-sm font-normal text-[#4a8df8] underline underline-offset-[3px] hover:opacity-85"
+          >
+            Retour à l&apos;accueil
+          </Link>
         </div>
-      </aside>
+      ) : null}
     </div>
   );
 }

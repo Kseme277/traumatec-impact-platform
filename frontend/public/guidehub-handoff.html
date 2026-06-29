@@ -3,31 +3,19 @@
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Connexion GuideHub | Traumatec</title>
+    <title>Redirection GuideHub | Traumatec</title>
     <meta name="robots" content="noindex" />
     <link rel="preconnect" href="https://fonts.googleapis.com" />
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link
-      href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700&display=swap"
+      href="https://fonts.googleapis.com/css2?family=Raleway:wght@100;400&display=swap"
       rel="stylesheet"
     />
     <style>
       :root {
-        --brand-500: #465fff;
-        --brand-600: #3641f5;
-        --brand-950: #161950;
-        --gray-50: #f9fafb;
-        --gray-100: #f2f4f7;
-        --gray-200: #e4e7ec;
-        --gray-400: #98a2b3;
-        --gray-500: #667085;
-        --gray-600: #475467;
-        --gray-700: #344054;
-        --gray-800: #1d2939;
-        --gray-900: #101828;
-        --error-500: #f04438;
-        --error-50: #fef3f2;
-        --white: #ffffff;
+        --accent: #4a8df8;
+        --bg: #222222;
+        --bg-break: #222222;
       }
 
       * {
@@ -41,253 +29,159 @@
       }
 
       body {
-        font-family: "Outfit", system-ui, sans-serif;
-        background: var(--white);
-        color: var(--gray-800);
+        background: var(--bg);
+        color: var(--accent);
+        font-family: "Raleway", system-ui, sans-serif;
+        font-weight: 100;
         -webkit-font-smoothing: antialiased;
       }
 
-      .shell {
-        display: flex;
+      .page {
         min-height: 100vh;
-      }
-
-      .panel-main {
-        flex: 1;
         display: flex;
+        flex-direction: column;
         align-items: center;
         justify-content: center;
-        padding: 2rem 1.5rem;
-      }
-
-      .panel-brand {
-        display: none;
-        flex: 1;
-        background: var(--brand-950);
-        position: relative;
-        overflow: hidden;
-      }
-
-      @media (min-width: 1024px) {
-        .panel-brand {
-          display: flex;
-          align-items: center;
-          justify-content: center;
-        }
-      }
-
-      .grid-shape {
-        position: absolute;
-        inset: 0;
-        opacity: 0.35;
-        background-image:
-          linear-gradient(rgba(255, 255, 255, 0.06) 1px, transparent 1px),
-          linear-gradient(90deg, rgba(255, 255, 255, 0.06) 1px, transparent 1px);
-        background-size: 48px 48px;
-        mask-image: radial-gradient(circle at center, black, transparent 75%);
-      }
-
-      .brand-content {
-        position: relative;
-        z-index: 1;
+        padding: 2.5rem 1.5rem;
         text-align: center;
-        max-width: 20rem;
-        padding: 2rem;
-      }
-
-      .brand-mark {
-        width: 3rem;
-        height: 3rem;
-        border-radius: 0.75rem;
-        background: var(--brand-500);
-        display: inline-flex;
-        align-items: center;
-        justify-content: center;
-        margin-bottom: 1.25rem;
-        box-shadow: 0 10px 30px rgba(70, 95, 255, 0.35);
-      }
-
-      .brand-mark svg {
-        width: 1.5rem;
-        height: 1.5rem;
-      }
-
-      .brand-content h2 {
-        margin: 0 0 0.5rem;
-        font-size: 1.5rem;
-        font-weight: 600;
-        color: var(--white);
-      }
-
-      .brand-content p {
-        margin: 0;
-        font-size: 0.875rem;
-        line-height: 1.5;
-        color: rgba(255, 255, 255, 0.62);
-      }
-
-      .card {
-        width: 100%;
-        max-width: 28rem;
       }
 
       .eyebrow {
-        display: inline-flex;
-        align-items: center;
-        gap: 0.5rem;
-        padding: 0.35rem 0.75rem;
-        border-radius: 999px;
-        background: var(--gray-100);
-        color: var(--brand-600);
+        margin: 0 0 1.5rem;
         font-size: 0.75rem;
-        font-weight: 600;
-        letter-spacing: 0.02em;
+        font-weight: 400;
+        letter-spacing: 0.2em;
         text-transform: uppercase;
-        margin-bottom: 1rem;
+        opacity: 0.7;
       }
 
-      .card h1 {
-        margin: 0 0 0.5rem;
-        font-size: 1.875rem;
-        line-height: 1.2;
-        font-weight: 600;
-        color: var(--gray-900);
+      h1 {
+        margin: 0 0 2.5rem;
+        color: var(--accent);
+        font-family: "Raleway", system-ui, sans-serif;
+        font-weight: 100;
+        font-size: clamp(2rem, 6vw, 3rem);
+        line-height: 1.15;
       }
 
-      .card .lead {
-        margin: 0 0 1.75rem;
-        font-size: 0.9375rem;
-        line-height: 1.6;
-        color: var(--gray-500);
+      .slider {
+        position: relative;
+        width: min(400px, 88vw);
+        height: 2px;
+        margin: 0 auto 2.5rem;
       }
 
-      .status-box {
-        border: 1px solid var(--gray-200);
-        border-radius: 1rem;
-        padding: 1.25rem 1.5rem;
-        background: var(--gray-50);
+      .line {
+        position: absolute;
+        inset: 0;
+        background: var(--accent);
+        height: 2px;
       }
 
-      .status-box.is-error {
-        border-color: #fecdca;
-        background: var(--error-50);
+      .break {
+        position: absolute;
+        top: 0;
+        background: var(--bg-break);
+        width: 6px;
+        height: 2px;
+        animation: loading 2s infinite;
       }
 
-      .status-row {
-        display: flex;
-        align-items: center;
-        gap: 0.875rem;
+      .dot2 {
+        animation-delay: 0.5s;
       }
 
-      .spinner {
-        width: 1.25rem;
-        height: 1.25rem;
-        border: 2px solid var(--gray-200);
-        border-top-color: var(--brand-500);
-        border-radius: 50%;
-        animation: spin 0.8s linear infinite;
-        flex-shrink: 0;
+      .dot3 {
+        animation-delay: 1s;
       }
 
-      @keyframes spin {
+      @keyframes loading {
+        from {
+          left: 0;
+        }
         to {
-          transform: rotate(360deg);
+          left: 100%;
         }
       }
 
-      #status {
+      .message {
         margin: 0;
-        font-size: 0.9375rem;
-        line-height: 1.5;
-        color: var(--gray-700);
+        max-width: 28rem;
+        font-size: 1rem;
+        line-height: 1.7;
+        font-weight: 100;
+        color: var(--accent);
       }
 
-      .status-box.is-error #status {
-        color: #b42318;
+      .message.is-error {
+        color: #f97066;
+      }
+
+      .message a {
+        color: var(--accent);
+        font-weight: 400;
+        text-decoration: underline;
+        text-underline-offset: 3px;
+      }
+
+      .message a:hover {
+        opacity: 0.85;
       }
 
       .meta {
-        margin-top: 1.5rem;
-        padding-top: 1.25rem;
-        border-top: 1px solid var(--gray-200);
-      }
-
-      .meta p {
-        margin: 0 0 0.75rem;
+        margin-top: 2.5rem;
         font-size: 0.8125rem;
-        color: var(--gray-500);
+        opacity: 0.55;
       }
 
       .meta a {
-        color: var(--brand-500);
+        color: var(--accent);
         text-decoration: none;
-        font-weight: 500;
       }
 
       .meta a:hover {
-        color: var(--brand-600);
         text-decoration: underline;
+      }
+
+      .meta p {
+        margin: 0 0 0.5rem;
       }
 
       .links {
         display: flex;
         flex-direction: column;
         gap: 0.35rem;
-        font-size: 0.8125rem;
+      }
+
+      [hidden] {
+        display: none !important;
       }
     </style>
   </head>
   <body>
-    <div class="shell">
-      <div class="panel-main">
-        <div class="card">
-          <div class="eyebrow">
-            <span>GuideHub</span>
-          </div>
-          <h1>Connexion en cours</h1>
-          <p class="lead">
-            Liaison sécurisée entre Traumatec Impact Platform et votre espace
-            administrateur GuideHub.
-          </p>
+    <main class="page">
+      <p class="eyebrow">GuideHub · Traumatec</p>
+      <h1 id="title">Un instant…</h1>
 
-          <div class="status-box" id="statusBox">
-            <div class="status-row">
-              <div class="spinner" id="spinner" aria-hidden="true"></div>
-              <p id="status" role="status" aria-live="polite">
-                Préparation de votre session…
-              </p>
-            </div>
-          </div>
-
-          <div class="meta" id="metaLinks" hidden>
-            <p>Ressources GuideHub (evens) :</p>
-            <div class="links">
-              <a id="guidesLink" href="#" target="_blank" rel="noopener noreferrer"
-                >Guides procédures — traumatec-cm</a
-              >
-              <a id="apiDocsLink" href="#" target="_blank" rel="noopener noreferrer"
-                >Documentation API — Swagger</a
-              >
-            </div>
-          </div>
-        </div>
+      <div class="slider" id="slider" aria-hidden="true">
+        <div class="line"></div>
+        <div class="break dot1"></div>
+        <div class="break dot2"></div>
+        <div class="break dot3"></div>
       </div>
 
-      <aside class="panel-brand" aria-hidden="true">
-        <div class="grid-shape"></div>
-        <div class="brand-content">
-          <div class="brand-mark" aria-hidden="true">
-            <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <rect x="4" y="3" width="3.5" height="18" rx="1.5" fill="white"></rect>
-              <rect x="10" y="8" width="3.5" height="13" rx="1.5" fill="white" opacity="0.9"></rect>
-              <rect x="16" y="5" width="3.5" height="16" rx="1.5" fill="white" opacity="0.7"></rect>
-            </svg>
-          </div>
-          <h2>Traumatec</h2>
-          <p>Guides procédures AO Alliance et administration entreprise.</p>
+      <p class="message" id="status" role="status" aria-live="polite">
+        Redirection vers votre espace administrateur GuideHub…
+      </p>
+
+      <div class="meta" id="metaLinks" hidden>
+        <p>Ressources :</p>
+        <div class="links">
+          <a id="guidesLink" href="#" target="_blank" rel="noopener noreferrer">Guides procédures</a>
+          <a id="apiDocsLink" href="#" target="_blank" rel="noopener noreferrer">Documentation API</a>
         </div>
-      </aside>
-    </div>
+      </div>
+    </main>
 
     <script>
       (function () {
@@ -300,22 +194,30 @@
         var guidesWeb = location.origin.replace(/\/$/, "");
         var apiGateway = DEFAULT_API_GATEWAY.replace(/\/$/, "");
 
+        var title = document.getElementById("title");
         var status = document.getElementById("status");
-        var statusBox = document.getElementById("statusBox");
-        var spinner = document.getElementById("spinner");
+        var slider = document.getElementById("slider");
         var metaLinks = document.getElementById("metaLinks");
         var guidesLink = document.getElementById("guidesLink");
         var apiDocsLink = document.getElementById("apiDocsLink");
+        var manualTarget = guidesWeb + "/admin";
 
         guidesLink.href = guidesWeb + "/" + companySlug;
-        guidesLink.textContent = "Guides procédures — " + companySlug;
         apiDocsLink.href = apiGateway + "/api/docs";
-        apiDocsLink.textContent = "Documentation API — " + apiGateway + "/api/docs";
         metaLinks.hidden = false;
 
+        function setManualLink(href, label) {
+          status.innerHTML =
+            label +
+            ' Pas de redirection ? <a href="' +
+            href +
+            '">Cliquez ici.</a>';
+        }
+
         function showError(message) {
-          statusBox.classList.add("is-error");
-          spinner.style.display = "none";
+          title.textContent = "Connexion impossible";
+          slider.hidden = true;
+          status.classList.add("is-error");
           status.textContent = message;
         }
 
@@ -363,16 +265,19 @@
               throw new Error("Réponse handoff invalide.");
             }
             persistSession(data.access_token, data.email, data.role);
-            status.textContent = "Redirection vers l'administration GuideHub…";
             var redirect = data.redirect || "/admin";
             var adminPath = redirect.startsWith("/") ? redirect : "/" + redirect;
-            var target =
+            manualTarget =
               redirect.startsWith("http://") || redirect.startsWith("https://")
                 ? redirect
                 : guidesWeb + adminPath;
+            setManualLink(
+              manualTarget,
+              "Redirection vers l'administration GuideHub…",
+            );
             setTimeout(function () {
-              location.replace(target);
-            }, 80);
+              location.replace(manualTarget);
+            }, 120);
           })
           .catch(function (err) {
             showError(
