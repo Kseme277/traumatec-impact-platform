@@ -20,8 +20,8 @@ export { PopupBlockedError };
  *
  * Handoff SSO (même origine que l'admin) : proxy TIP nginx :3101
  */
-const DEFAULT_GUIDES_WEB = "http://192.168.1.45:3100";
-const DEFAULT_GUIDES_API = "http://192.168.1.45:3080";
+const DEFAULT_GUIDES_WEB = "https://guidehub.hopto.org";
+const DEFAULT_GUIDES_API = "https://guidehub.hopto.org";
 const GUIDES_HANDOFF_PORT = 3101;
 const DEFAULT_COMPANY_SLUG = "traumatec-cm";
 
