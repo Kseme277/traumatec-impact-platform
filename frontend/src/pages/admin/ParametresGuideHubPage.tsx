@@ -185,7 +185,8 @@ export default function ParametresGuideHubPage() {
 
         <ComponentCard title={t("guidesBridge.infraTitle")} desc={t("guidesBridge.infraDesc")}>
           {config ? (
-            <dl className="space-y-4 text-sm">
+            <>
+              <dl className="space-y-4 text-sm">
               <div>
                 <dt className="font-medium text-gray-700 dark:text-gray-300">{t("guidesBridge.status")}</dt>
                 <dd className="mt-1">
@@ -220,8 +221,9 @@ export default function ParametresGuideHubPage() {
                   {config.proxy_web_url || "—"}
                 </dd>
               </div>
-            </dl>
-            <p className="mt-4 text-xs text-gray-500 dark:text-gray-400">{t("guidesBridge.infraHint")}</p>
+              </dl>
+              <p className="mt-4 text-xs text-gray-500 dark:text-gray-400">{t("guidesBridge.infraHint")}</p>
+            </>
           ) : (
             <p className="text-sm text-gray-500 dark:text-gray-400">{t("common.loading")}</p>
           )}
