@@ -10,6 +10,7 @@ import { useTutorial } from "../../context/TutorialContext";
 import { useTipAuth } from "../../context/TipAuthContext";
 import { useTranslation } from "../../i18n/useTranslation";
 import { buildAssistantHelpText, getAssistantExampleCommands } from "../../lib/assistantExamples";
+import AssistantMessageBody from "./AssistantMessageBody";
 import { getApiToken } from "../../lib/clerkToken";
 import { parseCommand, resolveNavigatePath } from "../../lib/commandParser";
 import {
@@ -494,7 +495,7 @@ export default function CommandAssistant() {
                 </span>
               )}
               <div
-                className={`max-w-[85%] rounded-2xl px-4 py-2.5 text-sm whitespace-pre-wrap ${
+                className={`max-w-[85%] rounded-2xl px-4 py-2.5 text-sm ${
                   message.role === "user"
                     ? "bg-brand-500 text-white"
                     : message.tone === "error"
@@ -513,7 +514,11 @@ export default function CommandAssistant() {
                     {message.tone === "pending" && (
                       <Loader2 className="mr-2 inline size-4 animate-spin align-[-2px]" />
                     )}
-                    {message.text}
+                    {message.role === "assistant" && message.tone !== "pending" ? (
+                      <AssistantMessageBody text={message.text} />
+                    ) : (
+                      <span className="whitespace-pre-wrap">{message.text}</span>
+                    )}
                   </>
                 )}
               </div>

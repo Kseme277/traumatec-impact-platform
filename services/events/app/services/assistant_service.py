@@ -269,6 +269,9 @@ Règles :
 - Propose des actions concrètes quand pertinent (ex. compléter la fiche événement, lancer la génération).
 - Les commandes rapides restent disponibles : « aide », « génère le paquet pour … », « liste les événements ».
 - Réponses concises, structurées, professionnelles (listes à puces si utile).
+- Format de réponse : texte simple uniquement. Pas de markdown (pas de **, pas de #, pas de `).
+- Pour les listes, commence chaque ligne par « • » (puce Unicode) ou numérote « 1. », « 2. ».
+- Saute une ligne entre les paragraphes si besoin.
 """
 
 
@@ -323,7 +326,8 @@ async def run_assistant_chat(
     message: str,
     history: list[dict[str, str]],
 ) -> dict[str, Any]:
-    from tip_common.nvidia_client import nvidia_chat_completion
+    from tip_common.assistant_reply_format import normalize_assistant_reply
+    from tip_common.mistral_client import mistral_chat_completion
 
     context = await build_assistant_context(db, user, message)
     context_json = __import__("json").dumps(context, ensure_ascii=False, default=str)
@@ -337,17 +341,16 @@ async def run_assistant_chat(
             messages.append({"role": role, "content": str(item.get("content", ""))[:4000]})
     messages.append({"role": "user", "content": message[:4000]})
 
-    content, detail = await nvidia_chat_completion(
+    content, detail = await mistral_chat_completion(
         messages=messages,
         temperature=0.35,
         max_tokens=900,
-        timeout=75.0,
     )
 
     if content:
         return {
-            "reply": content.strip(),
-            "source": "nvidia",
+            "reply": normalize_assistant_reply(content),
+            "source": "mistral",
             "model": detail,
             "context_summary": {
                 "events_total": context["metrics"]["events_total"],
@@ -356,9 +359,9 @@ async def run_assistant_chat(
         }
 
     fallback = await local_assistant_reply(context, message)
-    note = f"\n\n_(Mode local — IA NVIDIA indisponible : {detail})_" if detail else ""
+    note = f"\n\n(Mode local — Mistral indisponible : {detail})" if detail else ""
     return {
-        "reply": fallback + note,
+        "reply": normalize_assistant_reply(fallback + note),
         "source": "local",
         "model": None,
         "context_summary": {
