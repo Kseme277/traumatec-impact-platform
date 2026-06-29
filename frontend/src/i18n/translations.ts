@@ -1242,6 +1242,9 @@ const fr = {
   guidesBridge: {
     title: "Liaison GuideHub",
     desc: "Identifiants de connexion à la plateforme guides (handoff SSO admin).",
+    tipTitle: "Connexion GuideHub",
+    tipMessage:
+      "Modifiez ici le slug entreprise, l'e-mail et le mot de passe admin GuideHub. Ces identifiants sont utilisés pour le handoff SSO depuis « Admin GuideHub ».",
     formTitle: "Compte entreprise GuideHub",
     formDesc: "Ces valeurs sont stockées en base et remplacent le fichier .env après enregistrement.",
     companySlug: "Slug entreprise",
@@ -2746,6 +2749,9 @@ const en: typeof fr = {
   guidesBridge: {
     title: "GuideHub bridge",
     desc: "Login credentials for the guides platform (admin SSO handoff).",
+    tipTitle: "GuideHub connection",
+    tipMessage:
+      "Update the company slug, admin email and GuideHub password here. These credentials power the SSO handoff from « GuideHub admin ».",
     formTitle: "GuideHub company account",
     formDesc: "Stored in the database and override .env values after save.",
     companySlug: "Company slug",

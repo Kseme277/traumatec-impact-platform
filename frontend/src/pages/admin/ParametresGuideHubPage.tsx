@@ -3,6 +3,7 @@ import { Plug, RefreshCw } from "lucide-react";
 import { FormEvent, useCallback, useEffect, useState } from "react";
 import AdminBreadcrumb from "../../components/common/AdminBreadcrumb";
 import ComponentCard from "../../components/common/ComponentCard";
+import HelpTipAlert from "../../components/common/HelpTipAlert";
 import PageMeta from "../../components/common/PageMeta";
 import Label from "../../components/form/Label";
 import Input from "../../components/form/input/InputField";
@@ -98,20 +99,21 @@ export default function ParametresGuideHubPage() {
 
   return (
     <>
-      <PageMeta title={t("guidesBridge.title")} description={t("guidesBridge.desc")} />
+      <PageMeta title={`${t("guidesBridge.title")} | TIP`} description={t("guidesBridge.desc")} />
       <AdminBreadcrumb
-        crumbs={[
-          { label: t("nav.admin"), to: "/admin/utilisateurs" },
-          { label: t("guidesBridge.title") },
-        ]}
+        pageTitle={t("guidesBridge.title")}
+        crumbs={[{ label: t("nav.admin"), to: "/admin/utilisateurs" }]}
       />
 
       <div className="mb-6">
-        <h1 className="text-2xl font-semibold text-gray-900 dark:text-white">{t("guidesBridge.title")}</h1>
-        <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{t("guidesBridge.desc")}</p>
+        <HelpTipAlert
+          variant="info"
+          title={t("guidesBridge.tipTitle")}
+          message={t("guidesBridge.tipMessage")}
+        />
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-2">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <ComponentCard title={t("guidesBridge.formTitle")} desc={t("guidesBridge.formDesc")}>
           {isLoading ? (
             <p className="text-sm text-gray-500 dark:text-gray-400">{t("common.loading")}</p>
@@ -149,7 +151,9 @@ export default function ParametresGuideHubPage() {
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder={
-                    config?.password_configured ? t("guidesBridge.passwordPlaceholder") : t("guidesBridge.passwordRequired")
+                    config?.password_configured
+                      ? t("guidesBridge.passwordPlaceholder")
+                      : t("guidesBridge.passwordRequired")
                   }
                   autoComplete="new-password"
                 />
@@ -157,11 +161,12 @@ export default function ParametresGuideHubPage() {
               </div>
 
               <div className="flex flex-wrap gap-3">
-                <Button type="submit" disabled={isSaving}>
+                <Button type="submit" size="sm" disabled={isSaving}>
                   {isSaving ? t("common.saving") : t("common.save")}
                 </Button>
                 <Button
                   type="button"
+                  size="sm"
                   variant="outline"
                   startIcon={<Plug className="size-4" />}
                   disabled={isTesting || isSaving}
@@ -171,6 +176,7 @@ export default function ParametresGuideHubPage() {
                 </Button>
                 <Button
                   type="button"
+                  size="sm"
                   variant="outline"
                   startIcon={<RefreshCw className="size-4" />}
                   disabled={isLoading}
@@ -187,40 +193,40 @@ export default function ParametresGuideHubPage() {
           {config ? (
             <>
               <dl className="space-y-4 text-sm">
-              <div>
-                <dt className="font-medium text-gray-700 dark:text-gray-300">{t("guidesBridge.status")}</dt>
-                <dd className="mt-1">
-                  <Badge color={config.enabled ? "success" : "warning"}>
-                    {config.enabled ? t("guidesBridge.enabled") : t("guidesBridge.disabled")}
-                  </Badge>
-                </dd>
-              </div>
-              <div>
-                <dt className="font-medium text-gray-700 dark:text-gray-300">{t("guidesBridge.source")}</dt>
-                <dd className="mt-1 text-gray-600 dark:text-gray-400">
-                  {config.configured_in_database
-                    ? t("guidesBridge.sourceDatabase")
-                    : t("guidesBridge.sourceEnv")}
-                </dd>
-              </div>
-              <div>
-                <dt className="font-medium text-gray-700 dark:text-gray-300">API</dt>
-                <dd className="mt-1 break-all font-mono text-xs text-gray-600 dark:text-gray-400">
-                  {config.api_url || "—"}
-                </dd>
-              </div>
-              <div>
-                <dt className="font-medium text-gray-700 dark:text-gray-300">Web</dt>
-                <dd className="mt-1 break-all font-mono text-xs text-gray-600 dark:text-gray-400">
-                  {config.web_url || "—"}
-                </dd>
-              </div>
-              <div>
-                <dt className="font-medium text-gray-700 dark:text-gray-300">Proxy TIP</dt>
-                <dd className="mt-1 break-all font-mono text-xs text-gray-600 dark:text-gray-400">
-                  {config.proxy_web_url || "—"}
-                </dd>
-              </div>
+                <div>
+                  <dt className="font-medium text-gray-700 dark:text-gray-300">{t("guidesBridge.status")}</dt>
+                  <dd className="mt-1">
+                    <Badge color={config.enabled ? "success" : "warning"}>
+                      {config.enabled ? t("guidesBridge.enabled") : t("guidesBridge.disabled")}
+                    </Badge>
+                  </dd>
+                </div>
+                <div>
+                  <dt className="font-medium text-gray-700 dark:text-gray-300">{t("guidesBridge.source")}</dt>
+                  <dd className="mt-1 text-gray-600 dark:text-gray-400">
+                    {config.configured_in_database
+                      ? t("guidesBridge.sourceDatabase")
+                      : t("guidesBridge.sourceEnv")}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="font-medium text-gray-700 dark:text-gray-300">API</dt>
+                  <dd className="mt-1 break-all font-mono text-xs text-gray-600 dark:text-gray-400">
+                    {config.api_url || "—"}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="font-medium text-gray-700 dark:text-gray-300">Web</dt>
+                  <dd className="mt-1 break-all font-mono text-xs text-gray-600 dark:text-gray-400">
+                    {config.web_url || "—"}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="font-medium text-gray-700 dark:text-gray-300">Proxy TIP</dt>
+                  <dd className="mt-1 break-all font-mono text-xs text-gray-600 dark:text-gray-400">
+                    {config.proxy_web_url || "—"}
+                  </dd>
+                </div>
               </dl>
               <p className="mt-4 text-xs text-gray-500 dark:text-gray-400">{t("guidesBridge.infraHint")}</p>
             </>

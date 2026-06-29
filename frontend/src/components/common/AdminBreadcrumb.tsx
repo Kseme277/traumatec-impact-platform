@@ -11,7 +11,8 @@ interface AdminBreadcrumbProps {
   crumbs?: Crumb[];
 }
 
-function truncateBreadcrumbLabel(label: string, max = 42): string {
+function truncateBreadcrumbLabel(label: string | undefined, max = 42): string {
+  if (!label) return "";
   if (label.length <= max) return label;
   return `${label.slice(0, max - 1)}…`;
 }
