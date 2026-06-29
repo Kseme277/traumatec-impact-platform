@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import { Link } from "react-router";
+import { HANDOFF_THEME } from "./handoff/handoffTheme";
 
 type GuideHubHandoffShellProps = {
   title?: string;
@@ -12,11 +13,21 @@ type GuideHubHandoffShellProps = {
 
 function HandoffSlider() {
   return (
-    <div className="relative mx-auto mb-10 h-0.5 w-full max-w-[400px]" aria-hidden>
-      <div className="absolute inset-0 bg-[#4a8df8]" />
-      <div className="handoff-dot absolute top-0 h-0.5 w-1.5 bg-[#222]" />
-      <div className="handoff-dot handoff-dot-delay-1 absolute top-0 h-0.5 w-1.5 bg-[#222]" />
-      <div className="handoff-dot handoff-dot-delay-2 absolute top-0 h-0.5 w-1.5 bg-[#222]" />
+    <div
+      className="relative mx-auto mb-10 h-0.5 w-full max-w-[400px]"
+      style={{ marginTop: "-1.875rem" }}
+      aria-hidden
+    >
+      <div className="absolute inset-0" style={{ background: HANDOFF_THEME.accent }} />
+      <div className="handoff-dot absolute top-0 h-0.5 w-1.5" style={{ background: HANDOFF_THEME.bg }} />
+      <div
+        className="handoff-dot handoff-dot-delay-1 absolute top-0 h-0.5 w-1.5"
+        style={{ background: HANDOFF_THEME.bg }}
+      />
+      <div
+        className="handoff-dot handoff-dot-delay-2 absolute top-0 h-0.5 w-1.5"
+        style={{ background: HANDOFF_THEME.bg }}
+      />
       <style>{`
         @keyframes handoff-loading {
           from { left: 0; }
@@ -36,9 +47,7 @@ function HandoffSlider() {
   );
 }
 
-/**
- * Page handoff TIP → GuideHub (même gabarit que public/guidehub-handoff.html).
- */
+/** Page handoff TIP → GuideHub (même gabarit que public/guidehub-handoff.html). */
 export function GuideHubHandoffShell({
   title = "Un instant…",
   status,
@@ -48,17 +57,23 @@ export function GuideHubHandoffShell({
   children,
 }: GuideHubHandoffShellProps) {
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-[#222] px-6 py-10 text-center font-[Raleway,system-ui,sans-serif] font-thin text-[#4a8df8] antialiased">
+    <div
+      className="flex min-h-screen flex-col items-center justify-center px-[50px] py-10 text-center font-thin antialiased"
+      style={{
+        background: HANDOFF_THEME.bg,
+        color: HANDOFF_THEME.accent,
+        fontFamily: HANDOFF_THEME.font,
+      }}
+    >
       <link
         rel="stylesheet"
-        href="https://fonts.googleapis.com/css2?family=Raleway:wght@100;400&display=swap"
+        href="https://fonts.googleapis.com/css2?family=Outfit:wght@100;400&display=swap"
       />
 
-      <p className="mb-6 text-xs font-normal uppercase tracking-[0.2em] opacity-70">
-        GuideHub · Traumatec
-      </p>
-
-      <h1 className="mb-10 text-[clamp(2rem,6vw,3rem)] font-thin leading-tight text-[#4a8df8]">
+      <h1
+        className="mb-0 text-[3em] font-thin leading-tight"
+        style={{ color: HANDOFF_THEME.accent }}
+      >
         {error ? "Connexion impossible" : title}
       </h1>
 
@@ -67,9 +82,8 @@ export function GuideHubHandoffShell({
       <p
         role="status"
         aria-live="polite"
-        className={`m-0 max-w-md text-base font-thin leading-relaxed ${
-          error ? "text-[#f97066]" : "text-[#4a8df8]"
-        }`}
+        className="m-0 max-w-md text-base font-thin leading-relaxed"
+        style={{ color: error ? HANDOFF_THEME.error : HANDOFF_THEME.accent }}
       >
         {status}
         {!error && manualHref ? (
@@ -78,7 +92,8 @@ export function GuideHubHandoffShell({
             Pas de redirection ?{" "}
             <a
               href={manualHref}
-              className="font-normal text-[#4a8df8] underline underline-offset-[3px] hover:opacity-85"
+              className="font-normal underline underline-offset-[3px] hover:opacity-85"
+              style={{ color: HANDOFF_THEME.accent }}
             >
               {manualLabel}
             </a>
@@ -92,7 +107,8 @@ export function GuideHubHandoffShell({
         <div className="mt-8">
           <Link
             to="/dashboard"
-            className="text-sm font-normal text-[#4a8df8] underline underline-offset-[3px] hover:opacity-85"
+            className="text-sm font-normal underline underline-offset-[3px] hover:opacity-85"
+            style={{ color: HANDOFF_THEME.accent }}
           >
             Retour à l&apos;accueil
           </Link>

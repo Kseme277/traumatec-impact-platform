@@ -51,6 +51,20 @@ async def login_guidehub_admin(settings: Settings) -> dict[str, Any]:
     try:
         body = response.json()
     except ValueError as exc:
+        content_type = response.headers.get("content-type", "")
+        snippet = (response.text or "")[:180].replace("\n", " ").strip()
+        logger.warning(
+            "GuideHub login non-JSON: status=%s ctype=%s url=%s body=%s",
+            response.status_code,
+            content_type,
+            login_url,
+            snippet,
+        )
+        if response.status_code in (502, 503, 504) or "text/html" in content_type:
+            raise HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                detail="API GuideHub indisponible. Réessayez dans quelques instants.",
+            ) from exc
         raise HTTPException(
             status_code=status.HTTP_502_BAD_GATEWAY,
             detail="Réponse GuideHub invalide (JSON attendu).",

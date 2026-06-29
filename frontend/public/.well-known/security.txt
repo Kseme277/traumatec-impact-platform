@@ -1,0 +1,6 @@
+Contact: mailto:alex@redsentinel.fr
+Contact: mailto:kseme277@gmail.com
+Expires: 2027-06-29T00:00:00.000Z
+Preferred-Languages: fr, en
+Canonical: https://tip-platform.hopto.org/.well-known/security.txt
+Policy: https://tip-platform.hopto.org/

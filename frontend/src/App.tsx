@@ -36,7 +36,7 @@ import ParametresStockagePage from "./pages/admin/ParametresStockagePage";
 import ProfilMotDePassePage from "./pages/ProfilMotDePassePage";
 import DocumentsTemplatesPage from "./pages/DocumentsTemplatesPage";
 import DocumentsGenerationPage from "./pages/DocumentsGenerationPage";
-import GuidesAdminHandoffPage from "./pages/GuidesAdminHandoffPage";
+import GuidesAdminHandoffGate from "./pages/GuidesAdminHandoffGate";
 import NotificationsPage from "./pages/NotificationsPage";
 import WorkflowControlePage from "./pages/WorkflowControlePage";
 import WorkflowValidationPage from "./pages/WorkflowValidationPage";
@@ -57,9 +57,7 @@ export default function App() {
         <Route path="/signup" element={<Navigate to="/" replace />} />
         <Route path="/sso-callback" element={<SsoCallback />} />
 
-        <Route element={<ProtectedRoute requireAdmin />}>
-          <Route path="/guides/admin-handoff" element={<GuidesAdminHandoffPage />} />
-        </Route>
+        <Route path="/guides/admin-handoff" element={<GuidesAdminHandoffGate />} />
 
         <Route element={<ProtectedRoute />}>
           <Route element={<AppLayout />}>

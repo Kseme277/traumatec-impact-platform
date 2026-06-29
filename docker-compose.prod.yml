@@ -86,7 +86,11 @@ services:
   nginx:
     ports:
       - "${NGINX_PORT:-80}:80"
+      - "443:443"
       - "${GUIDES_PROXY_PORT:-3101}:3101"
     volumes:
       - ./infra/nginx/nginx.prod.conf:/etc/nginx/nginx.conf:ro
+      - ./infra/nginx/snippets:/etc/nginx/snippets:ro
       - ./frontend/public/guidehub-handoff.html:/var/www/guidehub-handoff.html:ro
+      - ./certbot/www:/var/www/certbot:ro
+      - /etc/letsencrypt:/etc/letsencrypt:ro
