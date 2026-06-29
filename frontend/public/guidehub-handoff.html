@@ -274,6 +274,7 @@
               /* ignore */
             }
             var redirect = data.redirect || "/gh/admin";
+            if (redirect === "/admin") redirect = "/gh/admin";
             var adminPath = redirect.startsWith("/") ? redirect : "/" + redirect;
             manualTarget =
               redirect.startsWith("http://") || redirect.startsWith("https://")

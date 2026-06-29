@@ -67,7 +67,7 @@ async def guides_handoff_consume(
         "email": data.get("email", ""),
         "role": data.get("role", "admin_company"),
         "member_role": data.get("member_role", "Administrateur"),
-        "redirect": data.get("redirect", "/gh/admin"),
+        "redirect": "/gh/admin",
         "company_slug": data.get("company_slug", ""),
     }
 

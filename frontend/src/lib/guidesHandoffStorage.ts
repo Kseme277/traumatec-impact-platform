@@ -41,7 +41,11 @@ export function persistGuideHubSession(
 
 export function resolveGuideHubAdminUrl(redirect?: string): string {
   const origin = window.location.origin.replace(/\/$/, "");
-  const path = redirect?.trim() || "/gh/admin";
+  let path = redirect?.trim() || "/gh/admin";
+  // Anciens tickets ou réponses API : /admin → proxy TIP /gh/admin
+  if (path === "/admin" || (path.endsWith("/admin") && !path.includes("/gh/"))) {
+    path = "/gh/admin";
+  }
   if (path.startsWith("http://") || path.startsWith("https://")) {
     return path;
   }

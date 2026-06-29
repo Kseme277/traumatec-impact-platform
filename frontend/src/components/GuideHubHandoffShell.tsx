@@ -1,6 +1,6 @@
 import type { ReactNode } from "react";
 import { Link } from "react-router";
-import { HANDOFF_THEME } from "./handoff/handoffTheme";
+import { getGuidesProxyAdminUrl } from "../config/guides";
 
 type GuideHubHandoffShellProps = {
   title?: string;
@@ -13,21 +13,11 @@ type GuideHubHandoffShellProps = {
 
 function HandoffSlider() {
   return (
-    <div
-      className="relative mx-auto mb-10 h-0.5 w-full max-w-[400px]"
-      style={{ marginTop: "-1.875rem" }}
-      aria-hidden
-    >
-      <div className="absolute inset-0" style={{ background: HANDOFF_THEME.accent }} />
-      <div className="handoff-dot absolute top-0 h-0.5 w-1.5" style={{ background: HANDOFF_THEME.bg }} />
-      <div
-        className="handoff-dot handoff-dot-delay-1 absolute top-0 h-0.5 w-1.5"
-        style={{ background: HANDOFF_THEME.bg }}
-      />
-      <div
-        className="handoff-dot handoff-dot-delay-2 absolute top-0 h-0.5 w-1.5"
-        style={{ background: HANDOFF_THEME.bg }}
-      />
+    <div className="relative mx-auto mb-8 h-0.5 w-full max-w-[400px]" aria-hidden>
+      <div className="absolute inset-0 rounded-full bg-brand-500 dark:bg-brand-400" />
+      <div className="handoff-dot absolute top-0 h-0.5 w-1.5 rounded-full bg-gray-50 dark:bg-gray-900" />
+      <div className="handoff-dot handoff-dot-delay-1 absolute top-0 h-0.5 w-1.5 rounded-full bg-gray-50 dark:bg-gray-900" />
+      <div className="handoff-dot handoff-dot-delay-2 absolute top-0 h-0.5 w-1.5 rounded-full bg-gray-50 dark:bg-gray-900" />
       <style>{`
         @keyframes handoff-loading {
           from { left: 0; }
@@ -47,7 +37,7 @@ function HandoffSlider() {
   );
 }
 
-/** Page handoff TIP → GuideHub (même gabarit que public/guidehub-handoff.html). */
+/** Page handoff TIP → GuideHub — suit le thème clair/sombre de la plateforme. */
 export function GuideHubHandoffShell({
   title = "Un instant…",
   status,
@@ -56,24 +46,11 @@ export function GuideHubHandoffShell({
   manualLabel = "Cliquez ici.",
   children,
 }: GuideHubHandoffShellProps) {
-  return (
-    <div
-      className="flex min-h-screen flex-col items-center justify-center px-[50px] py-10 text-center font-thin antialiased"
-      style={{
-        background: HANDOFF_THEME.bg,
-        color: HANDOFF_THEME.accent,
-        fontFamily: HANDOFF_THEME.font,
-      }}
-    >
-      <link
-        rel="stylesheet"
-        href="https://fonts.googleapis.com/css2?family=Outfit:wght@100;400&display=swap"
-      />
+  const adminHref = manualHref ?? getGuidesProxyAdminUrl();
 
-      <h1
-        className="mb-0 text-[3em] font-thin leading-tight"
-        style={{ color: HANDOFF_THEME.accent }}
-      >
+  return (
+    <div className="flex min-h-screen flex-col items-center justify-center bg-gray-50 px-6 py-10 text-center font-outfit font-thin antialiased dark:bg-gray-900 sm:px-12">
+      <h1 className="mb-0 text-[clamp(2rem,6vw,3rem)] font-thin leading-tight text-brand-500 dark:text-brand-400">
         {error ? "Connexion impossible" : title}
       </h1>
 
@@ -82,18 +59,20 @@ export function GuideHubHandoffShell({
       <p
         role="status"
         aria-live="polite"
-        className="m-0 max-w-md text-base font-thin leading-relaxed"
-        style={{ color: error ? HANDOFF_THEME.error : HANDOFF_THEME.accent }}
+        className={`m-0 max-w-md text-base font-thin leading-relaxed ${
+          error
+            ? "text-error-500 dark:text-error-400"
+            : "text-gray-600 dark:text-brand-300/90"
+        }`}
       >
         {status}
-        {!error && manualHref ? (
+        {!error ? (
           <>
             {" "}
             Pas de redirection ?{" "}
             <a
-              href={manualHref}
-              className="font-normal underline underline-offset-[3px] hover:opacity-85"
-              style={{ color: HANDOFF_THEME.accent }}
+              href={adminHref}
+              className="font-normal text-brand-500 underline underline-offset-[3px] hover:opacity-85 dark:text-brand-400"
             >
               {manualLabel}
             </a>
@@ -104,13 +83,18 @@ export function GuideHubHandoffShell({
       {children ? <div className="mt-8">{children}</div> : null}
 
       {error ? (
-        <div className="mt-8">
+        <div className="mt-8 flex flex-col gap-3">
+          <a
+            href={adminHref}
+            className="text-sm font-normal text-brand-500 underline underline-offset-[3px] hover:opacity-85 dark:text-brand-400"
+          >
+            Ouvrir l&apos;admin GuideHub
+          </a>
           <Link
             to="/dashboard"
-            className="text-sm font-normal underline underline-offset-[3px] hover:opacity-85"
-            style={{ color: HANDOFF_THEME.accent }}
+            className="text-sm font-normal text-gray-500 underline underline-offset-[3px] hover:opacity-85 dark:text-gray-400"
           >
-            Retour à l&apos;accueil
+            Retour au tableau de bord
           </Link>
         </div>
       ) : null}
