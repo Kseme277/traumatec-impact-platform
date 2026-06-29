@@ -95,6 +95,7 @@ export function buildNavItemDefs(t: (key: string) => string): NavItemDef[] {
         { name: t("nav.referentiels"), path: "/admin/referentiels", roles: ["administrateur"] },
         { name: t("nav.audit"), path: "/admin/audit", roles: ["administrateur"] },
         { name: t("nav.storage"), path: "/admin/stockage", roles: ["administrateur"] },
+        { name: t("nav.guideHub"), path: "/admin/guidehub", roles: ["administrateur"] },
       ],
     },
   ];

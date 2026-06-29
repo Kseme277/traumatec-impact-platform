@@ -140,6 +140,15 @@ export const SEARCH_ENTRIES: SearchEntry[] = [
     keywords: ["stockage", "minio", "gc", "garbage", "purge", "zip", "rétention", "nettoyage"],
     adminOnly: true,
   },
+  {
+    id: "admin-guidehub",
+    title: "Liaison GuideHub",
+    subtitle: "Identifiants SSO vers la plateforme guides",
+    path: "/admin/guidehub",
+    category: "Administration",
+    keywords: ["guidehub", "guides", "sso", "handoff", "traumatec-cm", "liaison", "mot de passe"],
+    adminOnly: true,
+  },
 ];
 
 export function filterSearchEntries(

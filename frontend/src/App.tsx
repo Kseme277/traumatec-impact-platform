@@ -34,6 +34,7 @@ import UtilisateurCreatePage from "./pages/admin/UtilisateurCreatePage";
 import UtilisateurDetailPage from "./pages/admin/UtilisateurDetailPage";
 import AuditPage from "./pages/admin/AuditPage";
 import ParametresStockagePage from "./pages/admin/ParametresStockagePage";
+import ParametresGuideHubPage from "./pages/admin/ParametresGuideHubPage";
 import ProfilMotDePassePage from "./pages/ProfilMotDePassePage";
 import DocumentsTemplatesPage from "./pages/DocumentsTemplatesPage";
 import DocumentsGenerationPage from "./pages/DocumentsGenerationPage";
@@ -121,6 +122,7 @@ export default function App() {
               <Route path="/admin/referentiels" element={<ReferentielsAdminPage />} />
               <Route path="/admin/audit" element={<AuditPage />} />
               <Route path="/admin/stockage" element={<ParametresStockagePage />} />
+              <Route path="/admin/guidehub" element={<ParametresGuideHubPage />} />
             </Route>
           </Route>
         </Route>

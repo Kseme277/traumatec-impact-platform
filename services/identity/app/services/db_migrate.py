@@ -69,6 +69,13 @@ _MIGRATIONS = (
     CREATE INDEX IF NOT EXISTS idx_identity_notifications_user_created
         ON identity.notifications(user_id, created_at DESC);
     """,
+    """
+    CREATE TABLE IF NOT EXISTS identity.system_settings (
+        key         VARCHAR(128) PRIMARY KEY,
+        value       TEXT NOT NULL,
+        updated_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+    );
+    """,
 )
 
 

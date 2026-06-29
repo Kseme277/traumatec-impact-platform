@@ -9,11 +9,15 @@ import httpx
 from fastapi import HTTPException, status
 
 from app.core.config import Settings
+from app.services.guides_bridge_config import GuidesBridgeCredentials
 
 logger = logging.getLogger(__name__)
 
 
-async def login_guidehub_admin(settings: Settings) -> dict[str, Any]:
+async def login_guidehub_admin(
+    settings: Settings,
+    credentials: GuidesBridgeCredentials,
+) -> dict[str, Any]:
     """Authentifie le compte admin entreprise GuideHub via l'API existante."""
     if not settings.guides_bridge_enabled:
         raise HTTPException(
@@ -22,13 +26,13 @@ async def login_guidehub_admin(settings: Settings) -> dict[str, Any]:
         )
 
     api_base = settings.guides_api_url.rstrip("/")
-    email = settings.guides_bridge_email.strip().lower()
-    password = settings.guides_bridge_password
+    email = credentials.email.strip().lower()
+    password = credentials.password
 
     if not api_base or not email or not password:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="GUIDES_API_URL, GUIDES_BRIDGE_EMAIL et GUIDES_BRIDGE_PASSWORD requis.",
+            detail="GUIDES_API_URL, e-mail et mot de passe GuideHub requis.",
         )
 
     login_url = f"{api_base}/api/v1/auth/login"
@@ -101,8 +105,8 @@ async def login_guidehub_admin(settings: Settings) -> dict[str, Any]:
         "role": user.get("role") or "admin_company",
         "member_role": user.get("memberRole") or user.get("member_role") or "Administrateur",
         "company_id": user.get("companyId"),
-        "company_slug": settings.guides_company_slug,
+        "company_slug": credentials.company_slug,
         "web_url": proxy_base or web_base,
-        "public_url": f"{web_base}/{settings.guides_company_slug}",
+        "public_url": f"{web_base}/{credentials.company_slug}",
         "admin_url": admin_url,
     }
