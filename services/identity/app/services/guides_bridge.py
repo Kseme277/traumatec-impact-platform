@@ -83,6 +83,7 @@ async def login_guidehub_admin(settings: Settings) -> dict[str, Any]:
         "expires_in": data.get("expiresIn", "2h"),
         "email": user.get("email") or email,
         "role": user.get("role") or "admin_company",
+        "member_role": user.get("memberRole") or user.get("member_role") or "Administrateur",
         "company_id": user.get("companyId"),
         "company_slug": settings.guides_company_slug,
         "web_url": web_base,

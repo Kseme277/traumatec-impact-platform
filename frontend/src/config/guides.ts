@@ -113,6 +113,11 @@ export function getGuidesAdminUrl(): string {
   return `${GUIDES_WEB_URL}/admin`;
 }
 
+/** Admin via proxy TIP (:3101) — nécessaire pour le SSO handoff. */
+export function getGuidesProxyAdminUrl(): string {
+  return `${resolveGuidesProxyWebUrl()}/admin`;
+}
+
 export function isGuidesConfigured(): boolean {
   return GUIDES_WEB_URL.length > 0;
 }

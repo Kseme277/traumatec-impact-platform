@@ -232,17 +232,53 @@
           history.replaceState(null, "", location.pathname);
         }
 
-        function persistSession(accessToken, email, role) {
+        function persistSession(accessToken, email, role, memberRole) {
           try {
             localStorage.removeItem("traumatec_access_token");
           } catch (e) {
             /* ignore */
           }
-          sessionStorage.setItem("traumatec_access_token", accessToken);
+          try {
+            sessionStorage.removeItem("traumatec_access_token");
+          } catch (e) {
+            /* ignore */
+          }
+          localStorage.setItem("traumatec_access_token", accessToken);
           sessionStorage.setItem(
             "traumatec_auth_verified",
-            JSON.stringify({ role: role, email: email || "sso@tip", at: Date.now() }),
+            JSON.stringify({
+              role: role,
+              email: email || "sso@tip",
+              memberRole: memberRole || "Administrateur",
+              at: Date.now(),
+            }),
           );
+        }
+
+        function verifySession(accessToken) {
+          return fetch(location.origin + "/api/v1/auth/me", {
+            method: "GET",
+            headers: { Authorization: "Bearer " + accessToken },
+            credentials: "same-origin",
+            cache: "no-store",
+          })
+            .then(function (response) {
+              if (!response.ok) {
+                throw new Error("Session GuideHub refusée.");
+              }
+              return response.json();
+            })
+            .then(function (body) {
+              if (!body || !body.success || !body.data) {
+                throw new Error("Profil GuideHub invalide.");
+              }
+              persistSession(
+                accessToken,
+                body.data.email,
+                body.data.role,
+                body.data.memberRole,
+              );
+            });
         }
 
         status.textContent = "Récupération sécurisée de la session…";
@@ -264,7 +300,11 @@
             if (!data || !data.access_token) {
               throw new Error("Réponse handoff invalide.");
             }
-            persistSession(data.access_token, data.email, data.role);
+            return verifySession(data.access_token).then(function () {
+              return data;
+            });
+          })
+          .then(function (data) {
             var redirect = data.redirect || "/admin";
             var adminPath = redirect.startsWith("/") ? redirect : "/" + redirect;
             manualTarget =

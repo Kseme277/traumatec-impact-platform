@@ -2,7 +2,7 @@ import { useAuth } from "@clerk/clerk-react";
 import { useEffect, useState } from "react";
 import { prepareGuidesHandoff } from "../api/guides";
 import { GuideHubHandoffShell } from "../components/GuideHubHandoffShell";
-import { buildGuidesHandoffUrl, getGuidesAdminUrl } from "../config/guides";
+import { buildGuidesHandoffUrl, getGuidesProxyAdminUrl } from "../config/guides";
 import { useTranslation } from "../i18n/useTranslation";
 import { getApiToken } from "../lib/clerkToken";
 
@@ -52,7 +52,7 @@ export default function GuidesAdminHandoffPage() {
   return (
     <GuideHubHandoffShell
       status={status}
-      manualHref={getGuidesAdminUrl()}
+      manualHref={getGuidesProxyAdminUrl()}
       manualLabel="Cliquez ici."
     />
   );

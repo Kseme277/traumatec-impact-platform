@@ -29,6 +29,7 @@ async def create_guides_handoff_ticket(redis_url: str, session: dict[str, Any]) 
         "access_token": session["access_token"],
         "email": session.get("email", ""),
         "role": session.get("role", "admin_company"),
+        "member_role": session.get("member_role", "Administrateur"),
         "company_slug": session.get("company_slug", ""),
         "redirect": "/admin",
     }
