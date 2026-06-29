@@ -46,7 +46,7 @@ async def guides_handoff_prepare(
         "proxy_web_url": proxy_web,
         "handoff_url": handoff_url,
         "public_url": session["public_url"],
-        "admin_url": session["admin_url"],
+        "admin_url": f"{proxy_web}/gh/admin" if proxy_web else session["admin_url"],
     }
 
 
@@ -100,5 +100,5 @@ async def guides_session(
         "proxy_web_url": proxy_web,
         "handoff_url": handoff_url,
         "public_url": session["public_url"],
-        "admin_url": session["admin_url"],
+        "admin_url": f"{proxy_web}/gh/admin" if proxy_web else session["admin_url"],
     }

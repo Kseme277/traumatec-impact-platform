@@ -39,7 +39,8 @@ export default function GuidesAdminHandoffPage() {
           handoff.member_role,
         );
 
-        const adminUrl = resolveGuideHubAdminUrl(handoff.redirect);
+        // Même origine : proxy /gh/admin (session localStorage TIP = GuideHub)
+        const adminUrl = resolveGuideHubAdminUrl(handoff.redirect) || getGuidesProxyAdminUrl();
         window.location.replace(adminUrl);
       } catch (err) {
         setError(err instanceof Error ? err.message : t("guides.adminOpenFailed"));

@@ -90,7 +90,9 @@ async def login_guidehub_admin(settings: Settings) -> dict[str, Any]:
         )
 
     user = data.get("user") or {}
-    web_base = settings.guides_web_url.rstrip("/") or settings.guides_proxy_web_url.rstrip("/")
+    proxy_base = settings.guides_proxy_web_url.rstrip("/")
+    web_base = settings.guides_web_url.rstrip("/") or proxy_base
+    admin_url = f"{proxy_base}/gh/admin" if proxy_base else f"{web_base}/admin"
 
     return {
         "access_token": access_token,
@@ -100,7 +102,7 @@ async def login_guidehub_admin(settings: Settings) -> dict[str, Any]:
         "member_role": user.get("memberRole") or user.get("member_role") or "Administrateur",
         "company_id": user.get("companyId"),
         "company_slug": settings.guides_company_slug,
-        "web_url": web_base,
+        "web_url": proxy_base or web_base,
         "public_url": f"{web_base}/{settings.guides_company_slug}",
-        "admin_url": f"{web_base}/admin",
+        "admin_url": admin_url,
     }

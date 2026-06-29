@@ -1,4 +1,5 @@
 import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router";
+import { useEffect } from "react";
 import NotFound from "./pages/OtherPage/NotFound";
 import UserProfiles from "./pages/UserProfiles";
 import Videos from "./pages/UiElements/Videos";
@@ -44,6 +45,13 @@ import UtilisateursRoutePage from "./pages/UtilisateursRoutePage";
 import ReferentielsAdminPage from "./pages/admin/ReferentielsAdminPage";
 import PredictionsPage from "./pages/PredictionsPage";
 
+function GuideHubProxyRedirect({ target }: { target: string }) {
+  useEffect(() => {
+    window.location.replace(target);
+  }, [target]);
+  return null;
+}
+
 export default function App() {
   return (
     <Router>
@@ -58,6 +66,9 @@ export default function App() {
         <Route path="/sso-callback" element={<SsoCallback />} />
 
         <Route path="/guides/admin-handoff" element={<GuidesAdminHandoffGate />} />
+
+        {/* GuideHub SPA navigue parfois vers /admin — rediriger vers le proxy nginx /gh/admin */}
+        <Route path="/admin" element={<GuideHubProxyRedirect target="/gh/admin" />} />
 
         <Route element={<ProtectedRoute />}>
           <Route element={<AppLayout />}>
