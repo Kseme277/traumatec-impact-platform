@@ -123,7 +123,7 @@ async def _load_event(session: AsyncSession, event_id: UUID) -> dict:
                    city, country, region, responsible_person,
                    national_responsible_name, national_responsible_email, national_responsible_phone,
                    start_date::text, end_date::text,
-                   participants_expected, metadata_json, project_status
+                   participants_expected, metadata_json, project_status, cost_center
             FROM events.events
             WHERE id = :id
             """
@@ -150,6 +150,7 @@ async def _load_event(session: AsyncSession, event_id: UUID) -> dict:
         "participants_expected": row.participants_expected,
         "metadata_json": row.metadata_json,
         "project_status": row.project_status,
+        "cost_center": row.cost_center,
     }
 
 

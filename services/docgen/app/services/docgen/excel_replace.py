@@ -15,6 +15,8 @@ logger = logging.getLogger(__name__)
 
 
 def _replacement_pairs(context: dict[str, Any]) -> list[tuple[str, str]]:
+    from tip_common.french_placeholders import build_french_placeholder_pairs
+
     pairs: list[tuple[str, str]] = []
     mapping = {
         "TBD": context.get("city") or context.get("lieu") or context.get("project_number", ""),
@@ -36,6 +38,11 @@ def _replacement_pairs(context: dict[str, Any]) -> list[tuple[str, str]]:
     for old, new in mapping.items():
         if new and str(old) != str(new):
             pairs.append((old, str(new)))
+    seen = {old for old, _ in pairs}
+    for old, new in build_french_placeholder_pairs(context):
+        if old not in seen:
+            pairs.append((old, new))
+            seen.add(old)
     return pairs
 
 

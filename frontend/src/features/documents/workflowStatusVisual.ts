@@ -40,9 +40,10 @@ export function workflowQueueLink(status: WorkflowStatus): string | null {
   switch (status) {
     case "submitted":
     case "under_procedure_review":
-    case "procedure_rejected":
     case "procedure_approved":
       return "/workflow/controle";
+    case "procedure_rejected":
+      return "/documents/generation";
     case "under_final_validation":
     case "validator_rejected":
     case "approved":

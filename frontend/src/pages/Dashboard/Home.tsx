@@ -6,6 +6,7 @@ import DashboardAdmin from "../../features/dashboard/DashboardAdmin";
 import DashboardPreparateur from "../../features/dashboard/DashboardPreparateur";
 import {
   DashboardControleProcedure,
+  DashboardControleValidateur,
   DashboardSupportAdmin,
   DashboardValidateur,
 } from "../../features/dashboard/WorkflowDashboards";
@@ -21,6 +22,8 @@ export default function Home() {
   let dashboard = <DashboardPreparateur />;
   if (hasRole("administrateur")) {
     dashboard = <DashboardAdmin />;
+  } else if (hasRole("validateur") && hasRole("controle_procedure")) {
+    dashboard = <DashboardControleValidateur />;
   } else if (hasRole("validateur")) {
     dashboard = <DashboardValidateur />;
   } else if (hasRole("controle_procedure")) {

@@ -570,7 +570,7 @@ async def list_workflow_queue(
     queue_scope: str = "pending",
 ) -> list[dict[str, Any]]:
     if role_filter == "controle":
-        statuses = ("submitted", "under_procedure_review", "procedure_rejected")
+        statuses = ("submitted", "under_procedure_review")
     elif role_filter == "validateur":
         if queue_scope == "delivery":
             statuses = ("approved",)

@@ -23,6 +23,7 @@ import {
 } from "../api/workflow";
 import { getApiToken } from "../lib/clerkToken";
 import { workflowStatusLabel } from "../features/auth/types";
+import { workflowStatusBadgeColor } from "../features/documents/workflowStatusVisual";
 import type { Utilisateur } from "../features/auth/types";
 import type { WorkflowQueueItem, WorkflowState } from "../api/workflow";
 import { ApiError } from "../api/client";
@@ -30,6 +31,9 @@ import { confirmAction, promptComment, showError, showSuccess } from "../lib/swa
 import WorkflowPhaseDeadline from "../features/workflow/WorkflowPhaseDeadline";
 import WorkflowProcessGuide from "../features/workflow/WorkflowProcessGuide";
 import WorkflowStatusStepper from "../features/documents/WorkflowStatusStepper";
+import WorkflowFileReviewProgress, {
+  useFileReviewSummary,
+} from "../features/workflow/WorkflowFileReviewProgress";
 import { usePagination } from "../hooks/usePagination";
 import { useTranslation } from "../i18n/useTranslation";
 
@@ -159,6 +163,8 @@ export default function WorkflowControlePage() {
     !!selected &&
     ["under_procedure_review", "submitted"].includes(selected.workflow_status);
 
+  const fileReview = useFileReviewSummary(selected?.files ?? []);
+
   const queuePagination = usePagination(queue, WORKFLOW_QUEUE_PAGE_SIZE, `controle-${queue.length}`);
 
   return (
@@ -211,7 +217,9 @@ export default function WorkflowControlePage() {
                 >
                   <div className="flex items-center justify-between gap-2">
                     <span className="font-medium text-sm">{item.project_number ?? item.event_title}</span>
-                    <Badge color="warning" size="sm">{workflowStatusLabel(item.workflow_status, t)}</Badge>
+                    <Badge color={workflowStatusBadgeColor(item.workflow_status)} size="sm">
+                      {workflowStatusLabel(item.workflow_status, t)}
+                    </Badge>
                   </div>
                   <WorkflowPhaseDeadline
                     phaseDueAt={item.phase_due_at}
@@ -244,7 +252,9 @@ export default function WorkflowControlePage() {
                 {selected.project_number} — {selected.event_title}
               </p>
               <WorkflowStatusStepper status={selected.workflow_status} />
-              <Badge color="info">{workflowStatusLabel(selected.workflow_status, t)}</Badge>
+              <Badge color={workflowStatusBadgeColor(selected.workflow_status)}>
+                {workflowStatusLabel(selected.workflow_status, t)}
+              </Badge>
               <WorkflowPhaseDeadline
                 phaseDueAt={selected.phase_due_at}
                 isOverdue={selected.is_overdue}
@@ -274,9 +284,20 @@ export default function WorkflowControlePage() {
               ) : null}
 
               {["under_procedure_review", "submitted"].includes(selected.workflow_status) ? (
-                <div className="flex flex-wrap gap-2">
-                  <Button size="sm" variant="outline" onClick={() => void handleReject()}>{t("workflow.rejectPackage")}</Button>
-                  <Button size="sm" onClick={() => void handleComplete()}>{t("workflow.finishControle")}</Button>
+                <div className="space-y-3">
+                  <WorkflowFileReviewProgress files={selected.files} />
+                  <div className="flex flex-wrap gap-2">
+                    <Button size="sm" variant="outline" onClick={() => void handleReject()}>
+                      {t("workflow.rejectPackage")}
+                    </Button>
+                    <Button
+                      size="sm"
+                      disabled={!fileReview.allApproved}
+                      onClick={() => void handleComplete()}
+                    >
+                      {t("workflow.finishControle")}
+                    </Button>
+                  </div>
                 </div>
               ) : null}
 

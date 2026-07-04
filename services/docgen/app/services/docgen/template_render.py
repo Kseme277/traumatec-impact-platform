@@ -143,12 +143,18 @@ def build_event_context(event: dict[str, Any]) -> dict[str, Any]:
         "annee": str(start)[:4] if start else str(datetime.now().year),
         "start_date_raw": str(start)[:10] if start else "",
         "end_date_raw": str(end)[:10] if end else "",
+        "cost_center": (event.get("cost_center") or "").strip(),
+        "date_du_jour": _format_date_fr(datetime.now().date()),
+        "today": _format_date_fr(datetime.now().date()),
+        "organizer_responsible_name": (event.get("organizer_responsible_name") or "").strip(),
     }
     return ctx
 
 
 def _plain_replacements(context: dict[str, Any]) -> list[tuple[str, str]]:
     """Remplacements texte brut pour modèles sans variables Jinja."""
+    from tip_common.french_placeholders import build_french_placeholder_pairs
+
     pairs: list[tuple[str, str]] = []
     mapping = {
         "TBD": context.get("city") or context.get("lieu") or context.get("title", "")[:80],
@@ -170,6 +176,11 @@ def _plain_replacements(context: dict[str, Any]) -> list[tuple[str, str]]:
     for old, new in mapping.items():
         if new and old != new:
             pairs.append((old, str(new)))
+    seen = {old for old, _ in pairs}
+    for old, new in build_french_placeholder_pairs(context):
+        if old not in seen:
+            pairs.append((old, new))
+            seen.add(old)
     return pairs
 
 

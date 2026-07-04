@@ -12,6 +12,8 @@ from pathlib import PurePosixPath
 from typing import Any
 from xml.etree import ElementTree as ET
 
+from tip_common.french_label_patterns import APOSTROPHE, EVENEMENT
+
 logger = logging.getLogger(__name__)
 
 W_NS = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
@@ -34,6 +36,8 @@ CONTEXT_KEYS = (
     "event_type",
     "preparation_theme",
     "package_label",
+    "cost_center",
+    "date_du_jour",
 )
 
 _RULE_PATTERNS: list[tuple[str, str, str]] = [
@@ -63,6 +67,16 @@ _RULE_PATTERNS: list[tuple[str, str, str]] = [
     (r"\{\{\s*project_number\s*\}\}", "project_number", "replace"),
     (r"\{\{\s*title\s*\}\}", "title", "replace"),
     (r"\{\{\s*city\s*\}\}", "city", "replace"),
+    (r"\{\{\s*Pays\s*\}\}", "country", "replace"),
+    (r"\{\{\s*Ville\s*\}\}", "city", "replace"),
+    (r"\{\{\s*Project Number\s*\}\}", "project_number", "replace"),
+    (r"\{\{\s*Cost Center\s*\}\}", "cost_center", "replace"),
+    (r"\{\{\s*Email\s*\}\}", "responsible_email", "replace"),
+    (r"\{\{\s*Date du jour\s*\}\}", "date_du_jour", "replace"),
+    (r"\{\{\s*Nom du responsable\s*\}\}", "responsible_person", "replace"),
+    (r"\{\{\s*Numéro du responsable\s*\}\}", "responsible_phone", "replace"),
+    (rf"\{{\{{\s*Nom de l{APOSTROPHE}{EVENEMENT}\s*\}}\}}", "title", "replace"),
+    (rf"\{{\{{\s*Date de l{APOSTROPHE}{EVENEMENT}\s*\}}\}}", "start_date", "replace"),
 ]
 
 
@@ -440,6 +454,8 @@ def context_value_for_key(key: str, context: dict[str, Any]) -> str | None:
         "event_type": context.get("event_type"),
         "preparation_theme": context.get("preparation_theme") or context.get("theme"),
         "package_label": context.get("package_label"),
+        "cost_center": context.get("cost_center"),
+        "date_du_jour": context.get("date_du_jour") or context.get("today"),
     }
     if key in direct and direct[key]:
         return str(direct[key]).strip() or None

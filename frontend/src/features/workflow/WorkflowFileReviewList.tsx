@@ -43,6 +43,20 @@ export default function WorkflowFileReviewList({
   const [submitting, setSubmitting] = useState<string | null>(null);
 
   const reviewedCount = files.filter((f) => f.status !== "pending").length;
+  const approvedCount = files.filter((f) => f.status === "approved").length;
+  const rejectedCount = files.filter((f) => f.status === "rejected").length;
+
+  useEffect(() => {
+    setRemarks((prev) => {
+      const next = { ...prev };
+      for (const file of files) {
+        if (file.comment && next[file.template_code] === undefined) {
+          next[file.template_code] = file.comment;
+        }
+      }
+      return next;
+    });
+  }, [files]);
 
   const loadPreview = useCallback(
     async (templateCode: string) => {
@@ -120,114 +134,160 @@ export default function WorkflowFileReviewList({
     }
   }
 
-  function selectFile(file: WorkflowFileReview) {
-    void loadPreview(file.template_code);
-    setRemarks((prev) => ({
-      ...prev,
-      [file.template_code]: prev[file.template_code] ?? file.comment ?? "",
-    }));
-  }
-
   if (files.length === 0) {
     return <p className="text-sm text-gray-500">{t("workflow.noFiles")}</p>;
   }
 
+  const activeFile = files.find((f) => f.template_code === activeCode);
+
   return (
     <div className="space-y-4">
-      <div className="flex items-center justify-between gap-2">
-        <p className="text-xs font-medium uppercase tracking-wide text-gray-500">
-          {t("workflow.filesTitle")}
-        </p>
-        <p className="text-xs text-gray-500">
-          {reviewedCount}/{files.length} {t("workflow.filesReviewed")}
-        </p>
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-gray-200 bg-gray-50/80 px-4 py-3 dark:border-gray-800 dark:bg-gray-900/40">
+        <div>
+          <p className="text-sm font-semibold text-gray-800 dark:text-white/90">
+            {t("workflow.filesTitle")}
+          </p>
+          <p className="mt-0.5 text-xs text-gray-500">{t("workflow.selectFileHint")}</p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <Badge color="light" size="sm">
+            {reviewedCount}/{files.length} {t("workflow.filesReviewed")}
+          </Badge>
+          {approvedCount > 0 ? (
+            <Badge color="success" size="sm">
+              {approvedCount} {t("workflow.fileStatus.approved").toLowerCase()}
+            </Badge>
+          ) : null}
+          {rejectedCount > 0 ? (
+            <Badge color="error" size="sm">
+              {rejectedCount} {t("workflow.fileStatus.rejected").toLowerCase()}
+            </Badge>
+          ) : null}
+        </div>
       </div>
 
-      <ul className="space-y-2">
-        {files.map((file) => {
-          const isActive = activeCode === file.template_code;
-          const displayName = file.file_path || file.template_code;
-          return (
-            <li
-              key={file.id}
-              className={`rounded-xl border transition-colors ${
-                isActive
-                  ? "border-brand-500 bg-brand-50/40 dark:border-brand-500/60 dark:bg-brand-500/5"
-                  : "border-gray-200 dark:border-gray-800"
-              }`}
-            >
-              <div className="flex flex-wrap items-start justify-between gap-3 p-3">
-                <button
-                  type="button"
-                  className="min-w-0 flex-1 text-left"
-                  onClick={() => selectFile(file)}
+      <div className="overflow-x-auto rounded-xl border border-gray-200 dark:border-gray-800">
+        <table className="min-w-full divide-y divide-gray-200 text-sm dark:divide-gray-800">
+          <thead className="bg-gray-50 dark:bg-gray-900/60">
+            <tr>
+              <th className="px-3 py-2.5 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
+                {t("workflow.filesTable.document")}
+              </th>
+              <th className="px-3 py-2.5 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
+                {t("workflow.filesTable.status")}
+              </th>
+              <th className="min-w-[220px] px-3 py-2.5 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
+                {t("workflow.filesTable.remark")}
+              </th>
+              <th className="px-3 py-2.5 text-right text-xs font-semibold uppercase tracking-wide text-gray-500">
+                {t("workflow.filesTable.actions")}
+              </th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-200 bg-white dark:divide-gray-800 dark:bg-transparent">
+            {files.map((file) => {
+              const displayName = file.file_path || file.template_code;
+              const isActive = activeCode === file.template_code;
+              const savedRemark = file.comment?.trim() ?? "";
+              const draftRemark = remarks[file.template_code] ?? savedRemark;
+              return (
+                <tr
+                  key={file.id}
+                  className={
+                    isActive
+                      ? "bg-brand-50/50 dark:bg-brand-500/5"
+                      : "hover:bg-gray-50/80 dark:hover:bg-gray-900/30"
+                  }
                 >
-                  <p className="text-sm font-medium break-all">{displayName}</p>
-                  {file.comment ? (
-                    <p className="mt-1 text-xs text-gray-600 dark:text-gray-400">
-                      {t("workflow.remark")} : {file.comment}
+                  <td className="px-3 py-3 align-top">
+                    <p className="font-medium break-all text-gray-800 dark:text-white/90">
+                      {displayName}
                     </p>
-                  ) : null}
-                </button>
-                <div className="flex flex-wrap items-center gap-2">
-                  <Badge color={fileStatusColor(file.status)} size="sm">
-                    {t(`workflow.fileStatus.${file.status}`)}
-                  </Badge>
-                  <Button
-                    size="sm"
-                    variant="outline"
-                    onClick={() => void loadPreview(file.template_code)}
-                  >
-                    {t("workflow.viewFile")}
-                  </Button>
-                  <Button size="sm" variant="outline" onClick={() => void handleDownload(file.template_code)}>
-                    {t("common.download")}
-                  </Button>
-                </div>
-              </div>
-
-              {isActive && canReview ? (
-                <div className="space-y-2 border-t border-gray-200 px-3 pb-3 pt-3 dark:border-gray-800">
-                  <label className="text-xs font-medium text-gray-600 dark:text-gray-400">
-                    {t("workflow.remarkFor")} {displayName}
-                  </label>
-                  <textarea
-                    className="w-full rounded-lg border border-gray-200 bg-white p-2 text-sm dark:border-gray-700 dark:bg-gray-900"
-                    rows={2}
-                    placeholder={t("workflow.remarkPlaceholder")}
-                    value={remarks[file.template_code] ?? ""}
-                    onChange={(e) =>
-                      setRemarks((prev) => ({ ...prev, [file.template_code]: e.target.value }))
-                    }
-                  />
-                  <div className="flex flex-wrap gap-2">
-                    <Button
-                      size="sm"
-                      disabled={submitting === file.template_code}
-                      onClick={() => void handleReview(file.template_code, "approved")}
-                    >
-                      {t("workflow.validateFile")}
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      disabled={submitting === file.template_code}
-                      onClick={() => void handleReview(file.template_code, "rejected")}
-                    >
-                      {t("workflow.rejectFile")}
-                    </Button>
-                  </div>
-                </div>
-              ) : null}
-            </li>
-          );
-        })}
-      </ul>
+                    <p className="mt-0.5 text-xs text-gray-400">{file.template_code}</p>
+                  </td>
+                  <td className="px-3 py-3 align-top">
+                    <Badge color={fileStatusColor(file.status)} size="sm">
+                      {t(`workflow.fileStatus.${file.status}`)}
+                    </Badge>
+                  </td>
+                  <td className="px-3 py-3 align-top">
+                    {canReview ? (
+                      <textarea
+                        className="w-full min-w-[200px] rounded-lg border border-gray-200 bg-white p-2 text-xs dark:border-gray-700 dark:bg-gray-900"
+                        rows={2}
+                        placeholder={t("workflow.remarkPlaceholder")}
+                        value={draftRemark}
+                        onChange={(e) =>
+                          setRemarks((prev) => ({ ...prev, [file.template_code]: e.target.value }))
+                        }
+                      />
+                    ) : savedRemark ? (
+                      <p className="rounded-lg bg-gray-50 px-2 py-1.5 text-xs text-gray-700 dark:bg-gray-900 dark:text-gray-300">
+                        {savedRemark}
+                      </p>
+                    ) : (
+                      <p className="text-xs italic text-gray-400">{t("workflow.noRemarkYet")}</p>
+                    )}
+                  </td>
+                  <td className="px-3 py-3 align-top">
+                    <div className="flex flex-col items-end gap-2">
+                      <div className="flex flex-wrap justify-end gap-2">
+                        <Button
+                          size="sm"
+                          variant={isActive ? "primary" : "outline"}
+                          onClick={() => void loadPreview(file.template_code)}
+                        >
+                          {t("workflow.viewFile")}
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => void handleDownload(file.template_code)}
+                        >
+                          {t("common.download")}
+                        </Button>
+                      </div>
+                      {canReview ? (
+                        <div className="flex flex-wrap justify-end gap-2">
+                          <Button
+                            size="sm"
+                            disabled={submitting === file.template_code}
+                            onClick={() => void handleReview(file.template_code, "approved")}
+                          >
+                            {t("workflow.validateFile")}
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            disabled={submitting === file.template_code}
+                            onClick={() => void handleReview(file.template_code, "rejected")}
+                          >
+                            {t("workflow.rejectFile")}
+                          </Button>
+                        </div>
+                      ) : null}
+                    </div>
+                  </td>
+                </tr>
+              );
+            })}
+          </tbody>
+        </table>
+      </div>
 
       {activeCode ? (
         <div className="rounded-xl border border-gray-200 dark:border-gray-800">
-          <div className="flex items-center justify-between border-b border-gray-200 p-3 dark:border-gray-800">
-            <p className="text-sm font-medium break-all">{activeCode}</p>
+          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-gray-200 p-3 dark:border-gray-800">
+            <div className="min-w-0">
+              <p className="text-sm font-medium break-all">
+                {activeFile?.file_path || activeCode}
+              </p>
+              {activeFile?.comment ? (
+                <p className="mt-1 text-xs text-gray-500">
+                  {t("workflow.remark")} : {activeFile.comment}
+                </p>
+              ) : null}
+            </div>
             <Button
               size="sm"
               variant="outline"

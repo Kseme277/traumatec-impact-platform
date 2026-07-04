@@ -39,6 +39,8 @@ def _set_paragraph_text(paragraph: ET.Element, new_text: str) -> None:
 
 def _context_fallback_pairs(context: dict[str, Any]) -> list[tuple[str, str]]:
     """Paires génériques présentes dans la plupart des modèles AO."""
+    from tip_common.french_placeholders import build_french_placeholder_pairs
+
     pairs: list[tuple[str, str]] = []
     mapping = {
         "TBD": context.get("city") or context.get("lieu") or "",
@@ -61,6 +63,11 @@ def _context_fallback_pairs(context: dict[str, Any]) -> list[tuple[str, str]]:
     for old, new in mapping.items():
         if new and old != new:
             pairs.append((old, str(new)))
+    seen = {old for old, _ in pairs}
+    for old, new in build_french_placeholder_pairs(context):
+        if old not in seen:
+            pairs.append((old, new))
+            seen.add(old)
     return pairs
 
 
