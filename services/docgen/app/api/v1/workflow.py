@@ -10,6 +10,7 @@ from app.core.database import get_db
 from app.schemas.certificate import CertificateEditorConfigResponse
 from app.schemas.workflow import (
     AssignReviewerPayload,
+    CompleteProcedurePayload,
     DeliveryMailtoResponse,
     FileReviewPayload,
     RejectPayload,
@@ -217,10 +218,11 @@ async def package_file_download(
 @router.post("/{job_id}/procedure/complete", response_model=WorkflowStateResponse)
 async def complete_procedure(
     job_id: UUID,
+    payload: CompleteProcedurePayload,
     user: AuthenticatedUser = Depends(require_can_review_procedure),
     db: AsyncSession = Depends(get_db),
 ) -> WorkflowStateResponse:
-    state = await wf.complete_procedure(db, job_id, user)
+    state = await wf.complete_procedure(db, job_id, user, payload.validator_id)
     return WorkflowStateResponse(**state)
 
 

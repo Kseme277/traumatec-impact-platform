@@ -99,6 +99,10 @@ class SubmitPayload(BaseModel):
     reviewer_id: int = Field(ge=1)
 
 
+class CompleteProcedurePayload(BaseModel):
+    validator_id: int = Field(ge=1)
+
+
 class DeliveryMailtoResponse(BaseModel):
     mailto_url: str
     recipient_email: str

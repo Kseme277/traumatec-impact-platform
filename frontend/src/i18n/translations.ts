@@ -272,6 +272,11 @@ const fr = {
     packageApproved: "Paquet approuvé pour livraison",
     submitted: "Paquet soumis au contrôleur",
     assignReviewer: "Contrôleur procédure",
+    assignValidator: "Validateur final",
+    selectValidatorPlaceholder: "Sélectionner un validateur…",
+    validatorRequiredTitle: "Validateur requis",
+    validatorRequiredDesc: "Choisissez le validateur qui recevra ce paquet après le contrôle.",
+    centralRemark: "Remarque centrale (rejet)",
     selectReviewer: "Choisissez le contrôleur à assigner",
     selectReviewerPlaceholder: "Sélectionner un contrôleur…",
     submitForReview: "Soumettre pour contrôle",
@@ -1032,14 +1037,16 @@ const fr = {
       "Un paquet validé existe pour cet événement. Une nouvelle génération n'est plus autorisée.",
     packageRejectedTitle: "Paquet rejeté",
     packageRejectedDesc:
-      "Corrigez la fiche événement puis resoumettez le paquet existant au contrôle (sans regénérer).",
+      "Regénérez le paquet ZIP ou corrigez les fichiers (OpenOffice), puis resoumettez au contrôle via le panneau ci-dessous.",
     packageInReviewTitle: "Paquet en validation",
     packageInReviewDesc:
       "Le paquet est en cours de contrôle ou de validation finale. La génération est verrouillée.",
     generationBlockedTitle: "Génération verrouillée",
     generationBlockedDesc: "Un paquet existe déjà pour cet événement dans le workflow.",
     generationBlockedRejectedDesc:
-      "Paquet rejeté : corrigez la fiche et resoumettez le paquet existant sans le regénérer.",
+      "Paquet rejeté : regénérez le ZIP ou resoumettez le paquet corrigé au contrôle.",
+    viewRemarks: "Remarques",
+    hideRemarks: "Masquer remarques",
     fileRemarksTitle: "Remarques par fichier (contrôle / validation)",
     fileRemarksDesc:
       "Commentaires laissés par le contrôleur procédure ou le validateur sur chaque document du paquet.",
@@ -1047,6 +1054,9 @@ const fr = {
     fileRemarksNoComments: "Aucune remarque textuelle pour l'instant — les statuts par fichier restent visibles ci-dessus.",
     eventValidatedBadge: "Paquet validé",
     eventValidatedSuffix: "Validé",
+    eventValidatedHiddenDesc:
+      "Ce paquet est validé : il n'apparaît plus dans la liste de génération. Téléchargez-le depuis la fiche événement.",
+    downloadValidatedPackage: "Télécharger le paquet validé",
     generationFailed: "Génération échouée",
     unknownError: "Erreur inconnue.",
     sessionExpired: "Session expirée ou token invalide. Déconnectez-vous puis reconnectez-vous.",
@@ -1822,6 +1832,11 @@ const en: typeof fr = {
     packageApproved: "Package approved for delivery",
     submitted: "Package submitted to reviewer",
     assignReviewer: "Procedure reviewer",
+    assignValidator: "Final validator",
+    selectValidatorPlaceholder: "Select a validator…",
+    validatorRequiredTitle: "Validator required",
+    validatorRequiredDesc: "Choose who will receive this package after procedure review.",
+    centralRemark: "Central remark (rejection)",
     selectReviewer: "Choose the reviewer to assign",
     selectReviewerPlaceholder: "Select a reviewer…",
     submitForReview: "Submit for review",
@@ -2582,14 +2597,16 @@ const en: typeof fr = {
       "An approved package already exists for this event. A new generation is not allowed.",
     packageRejectedTitle: "Package rejected",
     packageRejectedDesc:
-      "Fix the event record then resubmit the existing package for review (without regenerating).",
+      "Regenerate the ZIP or fix files (OpenOffice), then resubmit for review using the panel below.",
     packageInReviewTitle: "Package under review",
     packageInReviewDesc:
       "The package is in procedure or final validation. Generation is locked.",
     generationBlockedTitle: "Generation locked",
     generationBlockedDesc: "A package for this event is already in the workflow.",
     generationBlockedRejectedDesc:
-      "Package rejected: fix the record and resubmit the existing package without regenerating.",
+      "Package rejected: regenerate the ZIP or resubmit the corrected package for review.",
+    viewRemarks: "Remarks",
+    hideRemarks: "Hide remarks",
     fileRemarksTitle: "Remarks per file (review / validation)",
     fileRemarksDesc:
       "Comments from the procedure reviewer or validator on each document in the package.",
@@ -2597,6 +2614,9 @@ const en: typeof fr = {
     fileRemarksNoComments: "No written remarks yet — per-file statuses are still shown above.",
     eventValidatedBadge: "Package validated",
     eventValidatedSuffix: "Validated",
+    eventValidatedHiddenDesc:
+      "This package is validated: it no longer appears in the generation list. Download it from the event detail page.",
+    downloadValidatedPackage: "Download validated package",
     generationFailed: "Generation failed",
     unknownError: "Unknown error.",
     sessionExpired: "Session expired or invalid token. Sign out and sign in again.",

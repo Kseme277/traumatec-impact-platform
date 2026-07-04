@@ -46,7 +46,9 @@ export default function WorkflowControlePage() {
   const [queue, setQueue] = useState<WorkflowQueueItem[]>([]);
   const [selected, setSelected] = useState<WorkflowState | null>(null);
   const [reviewers, setReviewers] = useState<Utilisateur[]>([]);
+  const [validators, setValidators] = useState<Utilisateur[]>([]);
   const [assigneeId, setAssigneeId] = useState("");
+  const [validatorId, setValidatorId] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -55,12 +57,14 @@ export default function WorkflowControlePage() {
     setError(null);
     try {
       const token = await getApiToken(getToken);
-      const [items, users] = await Promise.all([
+      const [items, users, validatorUsers] = await Promise.all([
         fetchWorkflowQueue(token, "controle"),
         fetchUsersByRole(token, "controle_procedure"),
+        fetchUsersByRole(token, "validateur"),
       ]);
       setQueue(items);
       setReviewers(users);
+      setValidators(validatorUsers);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : t("common.error"));
       setQueue([]);
@@ -115,6 +119,10 @@ export default function WorkflowControlePage() {
 
   async function handleComplete() {
     if (!selected) return;
+    if (!validatorId) {
+      await showError(t("workflow.validatorRequiredTitle"), t("workflow.validatorRequiredDesc"));
+      return;
+    }
     const confirmed = await confirmAction({
       title: t("confirm.completeControleTitle"),
       text: t("confirm.completeControleText"),
@@ -124,7 +132,7 @@ export default function WorkflowControlePage() {
     if (!confirmed.isConfirmed) return;
     try {
       const token = await getApiToken(getToken);
-      const state = await completeProcedure(token, selected.job_id);
+      const state = await completeProcedure(token, selected.job_id, Number(validatorId));
       setSelected(state);
       await loadQueue();
       showSuccess(t("workflow.procedureComplete"));
@@ -155,6 +163,11 @@ export default function WorkflowControlePage() {
   }
 
   const reviewerOptions = reviewers.map((u) => ({
+    value: String(u.id),
+    label: `${u.prenom} ${u.nom}`,
+  }));
+
+  const validatorOptions = validators.map((u) => ({
     value: String(u.id),
     label: `${u.prenom} ${u.nom}`,
   }));
@@ -286,13 +299,24 @@ export default function WorkflowControlePage() {
               {["under_procedure_review", "submitted"].includes(selected.workflow_status) ? (
                 <div className="space-y-3">
                   <WorkflowFileReviewProgress files={selected.files} />
+                  <div>
+                    <p className="mb-2 text-xs font-medium text-gray-500">{t("workflow.assignValidator")}</p>
+                    <Select
+                      options={[
+                        { value: "", label: t("workflow.selectValidatorPlaceholder") },
+                        ...validatorOptions,
+                      ]}
+                      value={validatorId}
+                      onChange={setValidatorId}
+                    />
+                  </div>
                   <div className="flex flex-wrap gap-2">
                     <Button size="sm" variant="outline" onClick={() => void handleReject()}>
                       {t("workflow.rejectPackage")}
                     </Button>
                     <Button
                       size="sm"
-                      disabled={!fileReview.allApproved}
+                      disabled={!fileReview.allApproved || !validatorId}
                       onClick={() => void handleComplete()}
                     >
                       {t("workflow.finishControle")}

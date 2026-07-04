@@ -174,14 +174,12 @@ async def start_generation(
             "submitted",
             "under_procedure_review",
             "under_final_validation",
-            "procedure_rejected",
-            "validator_rejected",
         }:
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                 detail=(
-                    "Génération impossible : le paquet est en validation ou a été rejeté. "
-                    "Corrigez la fiche et soumettez à nouveau le paquet existant."
+                    "Génération impossible : le paquet est en cours de validation. "
+                    "Attendez la fin du contrôle ou de la validation finale."
                 ),
             )
         if wf != "generated":

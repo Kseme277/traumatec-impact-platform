@@ -123,8 +123,11 @@ export function reviewFile(
   );
 }
 
-export function completeProcedure(token: string | null, jobId: string) {
-  return apiFetch<WorkflowState>(`/v1/generations/${jobId}/procedure/complete`, token, { method: "POST" });
+export function completeProcedure(token: string | null, jobId: string, validatorId: number) {
+  return apiFetch<WorkflowState>(`/v1/generations/${jobId}/procedure/complete`, token, {
+    method: "POST",
+    body: JSON.stringify({ validator_id: validatorId }),
+  });
 }
 
 export function rejectProcedure(token: string | null, jobId: string, comment: string) {

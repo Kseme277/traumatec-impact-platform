@@ -209,6 +209,26 @@ async def _ensure_file_reviews(db: AsyncSession, job: dict[str, Any]) -> list[di
     return [dict(row) for row in result.mappings().all()]
 
 
+async def _validate_validator_user(db: AsyncSession, validator_id: int) -> None:
+    validator = await db.execute(
+        text(
+            """
+            SELECT u.id FROM identity.utilisateurs u
+            JOIN identity.user_roles ur ON ur.user_id = u.id
+            WHERE u.id = :id
+              AND ur.role IN ('validateur', 'administrateur')
+              AND u.est_actif = TRUE
+            """
+        ),
+        {"id": validator_id},
+    )
+    if validator.scalar_one_or_none() is None:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="Validateur invalide ou inactif",
+        )
+
+
 async def submit_job(db: AsyncSession, job_id: UUID, user, reviewer_id: int) -> dict[str, Any]:
     if not can_submit_packages(list(user.roles)):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Soumission non autorisée")
@@ -238,6 +258,19 @@ async def submit_job(db: AsyncSession, job_id: UUID, user, reviewer_id: int) -> 
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
             detail="Contrôleur procédure invalide ou inactif",
+        )
+
+    if job["workflow_status"] in ("procedure_rejected", "validator_rejected"):
+        await db.execute(
+            text(
+                """
+                UPDATE docgen.package_file_reviews
+                SET status = 'pending', comment = NULL,
+                    reviewed_by_id = NULL, reviewed_at = NULL
+                WHERE generation_job_id = :job_id
+                """
+            ),
+            {"job_id": str(job_id)},
         )
 
     await _set_workflow_phase(
@@ -375,9 +408,16 @@ async def review_file(
     return await get_workflow_state(db, job_id)
 
 
-async def complete_procedure(db: AsyncSession, job_id: UUID, user) -> dict[str, Any]:
+async def complete_procedure(
+    db: AsyncSession,
+    job_id: UUID,
+    user,
+    validator_id: int,
+) -> dict[str, Any]:
     if not can_review_procedure(list(user.roles)):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Contrôle non autorisé")
+
+    await _validate_validator_user(db, validator_id)
 
     job = await _get_job_row(db, job_id)
     files = await _ensure_file_reviews(db, job)
@@ -388,7 +428,13 @@ async def complete_procedure(db: AsyncSession, job_id: UUID, user) -> dict[str, 
     if any(f["status"] == "rejected" for f in files):
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Des fichiers sont rejetés")
 
-    await _set_workflow_phase(db, job_id, "under_final_validation")
+    await _set_workflow_phase(
+        db,
+        job_id,
+        "under_final_validation",
+        extra_sql="assigned_validator_id = :validator_id",
+        extra_params={"validator_id": validator_id},
+    )
     await db.execute(
         text(
             """
@@ -407,16 +453,17 @@ async def complete_procedure(db: AsyncSession, job_id: UUID, user) -> dict[str, 
         action="complete",
         actor_id=user.id,
         actor_name=_actor_name(user),
+        comment=f"Assigné au validateur #{validator_id}",
     )
     title = f"Validation finale requise — {job.get('project_number')}"
-    await notify_users_with_role(
+    await create_notification(
         db,
-        role="validateur",
+        user_id=validator_id,
         type="workflow.procedure_approved",
         title=title,
-        body="Un paquet a passé le contrôle procédure et attend validation finale.",
+        body="Un paquet a passé le contrôle procédure et attend votre validation finale.",
         link=f"/workflow/validation?job={job_id}",
-        payload={"job_id": str(job_id)},
+        payload={"job_id": str(job_id), "event_id": str(job["event_id"])},
     )
     await db.commit()
     return await get_workflow_state(db, job_id)
@@ -589,6 +636,18 @@ async def list_workflow_queue(
         statuses = tuple(WORKFLOW_STATUSES)
 
     scope_sql, scope_params = _support_scope_sql(role_filter, user_id)
+    if role_filter == "validateur" and queue_scope != "delivery":
+        scope_sql += """
+              AND (
+                j.assigned_validator_id IS NULL
+                OR j.assigned_validator_id = :validator_uid
+                OR EXISTS (
+                  SELECT 1 FROM identity.user_roles ur
+                  WHERE ur.user_id = :validator_uid AND ur.role = 'administrateur'
+                )
+              )
+        """
+        scope_params["validator_uid"] = user_id
     params: dict[str, Any] = {"statuses": list(statuses), "limit": limit, **scope_params}
 
     result = await db.execute(
@@ -617,12 +676,18 @@ async def list_workflow_queue(
 async def workflow_stats(db: AsyncSession, *, role_filter: str, user_id: int) -> dict[str, int]:
     scope_sql, scope_params = _support_scope_sql(role_filter, user_id)
     base = f"""
-        SELECT j.workflow_status, COUNT(*)::int AS cnt
-        FROM docgen.generation_jobs j
-        JOIN events.events e ON e.id = j.event_id
-        WHERE j.status = 'completed'
-        {scope_sql}
-        GROUP BY j.workflow_status
+        WITH latest AS (
+            SELECT DISTINCT ON (j.event_id)
+                   j.event_id, j.workflow_status, j.phase_due_at
+            FROM docgen.generation_jobs j
+            JOIN events.events e ON e.id = j.event_id
+            WHERE j.status = 'completed'
+            {scope_sql}
+            ORDER BY j.event_id, j.completed_at DESC NULLS LAST, j.created_at DESC
+        )
+        SELECT workflow_status, COUNT(*)::int AS cnt
+        FROM latest
+        GROUP BY workflow_status
     """
     result = await db.execute(text(base), scope_params)
     counts = {row.workflow_status: row.cnt for row in result.fetchall()}
@@ -630,12 +695,17 @@ async def workflow_stats(db: AsyncSession, *, role_filter: str, user_id: int) ->
     overdue_result = await db.execute(
         text(
             f"""
-            SELECT COUNT(*)::int FROM docgen.generation_jobs j
-            JOIN events.events e ON e.id = j.event_id
-            WHERE j.status = 'completed'
-              AND j.phase_due_at IS NOT NULL
-              AND j.phase_due_at < now()
-              {scope_sql}
+            WITH latest AS (
+                SELECT DISTINCT ON (j.event_id)
+                       j.event_id, j.phase_due_at
+                FROM docgen.generation_jobs j
+                JOIN events.events e ON e.id = j.event_id
+                WHERE j.status = 'completed'
+                {scope_sql}
+                ORDER BY j.event_id, j.completed_at DESC NULLS LAST, j.created_at DESC
+            )
+            SELECT COUNT(*)::int FROM latest
+            WHERE phase_due_at IS NOT NULL AND phase_due_at < now()
             """
         ),
         scope_params,

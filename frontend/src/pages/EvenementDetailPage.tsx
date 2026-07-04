@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams } from "react-router";
 import { useAuth } from "@clerk/clerk-react";
 import AdminBreadcrumb from "../components/common/AdminBreadcrumb";
@@ -20,6 +20,8 @@ import { useTranslation } from "../i18n/useTranslation";
 import { fetchGenerationHistory, downloadGenerationZip } from "../api/docgen";
 import { getApiToken } from "../lib/clerkToken";
 import GenerationHistoryPanel from "../features/documents/GenerationHistoryPanel";
+import { getApprovedGenerationJob } from "../features/documents/eventPackageLock";
+import { isEventPackageApproved } from "../features/documents/eventWorkflowUi";
 import type { GenerationJob } from "../features/documents/types";
 import { ApiError } from "../api/client";
 import { showError } from "../lib/swal";
@@ -93,6 +95,11 @@ export default function EvenementDetailPage() {
     }
   };
 
+  const approvedJob = useMemo(
+    () => getApprovedGenerationJob(generationHistory),
+    [generationHistory],
+  );
+
   if (isLoading) {
     return <AuthLoadingScreen message={t("events.loading")} />;
   }
@@ -120,6 +127,11 @@ export default function EvenementDetailPage() {
     const ok = await remove(event);
     if (ok) navigate("/evenements");
   };
+
+  const packageApproved = isEventPackageApproved(event) || approvedJob !== null;
+  const canDownloadValidatedPackage = Boolean(
+    approvedJob && approvedJob.zip_available !== false,
+  );
 
   return (
     <>
@@ -217,11 +229,22 @@ export default function EvenementDetailPage() {
                 {t("events.edit")}
               </Button>
             </Link>
-            <Link to={`/documents/generation?event=${event.id}`}>
-              <Button size="sm" variant="outline" className="w-full">
-                {t("nav.generation")}
+            {canDownloadValidatedPackage && approvedJob ? (
+              <Button
+                size="sm"
+                className="w-full"
+                onClick={() => void handleDownloadJob(approvedJob)}
+              >
+                {t("documents.downloadValidatedPackage")}
               </Button>
-            </Link>
+            ) : null}
+            {!packageApproved && (
+              <Link to={`/documents/generation?event=${event.id}`}>
+                <Button size="sm" variant="outline" className="w-full">
+                  {t("nav.generation")}
+                </Button>
+              </Link>
+            )}
             <Link to={`/certificats?event=${event.id}`}>
               <Button size="sm" variant="outline" className="w-full">
                 {t("participants.generateFromEvent")}

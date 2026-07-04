@@ -1,15 +1,17 @@
-import { useState } from "react";
+import { useCallback, useState } from "react";
 import { Link } from "react-router";
-import { Download, ExternalLink, FileArchive, ScrollText } from "lucide-react";
-import Badge from "../../components/ui/badge/Badge";
+import { Download, ExternalLink, FileArchive, MessageSquareText, ScrollText } from "lucide-react";
+import { useAuth } from "@clerk/clerk-react";
 import Button from "../../components/ui/button/Button";
 import GenerationLogPanel from "./GenerationLogPanel";
+import PackageFileRemarksPanel from "./PackageFileRemarksPanel";
 import WorkflowStatusStepper from "./WorkflowStatusStepper";
 import type { GenerationJob } from "./types";
-import { jobStatusColor, jobStatusLabel } from "./types";
-import { workflowStatusLabel } from "../auth/types";
-import { workflowQueueLink, workflowStatusBadgeColor } from "./workflowStatusVisual";
+import { workflowQueueLink } from "./workflowStatusVisual";
 import { useTranslation } from "../../i18n/useTranslation";
+import { fetchWorkflowState, type WorkflowState } from "../../api/workflow";
+import { getApiToken } from "../../lib/clerkToken";
+import { getCentralRejectComment } from "./workflowRemarks";
 
 interface GenerationHistoryPanelProps {
   jobs: GenerationJob[];
@@ -26,8 +28,33 @@ export default function GenerationHistoryPanel({
   onDownload,
   eventId,
 }: GenerationHistoryPanelProps) {
+  const { getToken } = useAuth();
   const { t, localeTag } = useTranslation();
   const [expandedJobId, setExpandedJobId] = useState<string | null>(null);
+  const [remarksJobId, setRemarksJobId] = useState<string | null>(null);
+  const [remarksByJob, setRemarksByJob] = useState<Record<string, WorkflowState | null>>({});
+  const [remarksLoading, setRemarksLoading] = useState<string | null>(null);
+
+  const loadRemarks = useCallback(
+    async (job: GenerationJob) => {
+      if (remarksByJob[job.id]) {
+        setRemarksJobId(remarksJobId === job.id ? null : job.id);
+        return;
+      }
+      setRemarksLoading(job.id);
+      try {
+        const token = await getApiToken(getToken);
+        const state = await fetchWorkflowState(token, job.id);
+        setRemarksByJob((prev) => ({ ...prev, [job.id]: state }));
+        setRemarksJobId(job.id);
+      } catch {
+        setRemarksByJob((prev) => ({ ...prev, [job.id]: null }));
+      } finally {
+        setRemarksLoading(null);
+      }
+    },
+    [getToken, remarksByJob, remarksJobId],
+  );
 
   if (loading) {
     return (
@@ -56,6 +83,9 @@ export default function GenerationHistoryPanel({
       {jobs.map((job) => {
         const workflowLink = job.workflow_status ? workflowQueueLink(job.workflow_status) : null;
         const expanded = expandedJobId === job.id;
+        const remarksOpen = remarksJobId === job.id;
+        const remarksState = remarksByJob[job.id];
+        const centralRemark = remarksState ? getCentralRejectComment(remarksState.history) : null;
 
         return (
           <article
@@ -64,17 +94,7 @@ export default function GenerationHistoryPanel({
           >
             <div className="flex flex-wrap items-start justify-between gap-3">
               <div className="min-w-0 flex-1">
-                <div className="flex flex-wrap items-center gap-2">
-                  <Badge color={jobStatusColor(job.status)} size="sm">
-                    {jobStatusLabel(job.status, t)}
-                  </Badge>
-                  {job.workflow_status ? (
-                    <Badge color={workflowStatusBadgeColor(job.workflow_status)} size="sm">
-                      {workflowStatusLabel(job.workflow_status, t)}
-                    </Badge>
-                  ) : null}
-                </div>
-                <p className="mt-2 text-sm font-medium text-gray-800 dark:text-white/90">
+                <p className="text-sm font-medium text-gray-800 dark:text-white/90">
                   {new Date(job.created_at).toLocaleString(localeTag)}
                   {job.completed_at ? (
                     <span className="ml-2 font-normal text-gray-500 dark:text-gray-400">
@@ -98,6 +118,18 @@ export default function GenerationHistoryPanel({
                 ) : null}
                 {job.status === "completed" && job.zip_available === false ? (
                   <span className="text-xs text-gray-400">{t("documents.zipExpiredShort")}</span>
+                ) : null}
+                {job.status === "completed" ? (
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    disabled={remarksLoading === job.id}
+                    onClick={() => void loadRemarks(job)}
+                  >
+                    <MessageSquareText className="mr-1.5 size-4" />
+                    {remarksOpen ? t("documents.hideRemarks") : t("documents.viewRemarks")}
+                  </Button>
                 ) : null}
                 {(job.logs?.length ?? 0) > 0 ? (
                   <Button
@@ -126,7 +158,7 @@ export default function GenerationHistoryPanel({
                 <p className="mb-2 text-xs font-medium uppercase tracking-wide text-gray-400 dark:text-gray-500">
                   {t("documents.validationProgress")}
                 </p>
-                <WorkflowStatusStepper status={job.workflow_status} />
+                <WorkflowStatusStepper status={job.workflow_status} compact />
               </div>
             ) : job.status === "completed" ? (
               <div className="mt-4 border-t border-gray-100 pt-4 dark:border-gray-800">
@@ -137,6 +169,16 @@ export default function GenerationHistoryPanel({
                 >
                   {t("documents.submitFromGeneration")}
                 </Link>
+              </div>
+            ) : null}
+
+            {remarksOpen && remarksState ? (
+              <div className="mt-4 border-t border-gray-100 pt-4 dark:border-gray-800">
+                <PackageFileRemarksPanel
+                  files={remarksState.files}
+                  workflowStatus={job.workflow_status}
+                  centralRemark={centralRemark}
+                />
               </div>
             ) : null}
 

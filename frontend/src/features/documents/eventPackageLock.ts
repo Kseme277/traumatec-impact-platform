@@ -38,19 +38,32 @@ export function isWorkflowRejected(wf: WorkflowStatus | null | undefined): boole
   return Boolean(wf && WORKFLOW_REJECTED.includes(wf));
 }
 
-/** Nouvelle génération ZIP autorisée (premier paquet ou remplacement avant soumission). */
+/** Nouvelle génération ZIP autorisée (premier paquet, remplacement ou regénération après rejet). */
 export function canStartPackageGeneration(history: GenerationJob[]): boolean {
   const latest = getLatestCompletedJob(history);
   if (!latest) return true;
   const wf = (latest.workflow_status ?? "generated") as WorkflowStatus;
   if (wf === "approved") return false;
   if (isWorkflowInReview(wf)) return false;
-  if (isWorkflowRejected(wf)) return false;
+  if (isWorkflowRejected(wf)) return true;
   return wf === "generated";
 }
 
 export function hasCompletedPackage(history: GenerationJob[]): boolean {
   return getLatestCompletedJob(history) !== null;
+}
+
+/** Dernier job terminé avec workflow approuvé (paquet validé téléchargeable). */
+export function getApprovedGenerationJob(history: GenerationJob[]): GenerationJob | null {
+  const approved = history.filter(
+    (job) => job.status === "completed" && job.workflow_status === "approved",
+  );
+  if (approved.length === 0) return null;
+  return approved.reduce((latest, job) => {
+    const latestTs = latest.completed_at ?? latest.created_at ?? "";
+    const jobTs = job.completed_at ?? job.created_at ?? "";
+    return jobTs > latestTs ? job : latest;
+  });
 }
 
 export function canSubmitPackageWorkflow(job: GenerationJob | null | undefined): boolean {

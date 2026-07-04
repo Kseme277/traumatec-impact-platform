@@ -22,7 +22,7 @@ async def _users_with_role(db: AsyncSession, role: str) -> list[UtilisateurRespo
                    u.deactivation_date, u.last_access
             FROM identity.utilisateurs u
             JOIN identity.user_roles ur ON ur.user_id = u.id
-            WHERE ur.role = :role AND u.est_actif = TRUE
+            WHERE (ur.role = :role OR ur.role = 'administrateur') AND u.est_actif = TRUE
             ORDER BY u.prenom, u.nom
             """
         ),

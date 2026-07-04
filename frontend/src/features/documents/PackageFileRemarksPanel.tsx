@@ -6,6 +6,7 @@ import { useTranslation } from "../../i18n/useTranslation";
 interface PackageFileRemarksPanelProps {
   files: WorkflowFileReview[];
   workflowStatus?: string | null;
+  centralRemark?: string | null;
 }
 
 function fileStatusColor(status: WorkflowFileReview["status"]) {
@@ -14,10 +15,14 @@ function fileStatusColor(status: WorkflowFileReview["status"]) {
   return "warning" as const;
 }
 
-export default function PackageFileRemarksPanel({ files, workflowStatus }: PackageFileRemarksPanelProps) {
+export default function PackageFileRemarksPanel({
+  files,
+  workflowStatus,
+  centralRemark,
+}: PackageFileRemarksPanelProps) {
   const { t } = useTranslation();
 
-  if (files.length === 0) {
+  if (files.length === 0 && !centralRemark) {
     return (
       <p className="text-sm text-gray-500 dark:text-gray-400">{t("documents.fileRemarksEmpty")}</p>
     );
@@ -28,6 +33,15 @@ export default function PackageFileRemarksPanel({ files, workflowStatus }: Packa
 
   return (
     <div className="space-y-3">
+      {centralRemark ? (
+        <div className="rounded-xl border border-error-200 bg-error-50/60 p-4 dark:border-error-500/30 dark:bg-error-500/10">
+          <p className="text-xs font-semibold uppercase tracking-wide text-error-700 dark:text-error-300">
+            {t("workflow.centralRemark")}
+          </p>
+          <p className="mt-2 text-sm text-error-800 dark:text-error-200">{centralRemark}</p>
+        </div>
+      ) : null}
+
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-xs text-gray-500">
           {reviewed}/{files.length} {t("workflow.filesReviewed")}
