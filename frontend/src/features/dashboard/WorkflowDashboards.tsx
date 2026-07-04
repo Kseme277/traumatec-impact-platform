@@ -38,7 +38,7 @@ export function DashboardSupportAdmin() {
         </h1>
         <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{t("dashboard.supportSpace")}</p>
       </div>
-      <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
         <EventStatCard
           label={t("dashboard.wfToSubmit")}
           value={stats?.generated ?? "—"}
@@ -110,7 +110,7 @@ export function DashboardControleProcedure() {
         </h1>
         <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{t("dashboard.controleSpace")}</p>
       </div>
-      <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
         <EventStatCard
           label={t("dashboard.wfToReview")}
           value={stats?.submitted ?? "—"}
@@ -172,7 +172,7 @@ export function DashboardValidateur() {
         </h1>
         <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{t("dashboard.validateurSpace")}</p>
       </div>
-      <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
+      <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <EventStatCard
           label={t("dashboard.wfPending")}
           value={stats?.under_final_validation ?? "—"}

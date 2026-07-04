@@ -75,17 +75,9 @@ export default function WorkflowFileReviewList({
     if (files.length === 0) {
       setActiveCode(null);
       setEditorConfig(null);
-      return;
+      setPreviewUnavailable(false);
     }
-    if (!activeCode || !files.some((f) => f.template_code === activeCode)) {
-      const first = files[0];
-      setRemarks((prev) => ({
-        ...prev,
-        [first.template_code]: prev[first.template_code] ?? first.comment ?? "",
-      }));
-      void loadPreview(first.template_code);
-    }
-  }, [files, activeCode, loadPreview]);
+  }, [files.length]);
 
   async function handleDownload(templateCode: string) {
     try {
@@ -255,7 +247,6 @@ export default function WorkflowFileReviewList({
               <OnlyOfficeEditor
                 editorConfig={editorConfig}
                 className="min-h-[480px]"
-                autoFullscreen
                 onClose={() => {
                   setActiveCode(null);
                   setEditorConfig(null);

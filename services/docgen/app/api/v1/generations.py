@@ -134,6 +134,27 @@ async def start_generation(
             ),
         )
 
+    approved = await db.execute(
+        text(
+            """
+            SELECT id FROM docgen.generation_jobs
+            WHERE event_id = :event_id
+              AND status = 'completed'
+              AND workflow_status = 'approved'
+            LIMIT 1
+            """
+        ),
+        {"event_id": str(event_id)},
+    )
+    if approved.scalar_one_or_none():
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=(
+                "Un paquet validé existe déjà pour cet événement. "
+                "Une nouvelle génération n'est pas autorisée."
+            ),
+        )
+
     job = GenerationJob(
         event_id=event_id,
         requested_by_id=user.id,

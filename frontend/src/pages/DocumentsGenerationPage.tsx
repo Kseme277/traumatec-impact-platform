@@ -41,6 +41,12 @@ import {
 } from "../features/events/themeOptions";
 import { validateEventForGeneration } from "../features/events/eventGenerationReadiness";
 import {
+  hasCompletedPackage,
+  isEventGenerationLocked,
+  latestWorkflowStatus,
+} from "../features/documents/eventPackageLock";
+import { workflowStatusLabel } from "../features/auth/types";
+import {
   downloadGenerationZip,
   fetchGenerationHistory,
   runPackageGeneration,
@@ -263,6 +269,8 @@ export default function DocumentsGenerationPage() {
       const token = await getApiToken(getToken);
       const rows = await fetchGenerationHistory(token, selectedEventId);
       setHistory(rows);
+      const latestCompleted = rows.find((job) => job.status === "completed") ?? null;
+      setActiveJob(latestCompleted);
     } catch {
       setHistory([]);
     } finally {
@@ -306,6 +314,8 @@ export default function DocumentsGenerationPage() {
     [readinessSource, t],
   );
   const needsEventData = Boolean(selectedEvent && selectedIsGeneratable && readinessIssues.length > 0);
+  const generationLocked = isEventGenerationLocked(history);
+  const latestPackageWorkflow = latestWorkflowStatus(history);
   const themeSelectOptions = useMemo(() => {
     if (!selectedEvent) return [];
     return themeFormOptionsForEvent(selectedEvent, t).filter((opt) => opt.value !== "");
@@ -414,6 +424,11 @@ export default function DocumentsGenerationPage() {
     const issues = validateEventForGeneration(eventForReadiness, t);
     if (issues.length > 0) {
       await showError(t("events.readinessTitle"), issues.join("\n"));
+      return;
+    }
+
+    if (generationLocked) {
+      await showError(t("documents.packageApprovedTitle"), t("documents.packageApprovedDesc"));
       return;
     }
 
@@ -705,6 +720,22 @@ export default function DocumentsGenerationPage() {
               />
             )}
 
+            {selectedEvent && hasCompletedPackage(history) && latestPackageWorkflow ? (
+              <HelpTipAlert
+                variant={generationLocked ? "success" : "info"}
+                title={
+                  generationLocked
+                    ? t("documents.packageApprovedTitle")
+                    : t("documents.existingPackageTitle")
+                }
+                message={
+                  generationLocked
+                    ? t("documents.packageApprovedDesc")
+                    : workflowStatusLabel(latestPackageWorkflow, t)
+                }
+              />
+            ) : null}
+
             {showThemePanel && !themeInferenceLoading && (
               <HelpTipAlert
                 variant="warning"
@@ -797,6 +828,7 @@ export default function DocumentsGenerationPage() {
                 disabled={
                   isGenerating ||
                   themeInferenceLoading ||
+                  generationLocked ||
                   !selectedEvent ||
                   !selectedIsGeneratable ||
                   needsEventData ||

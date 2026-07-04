@@ -1008,6 +1008,10 @@ const fr = {
     notEligibleErrorDesc:
       "Seuls les projets Open, à venir, avec dates renseignées peuvent être générés.",
     packageGenerated: "Paquet généré",
+    existingPackageTitle: "Paquet existant pour cet événement",
+    packageApprovedTitle: "Paquet déjà validé",
+    packageApprovedDesc:
+      "Un paquet validé existe pour cet événement. Une nouvelle génération n'est plus autorisée.",
     generationFailed: "Génération échouée",
     unknownError: "Erreur inconnue.",
     sessionExpired: "Session expirée ou token invalide. Déconnectez-vous puis reconnectez-vous.",
@@ -2515,6 +2519,10 @@ const en: typeof fr = {
     notEligibleErrorDesc:
       "Only Open projects, upcoming, with dates set can be generated.",
     packageGenerated: "Package generated",
+    existingPackageTitle: "Existing package for this event",
+    packageApprovedTitle: "Package already approved",
+    packageApprovedDesc:
+      "An approved package already exists for this event. A new generation is not allowed.",
     generationFailed: "Generation failed",
     unknownError: "Unknown error.",
     sessionExpired: "Session expired or invalid token. Sign out and sign in again.",
