@@ -98,11 +98,11 @@ def build_editor_config(
     prefix = settings.api_v1_prefix.rstrip("/")
 
     file_url = (
-        f"{base}{prefix}/templates/{template.id}/onlyoffice-file"
+        f"{base}{prefix}/templates/{template.id}/onlyoffice-file/"
         f"?token={file_token}"
     )
     callback_url = (
-        f"{base}{prefix}/templates/{template.id}/onlyoffice-callback"
+        f"{base}{prefix}/templates/{template.id}/onlyoffice-callback/"
         f"?token={callback_token}"
     )
 
