@@ -346,7 +346,14 @@ const fr = {
       stepGenerate: "Générer le paquet",
       stepGenerateHint: "Lancez la génération ZIP des documents.",
       stepSubmit: "Soumettre au contrôle",
+      stepResubmit: "Resoumettre au contrôle",
       stepSubmitHint: "Assignez un contrôleur procédure.",
+      stepSubmitRejectedHint: "Corrigez la fiche événement puis renvoyez le paquet au contrôle.",
+      stepSubmitInReviewHint: "Paquet en cours de validation — génération verrouillée.",
+      stepSubmitApprovedHint: "Paquet validé — aucune action requise.",
+      stepGenerateRejectedHint: "Paquet rejeté — regénération interdite, resoumettez après correction.",
+      stepGenerateLockedHint: "Paquet en validation — génération verrouillée.",
+      stepGenerateApprovedHint: "Paquet validé — génération définitivement verrouillée.",
     },
     workflow: {
       stepPick: "Choisir un paquet",
@@ -665,6 +672,7 @@ const fr = {
     packageDueBadge: "À générer",
     packageOverdueBadge: "En retard",
     packageDueLink: "Générer le paquet",
+    packageWorkflowLink: "Voir le paquet",
     packageOverdueLink: "Paquet en retard — générer",
     packageDueCount: "paquet(s) à générer",
     resultsCount: "résultat(s)",
@@ -1022,6 +1030,16 @@ const fr = {
     packageApprovedTitle: "Paquet déjà validé",
     packageApprovedDesc:
       "Un paquet validé existe pour cet événement. Une nouvelle génération n'est plus autorisée.",
+    packageRejectedTitle: "Paquet rejeté",
+    packageRejectedDesc:
+      "Corrigez la fiche événement puis resoumettez le paquet existant au contrôle (sans regénérer).",
+    packageInReviewTitle: "Paquet en validation",
+    packageInReviewDesc:
+      "Le paquet est en cours de contrôle ou de validation finale. La génération est verrouillée.",
+    generationBlockedTitle: "Génération verrouillée",
+    generationBlockedDesc: "Un paquet existe déjà pour cet événement dans le workflow.",
+    generationBlockedRejectedDesc:
+      "Paquet rejeté : corrigez la fiche et resoumettez le paquet existant sans le regénérer.",
     generationFailed: "Génération échouée",
     unknownError: "Erreur inconnue.",
     sessionExpired: "Session expirée ou token invalide. Déconnectez-vous puis reconnectez-vous.",
@@ -1871,7 +1889,14 @@ const en: typeof fr = {
       stepGenerate: "Generate package",
       stepGenerateHint: "Start ZIP document generation.",
       stepSubmit: "Submit for review",
+      stepResubmit: "Resubmit for review",
       stepSubmitHint: "Assign a procedure reviewer.",
+      stepSubmitRejectedHint: "Fix the event record then resubmit the existing package.",
+      stepSubmitInReviewHint: "Package under review — generation locked.",
+      stepSubmitApprovedHint: "Package approved — no action required.",
+      stepGenerateRejectedHint: "Package rejected — regenerate disabled, resubmit after fixes.",
+      stepGenerateLockedHint: "Package under review — generation locked.",
+      stepGenerateApprovedHint: "Package approved — generation permanently locked.",
     },
     workflow: {
       stepPick: "Choose a package",
@@ -2190,6 +2215,7 @@ const en: typeof fr = {
     packageDueBadge: "Due",
     packageOverdueBadge: "Overdue",
     packageDueLink: "Generate package",
+    packageWorkflowLink: "View package",
     packageOverdueLink: "Package overdue — generate",
     packageDueCount: "package(s) to generate",
     resultsCount: "result(s)",
@@ -2547,6 +2573,16 @@ const en: typeof fr = {
     packageApprovedTitle: "Package already approved",
     packageApprovedDesc:
       "An approved package already exists for this event. A new generation is not allowed.",
+    packageRejectedTitle: "Package rejected",
+    packageRejectedDesc:
+      "Fix the event record then resubmit the existing package for review (without regenerating).",
+    packageInReviewTitle: "Package under review",
+    packageInReviewDesc:
+      "The package is in procedure or final validation. Generation is locked.",
+    generationBlockedTitle: "Generation locked",
+    generationBlockedDesc: "A package for this event is already in the workflow.",
+    generationBlockedRejectedDesc:
+      "Package rejected: fix the record and resubmit the existing package without regenerating.",
     generationFailed: "Generation failed",
     unknownError: "Unknown error.",
     sessionExpired: "Session expired or invalid token. Sign out and sign in again.",

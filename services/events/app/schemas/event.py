@@ -123,6 +123,7 @@ class EventResponse(BaseModel):
     created_at: datetime
     updated_at: datetime
     inferred_package: InferredEventPackage | None = None
+    latest_package_workflow: str | None = None
 
 
 class EventListResponse(BaseModel):

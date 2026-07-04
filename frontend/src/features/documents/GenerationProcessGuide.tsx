@@ -1,19 +1,21 @@
 import { useMemo } from "react";
 import { useTranslation } from "../../i18n/useTranslation";
 import ProcessGuideSteps, { type ProcessGuideStep } from "../../components/common/ProcessGuideSteps";
+import type { WorkflowStatus } from "./types";
+import { isWorkflowInReview, isWorkflowRejected } from "./eventPackageLock";
 
 interface GenerationProcessGuideProps {
   hasEvent: boolean;
   eventReady: boolean;
-  hasGeneratedJob: boolean;
-  submitted: boolean;
+  hasCompletedJob: boolean;
+  workflowStatus: WorkflowStatus | null;
 }
 
 export default function GenerationProcessGuide({
   hasEvent,
   eventReady,
-  hasGeneratedJob,
-  submitted,
+  hasCompletedJob,
+  workflowStatus,
 }: GenerationProcessGuideProps) {
   const { t } = useTranslation();
 
@@ -23,6 +25,30 @@ export default function GenerationProcessGuide({
       if (current) return "current";
       return "upcoming";
     };
+
+    const wf = workflowStatus;
+    const rejected = isWorkflowRejected(wf);
+    const inReview = isWorkflowInReview(wf);
+    const approved = wf === "approved";
+    const generated = !wf || wf === "generated";
+    const submitDone = Boolean(wf && !generated && !rejected);
+    const generateDone = hasCompletedJob || approved || inReview || rejected;
+
+    const submitHint = rejected
+      ? t("ux.generation.stepSubmitRejectedHint")
+      : inReview
+        ? t("ux.generation.stepSubmitInReviewHint")
+        : approved
+          ? t("ux.generation.stepSubmitApprovedHint")
+          : t("ux.generation.stepSubmitHint");
+
+    const generateHint = rejected
+      ? t("ux.generation.stepGenerateRejectedHint")
+      : inReview
+        ? t("ux.generation.stepGenerateLockedHint")
+        : approved
+          ? t("ux.generation.stepGenerateApprovedHint")
+          : t("ux.generation.stepGenerateHint");
 
     return [
       {
@@ -40,17 +66,17 @@ export default function GenerationProcessGuide({
       {
         id: "generate",
         label: t("ux.generation.stepGenerate"),
-        hint: t("ux.generation.stepGenerateHint"),
-        status: pick(hasGeneratedJob, hasEvent && eventReady && !hasGeneratedJob),
+        hint: generateHint,
+        status: pick(generateDone, hasEvent && eventReady && !generateDone),
       },
       {
         id: "submit",
-        label: t("ux.generation.stepSubmit"),
-        hint: t("ux.generation.stepSubmitHint"),
-        status: pick(submitted, hasGeneratedJob && !submitted),
+        label: rejected ? t("ux.generation.stepResubmit") : t("ux.generation.stepSubmit"),
+        hint: submitHint,
+        status: pick(submitDone || approved, hasCompletedJob && !submitDone && !approved && !inReview),
       },
     ];
-  }, [eventReady, hasEvent, hasGeneratedJob, submitted, t]);
+  }, [eventReady, hasCompletedJob, hasEvent, t, workflowStatus]);
 
   return <ProcessGuideSteps steps={steps} />;
 }

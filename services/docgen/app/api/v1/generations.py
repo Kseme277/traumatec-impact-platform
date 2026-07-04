@@ -155,6 +155,41 @@ async def start_generation(
             ),
         )
 
+    latest_wf = await db.execute(
+        text(
+            """
+            SELECT workflow_status
+            FROM docgen.generation_jobs
+            WHERE event_id = :event_id AND status = 'completed'
+            ORDER BY completed_at DESC NULLS LAST, created_at DESC
+            LIMIT 1
+            """
+        ),
+        {"event_id": str(event_id)},
+    )
+    latest_row = latest_wf.one_or_none()
+    if latest_row:
+        wf = str(latest_row.workflow_status or "generated")
+        if wf in {
+            "submitted",
+            "under_procedure_review",
+            "under_final_validation",
+            "procedure_rejected",
+            "validator_rejected",
+        }:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=(
+                    "Génération impossible : le paquet est en validation ou a été rejeté. "
+                    "Corrigez la fiche et soumettez à nouveau le paquet existant."
+                ),
+            )
+        if wf != "generated":
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="Génération impossible pour l'état actuel du paquet.",
+            )
+
     job = GenerationJob(
         event_id=event_id,
         requested_by_id=user.id,

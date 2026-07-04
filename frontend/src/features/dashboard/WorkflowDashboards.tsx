@@ -137,7 +137,7 @@ export function DashboardControleProcedure() {
         />
         <EventStatCard
           label={t("dashboard.wfForwarded")}
-          value={(stats?.under_final_validation ?? 0) + (stats?.approved ?? 0)}
+          value={stats?.under_final_validation ?? "—"}
           icon={<TaskIcon className="size-6 text-success-600" />}
           iconBgClassName="bg-success-50 dark:bg-success-500/15"
           to="/workflow/validation"
@@ -205,7 +205,7 @@ export function DashboardControleValidateur() {
         />
         <EventStatCard
           label={t("dashboard.wfForwarded")}
-          value={(controleStats?.under_final_validation ?? 0) + (controleStats?.approved ?? 0)}
+          value={controleStats?.under_final_validation ?? "—"}
           icon={<TaskIcon className="size-6 text-success-600" />}
           iconBgClassName="bg-success-50 dark:bg-success-500/15"
           to="/workflow/validation"

@@ -13,6 +13,9 @@ import type { Evenement } from "./types";
 import { themeLabel } from "./types";
 import { getPackageGenerationUrgency, needsPackageGenerationHighlight } from "./packageGenerationUrgency";
 import ProjectStatusBadge from "./ProjectStatusBadge";
+import { workflowStatusBadgeColor } from "../documents/workflowStatusVisual";
+import { workflowStatusLabel } from "../auth/types";
+import type { WorkflowStatus } from "../documents/types";
 
 interface PackageDueEventsPanelProps {
   events: Evenement[];
@@ -106,14 +109,25 @@ export default function PackageDueEventsPanel({
                   </TableCell>
                   <TableCell className="px-3 py-2.5">
                     <div className="flex flex-col gap-1">
-                      <Badge color={urgency === "overdue" ? "error" : "warning"} size="sm">
-                        {urgency === "overdue" ? t("events.packageOverdueBadge") : t("events.packageDueBadge")}
-                      </Badge>
+                      {event.latest_package_workflow ? (
+                        <Badge
+                          color={workflowStatusBadgeColor(event.latest_package_workflow as WorkflowStatus)}
+                          size="sm"
+                        >
+                          {workflowStatusLabel(event.latest_package_workflow as WorkflowStatus, t)}
+                        </Badge>
+                      ) : (
+                        <Badge color={urgency === "overdue" ? "error" : "warning"} size="sm">
+                          {urgency === "overdue" ? t("events.packageOverdueBadge") : t("events.packageDueBadge")}
+                        </Badge>
+                      )}
                       <Link
                         to={`/documents/generation?event=${event.id}`}
                         className="text-theme-xs text-brand-600 hover:underline dark:text-brand-400"
                       >
-                        {t("events.packageDueLink")}
+                        {event.latest_package_workflow
+                          ? t("events.packageWorkflowLink")
+                          : t("events.packageDueLink")}
                       </Link>
                     </div>
                   </TableCell>

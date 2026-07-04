@@ -7,6 +7,16 @@ export const PACKAGE_GENERATION_LEAD_MONTHS = 6;
 
 export type PackageGenerationUrgency = "none" | "due" | "overdue";
 
+const WORKFLOW_HIDE_DUE = new Set([
+  "submitted",
+  "under_procedure_review",
+  "under_final_validation",
+  "approved",
+  "procedure_rejected",
+  "validator_rejected",
+  "generated",
+]);
+
 function parseIsoDate(iso: string): Date {
   const [y, m, d] = iso.slice(0, 10).split("-").map(Number);
   return new Date(y, (m ?? 1) - 1, d ?? 1);
@@ -26,6 +36,9 @@ export function packageGenerationDeadline(startDate: string | null | undefined):
 
 export function getPackageGenerationUrgency(event: Evenement): PackageGenerationUrgency {
   if (event.status === "generated") return "none";
+  if (event.latest_package_workflow && WORKFLOW_HIDE_DUE.has(event.latest_package_workflow)) {
+    return "none";
+  }
   if (!isUpcomingEvent(event)) return "none";
   if (!isEventOpen(event.project_status)) return "none";
   if (!event.start_date) return "none";

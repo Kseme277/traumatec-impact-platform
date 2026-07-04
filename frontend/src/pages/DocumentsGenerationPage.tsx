@@ -41,8 +41,13 @@ import {
 } from "../features/events/themeOptions";
 import { validateEventForGeneration } from "../features/events/eventGenerationReadiness";
 import {
+  canStartPackageGeneration,
+  canSubmitPackageWorkflow,
+  getLatestCompletedJob,
   hasCompletedPackage,
   isEventGenerationLocked,
+  isWorkflowInReview,
+  isWorkflowRejected,
   latestWorkflowStatus,
 } from "../features/documents/eventPackageLock";
 import { workflowStatusLabel } from "../features/auth/types";
@@ -269,8 +274,7 @@ export default function DocumentsGenerationPage() {
       const token = await getApiToken(getToken);
       const rows = await fetchGenerationHistory(token, selectedEventId);
       setHistory(rows);
-      const latestCompleted = rows.find((job) => job.status === "completed") ?? null;
-      setActiveJob(latestCompleted);
+      setActiveJob(getLatestCompletedJob(rows));
     } catch {
       setHistory([]);
     } finally {
@@ -316,6 +320,9 @@ export default function DocumentsGenerationPage() {
   const needsEventData = Boolean(selectedEvent && selectedIsGeneratable && readinessIssues.length > 0);
   const generationLocked = isEventGenerationLocked(history);
   const latestPackageWorkflow = latestWorkflowStatus(history);
+  const canGenerate = canStartPackageGeneration(history);
+  const workflowInReview = isWorkflowInReview(latestPackageWorkflow);
+  const workflowRejected = isWorkflowRejected(latestPackageWorkflow);
   const themeSelectOptions = useMemo(() => {
     if (!selectedEvent) return [];
     return themeFormOptionsForEvent(selectedEvent, t).filter((opt) => opt.value !== "");
@@ -431,6 +438,17 @@ export default function DocumentsGenerationPage() {
       await showError(t("documents.packageApprovedTitle"), t("documents.packageApprovedDesc"));
       return;
     }
+    if (!canGenerate) {
+      await showError(
+        t("documents.generationBlockedTitle"),
+        workflowRejected
+          ? t("documents.generationBlockedRejectedDesc")
+          : workflowInReview
+            ? t("documents.packageInReviewDesc")
+            : t("documents.generationBlockedDesc"),
+      );
+      return;
+    }
 
     const confirmed = await confirmAction({
       title: t("confirm.generateTitle"),
@@ -480,12 +498,7 @@ export default function DocumentsGenerationPage() {
     }
   };
 
-  const canSubmitWorkflow = (job: GenerationJob) =>
-    job.status === "completed" &&
-    (!job.workflow_status ||
-      job.workflow_status === "generated" ||
-      job.workflow_status === "procedure_rejected" ||
-      job.workflow_status === "validator_rejected");
+  const canSubmitWorkflow = (job: GenerationJob) => canSubmitPackageWorkflow(job);
 
   const handleSubmit = async (job: GenerationJob) => {
     const reviewerId = Number(submitReviewerId);
@@ -523,12 +536,6 @@ export default function DocumentsGenerationPage() {
     label: `${user.prenom} ${user.nom}`,
   }));
 
-  const workflowSubmitted = Boolean(
-    activeJob?.workflow_status &&
-      activeJob.workflow_status !== "generated" &&
-      !["procedure_rejected", "validator_rejected"].includes(activeJob.workflow_status),
-  );
-
   if (isLoading) {
     return <AuthLoadingScreen message={t("documents.loadingReady")} />;
   }
@@ -553,8 +560,8 @@ export default function DocumentsGenerationPage() {
         <GenerationProcessGuide
           hasEvent={Boolean(selectedEvent)}
           eventReady={Boolean(selectedEvent && selectedIsGeneratable && !needsEventData)}
-          hasGeneratedJob={activeJob?.status === "completed"}
-          submitted={workflowSubmitted}
+          hasCompletedJob={Boolean(getLatestCompletedJob(history))}
+          workflowStatus={latestPackageWorkflow}
         />
       </ComponentCard>
 
@@ -722,16 +729,32 @@ export default function DocumentsGenerationPage() {
 
             {selectedEvent && hasCompletedPackage(history) && latestPackageWorkflow ? (
               <HelpTipAlert
-                variant={generationLocked ? "success" : "info"}
+                variant={
+                  generationLocked
+                    ? "success"
+                    : workflowRejected
+                      ? "error"
+                      : workflowInReview
+                        ? "warning"
+                        : "info"
+                }
                 title={
                   generationLocked
                     ? t("documents.packageApprovedTitle")
-                    : t("documents.existingPackageTitle")
+                    : workflowRejected
+                      ? t("documents.packageRejectedTitle")
+                      : workflowInReview
+                        ? t("documents.packageInReviewTitle")
+                        : t("documents.existingPackageTitle")
                 }
                 message={
                   generationLocked
                     ? t("documents.packageApprovedDesc")
-                    : workflowStatusLabel(latestPackageWorkflow, t)
+                    : workflowRejected
+                      ? t("documents.packageRejectedDesc")
+                      : workflowInReview
+                        ? t("documents.packageInReviewDesc")
+                        : workflowStatusLabel(latestPackageWorkflow, t)
                 }
               />
             ) : null}
@@ -829,6 +852,7 @@ export default function DocumentsGenerationPage() {
                   isGenerating ||
                   themeInferenceLoading ||
                   generationLocked ||
+                  !canGenerate ||
                   !selectedEvent ||
                   !selectedIsGeneratable ||
                   needsEventData ||
