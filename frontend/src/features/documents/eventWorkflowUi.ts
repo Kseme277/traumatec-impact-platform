@@ -4,6 +4,10 @@ export function isEventPackageApproved(event: Pick<Evenement, "latest_package_wo
   return event.latest_package_workflow === "approved";
 }
 
+export function hasGeneratedPackage(event: Pick<Evenement, "latest_package_workflow">): boolean {
+  return Boolean(event.latest_package_workflow);
+}
+
 export function eventSelectLabelSuffix(
   event: Pick<Evenement, "latest_package_workflow">,
   validatedLabel: string,

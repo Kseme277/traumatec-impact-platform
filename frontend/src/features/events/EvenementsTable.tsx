@@ -1,5 +1,5 @@
 import { Link } from "react-router";
-import { ArrowDown, ArrowUp, ArrowUpDown, CalendarDays, Eye, Check, Trash2 } from "lucide-react";
+import { ArrowDown, ArrowUp, ArrowUpDown, CalendarDays, Eye, Check, Trash2, FileArchive } from "lucide-react";
 import Button from "../../components/ui/button/Button";
 import GuidedEmptyState from "../../components/common/GuidedEmptyState";
 import {
@@ -19,7 +19,9 @@ import { formatDateRangeFr } from "./eventDates";
 import ProjectStatusBadge from "./ProjectStatusBadge";
 import Badge from "../../components/ui/badge/Badge";
 import { getPackageGenerationUrgency, needsPackageGenerationHighlight } from "./packageGenerationUrgency";
-import { isEventPackageApproved } from "../documents/eventWorkflowUi";
+import { hasGeneratedPackage, isEventPackageApproved } from "../documents/eventWorkflowUi";
+import { workflowStatusLabel, type WorkflowStatus } from "../auth/types";
+import { workflowStatusBadgeColor } from "../documents/workflowStatusVisual";
 import { isEventOpen } from "./projectStatus";
 
 interface EvenementsTableProps {
@@ -145,6 +147,8 @@ export default function EvenementsTable({
               const packageUrgent = needsPackageGenerationHighlight(event);
               const urgency = getPackageGenerationUrgency(event);
               const validated = isEventPackageApproved(event);
+              const packageGenerated = hasGeneratedPackage(event);
+              const workflowStatus = event.latest_package_workflow as WorkflowStatus | undefined;
               return (
               <TableRow
                 key={event.id}
@@ -175,6 +179,15 @@ export default function EvenementsTable({
                         {urgency === "overdue" ? t("events.packageOverdueBadge") : t("events.packageDueBadge")}
                       </Badge>
                     )}
+                    {packageGenerated && workflowStatus && !packageUrgent && (
+                      <Badge
+                        color={workflowStatusBadgeColor(workflowStatus)}
+                        size="sm"
+                        startIcon={<FileArchive className="size-3" aria-hidden />}
+                      >
+                        {workflowStatusLabel(workflowStatus, t)}
+                      </Badge>
+                    )}
                   </div>
                   {packageUrgent && (
                     <Link
@@ -182,6 +195,15 @@ export default function EvenementsTable({
                       className="mt-1 inline-block text-theme-xs text-brand-600/90 hover:text-brand-600 hover:underline dark:text-brand-400"
                     >
                       {t("events.packageDueLink")}
+                    </Link>
+                  )}
+                  {packageGenerated && !packageUrgent && (
+                    <Link
+                      to={`/evenements/${event.id}`}
+                      className="mt-1 inline-flex items-center gap-1 text-theme-xs text-gray-600 hover:text-brand-600 hover:underline dark:text-gray-400 dark:hover:text-brand-400"
+                    >
+                      <FileArchive className="size-3" aria-hidden />
+                      {t("events.packageGeneratedLink")}
                     </Link>
                   )}
                   {(event.city || event.country || event.preparation_theme) && (
