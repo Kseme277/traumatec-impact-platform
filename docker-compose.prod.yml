@@ -60,8 +60,7 @@ services:
     volumes: []
 
   onlyoffice:
-    ports:
-      - "9980:80"
+    ports: !reset []
 
   frontend:
     build:
