@@ -30,7 +30,9 @@ import {
   eventMatchesSearch,
   formatEventDateRange,
   isGeneratableEvent,
+  isUpcomingEvent,
 } from "../features/events/eventDates";
+import { isEventOpen } from "../features/events/projectStatus";
 import type { PackageCandidate } from "../features/events/types";
 import {
   inferActivityKind,
@@ -56,7 +58,8 @@ import {
   fetchGenerationHistory,
   runPackageGeneration,
 } from "../api/docgen";
-import { submitPackage, fetchUsersByRole } from "../api/workflow";
+import { submitPackage, fetchUsersByRole, fetchWorkflowState } from "../api/workflow";
+import type { WorkflowFileReview } from "../api/workflow";
 import type { Utilisateur } from "../features/auth/types";
 import { ApiError } from "../api/client";
 import { getApiToken } from "../lib/clerkToken";
@@ -68,8 +71,10 @@ import type { GenerationJob } from "../features/documents/types";
 import { jobStatusColor, jobStatusLabel } from "../features/documents/types";
 import { useTranslation } from "../i18n/useTranslation";
 import { confirmAction, showError, showSuccess } from "../lib/swal";
-import PackageDueEventsPanel from "../features/events/PackageDueEventsPanel";
+import PackageFileRemarksPanel from "../features/documents/PackageFileRemarksPanel";
+import { eventSelectLabelSuffix, isEventPackageApproved } from "../features/documents/eventWorkflowUi";
 import { needsPackageGenerationHighlight } from "../features/events/packageGenerationUrgency";
+import PackageDueEventsPanel from "../features/events/PackageDueEventsPanel";
 import Select from "../components/form/Select";
 
 function eventOptionLabel(event: Evenement): string {
@@ -104,6 +109,8 @@ export default function DocumentsGenerationPage() {
   const [eventTypeFilter, setEventTypeFilter] = useState("");
   const [reviewers, setReviewers] = useState<Utilisateur[]>([]);
   const [submitReviewerId, setSubmitReviewerId] = useState("");
+  const [fileReviews, setFileReviews] = useState<WorkflowFileReview[]>([]);
+  const [fileReviewsLoading, setFileReviewsLoading] = useState(false);
 
   const generationEventFilters = useMemo<EvenementFilters>(
     () => ({ upcoming: true, project_status: "Open" }),
@@ -203,9 +210,17 @@ export default function DocumentsGenerationPage() {
     [events],
   );
 
+  const selectableEvents = useMemo(
+    () =>
+      events
+        .filter((event) => isUpcomingEvent(event) && isEventOpen(event.project_status))
+        .sort((a, b) => (a.start_date ?? "").localeCompare(b.start_date ?? "")),
+    [events],
+  );
+
   const eventTypeOptions = useMemo(
-    () => distinctEventTypeFilterOptions(generatableEvents),
-    [generatableEvents],
+    () => distinctEventTypeFilterOptions(selectableEvents),
+    [selectableEvents],
   );
 
   useEffect(() => {
@@ -214,6 +229,13 @@ export default function DocumentsGenerationPage() {
       setEventTypeFilter("");
     }
   }, [eventTypeFilter, eventTypeOptions]);
+
+  const filteredSelectableEvents = useMemo(() => {
+    return selectableEvents.filter((event) => {
+      if (!eventMatchesEventTypeFilter(event, eventTypeFilter)) return false;
+      return eventMatchesSearch(event, eventSearchQuery);
+    });
+  }, [eventSearchQuery, eventTypeFilter, selectableEvents]);
 
   const filteredGeneratableEvents = useMemo(() => {
     return generatableEvents.filter((event) => {
@@ -227,8 +249,9 @@ export default function DocumentsGenerationPage() {
     [events],
   );
 
-  const selectedEvent = generatableEvents.find((event) => event.id === selectedEventId)
+  const selectedEvent = selectableEvents.find((event) => event.id === selectedEventId)
     ?? events.find((event) => event.id === selectedEventId);
+  const selectedEventApproved = selectedEvent ? isEventPackageApproved(selectedEvent) : false;
 
   const themeSourceEvent = eventDetail ?? selectedEvent;
 
@@ -286,13 +309,36 @@ export default function DocumentsGenerationPage() {
     void loadHistory();
   }, [loadHistory]);
 
+  const loadFileReviews = useCallback(async () => {
+    const latest = getLatestCompletedJob(history);
+    if (!latest || latest.status !== "completed") {
+      setFileReviews([]);
+      return;
+    }
+    setFileReviewsLoading(true);
+    try {
+      const token = await getApiToken(getToken);
+      const state = await fetchWorkflowState(token, latest.id);
+      setFileReviews(state.files);
+    } catch {
+      setFileReviews([]);
+    } finally {
+      setFileReviewsLoading(false);
+    }
+  }, [getToken, history]);
+
+  useEffect(() => {
+    void loadFileReviews();
+  }, [loadFileReviews]);
+
   const eventOptions = useMemo(
     () =>
-      filteredGeneratableEvents.map((event) => ({
+      filteredSelectableEvents.map((event) => ({
         value: event.id,
-        label: eventOptionLabel(event),
+        label: `${eventOptionLabel(event)}${eventSelectLabelSuffix(event, t("documents.eventValidatedSuffix"))}`,
+        disabled: isEventPackageApproved(event),
       })),
-    [filteredGeneratableEvents],
+    [filteredSelectableEvents, t],
   );
 
   const selectedIsGeneratable = selectedEvent ? isGeneratableEvent(selectedEvent) : false;
@@ -600,9 +646,9 @@ export default function DocumentsGenerationPage() {
                   value={selectedEventId}
                   onChange={(value) => setSelectedEventId(value)}
                 />
-                {generatableEvents.length > 0 && (
+                {selectableEvents.length > 0 && (
                   <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                    {filteredGeneratableEvents.length} / {generatableEvents.length}{" "}
+                    {filteredSelectableEvents.length} / {selectableEvents.length}{" "}
                     {t("documents.eventsShown")}
                   </p>
                 )}
@@ -632,7 +678,13 @@ export default function DocumentsGenerationPage() {
             </div>
 
             {selectedEvent && (
-              <div className="rounded-xl border border-gray-100 p-4 dark:border-gray-800">
+              <div
+                className={`rounded-xl border p-4 transition-opacity ${
+                  selectedEventApproved
+                    ? "border-gray-200 bg-gray-100/80 opacity-60 dark:border-gray-700 dark:bg-gray-900/40"
+                    : "border-gray-100 dark:border-gray-800"
+                }`}
+              >
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div>
                     <p className="font-medium text-gray-800 dark:text-white/90">{selectedEvent.title}</p>
@@ -647,8 +699,10 @@ export default function DocumentsGenerationPage() {
                       {effectiveTheme ? themeLabel(effectiveTheme) : t("documents.themeRequired")}
                     </p>
                   </div>
-                  <Badge color={statusColor(selectedEvent.status)} size="sm">
-                    {statusLabel(selectedEvent.status, t)}
+                  <Badge color={selectedEventApproved ? "success" : statusColor(selectedEvent.status)} size="sm">
+                    {selectedEventApproved
+                      ? t("documents.eventValidatedBadge")
+                      : statusLabel(selectedEvent.status, t)}
                   </Badge>
                 </div>
                 {!selectedIsGeneratable && (
@@ -893,6 +947,22 @@ export default function DocumentsGenerationPage() {
               <div className="rounded-xl border border-gray-100 p-4 dark:border-gray-800">
                 <WorkflowStatusStepper status={activeJob.workflow_status} />
               </div>
+            ) : null}
+
+            {selectedEventId && hasCompletedPackage(history) ? (
+              <ComponentCard
+                title={t("documents.fileRemarksTitle")}
+                desc={t("documents.fileRemarksDesc")}
+              >
+                {fileReviewsLoading ? (
+                  <p className="text-sm text-gray-500">{t("common.loading")}</p>
+                ) : (
+                  <PackageFileRemarksPanel
+                    files={fileReviews}
+                    workflowStatus={latestPackageWorkflow}
+                  />
+                )}
+              </ComponentCard>
             ) : null}
 
             {activeJob && canSubmitWorkflow(activeJob) ? (

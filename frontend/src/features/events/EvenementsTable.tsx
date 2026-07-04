@@ -19,6 +19,7 @@ import { formatDateRangeFr } from "./eventDates";
 import ProjectStatusBadge from "./ProjectStatusBadge";
 import Badge from "../../components/ui/badge/Badge";
 import { getPackageGenerationUrgency, needsPackageGenerationHighlight } from "./packageGenerationUrgency";
+import { isEventPackageApproved } from "../documents/eventWorkflowUi";
 import { isEventOpen } from "./projectStatus";
 
 interface EvenementsTableProps {
@@ -143,11 +144,14 @@ export default function EvenementsTable({
             {events.map((event) => {
               const packageUrgent = needsPackageGenerationHighlight(event);
               const urgency = getPackageGenerationUrgency(event);
+              const validated = isEventPackageApproved(event);
               return (
               <TableRow
                 key={event.id}
                 className={
-                  packageUrgent
+                  validated
+                    ? "bg-gray-100/70 opacity-60 hover:bg-gray-100/80 dark:bg-gray-900/30"
+                    : packageUrgent
                     ? "bg-amber-50/35 hover:bg-amber-50/55 dark:bg-amber-500/[0.05] dark:hover:bg-amber-500/[0.08]"
                     : "hover:bg-gray-50 dark:hover:bg-white/[0.02]"
                 }

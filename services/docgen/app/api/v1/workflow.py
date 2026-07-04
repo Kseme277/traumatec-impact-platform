@@ -89,9 +89,13 @@ async def assign_reviewer(
 @router.get("/{job_id}/workflow", response_model=WorkflowStateResponse)
 async def get_workflow(
     job_id: UUID,
-    _: AuthenticatedUser = Depends(get_current_user),
+    user: AuthenticatedUser = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> WorkflowStateResponse:
+    from tip_common.event_scope import assert_event_access
+
+    job = await wf._get_job_row(db, job_id)
+    assert_event_access(user, job.get("organizer_responsible_user_id"))
     state = await wf.get_workflow_state(db, job_id)
     return WorkflowStateResponse(**state)
 

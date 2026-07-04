@@ -1040,6 +1040,13 @@ const fr = {
     generationBlockedDesc: "Un paquet existe déjà pour cet événement dans le workflow.",
     generationBlockedRejectedDesc:
       "Paquet rejeté : corrigez la fiche et resoumettez le paquet existant sans le regénérer.",
+    fileRemarksTitle: "Remarques par fichier (contrôle / validation)",
+    fileRemarksDesc:
+      "Commentaires laissés par le contrôleur procédure ou le validateur sur chaque document du paquet.",
+    fileRemarksEmpty: "Aucun fichier dans le paquet.",
+    fileRemarksNoComments: "Aucune remarque textuelle pour l'instant — les statuts par fichier restent visibles ci-dessus.",
+    eventValidatedBadge: "Paquet validé",
+    eventValidatedSuffix: "Validé",
     generationFailed: "Génération échouée",
     unknownError: "Erreur inconnue.",
     sessionExpired: "Session expirée ou token invalide. Déconnectez-vous puis reconnectez-vous.",
@@ -2583,6 +2590,13 @@ const en: typeof fr = {
     generationBlockedDesc: "A package for this event is already in the workflow.",
     generationBlockedRejectedDesc:
       "Package rejected: fix the record and resubmit the existing package without regenerating.",
+    fileRemarksTitle: "Remarks per file (review / validation)",
+    fileRemarksDesc:
+      "Comments from the procedure reviewer or validator on each document in the package.",
+    fileRemarksEmpty: "No files in this package.",
+    fileRemarksNoComments: "No written remarks yet — per-file statuses are still shown above.",
+    eventValidatedBadge: "Package validated",
+    eventValidatedSuffix: "Validated",
     generationFailed: "Generation failed",
     unknownError: "Unknown error.",
     sessionExpired: "Session expired or invalid token. Sign out and sign in again.",
