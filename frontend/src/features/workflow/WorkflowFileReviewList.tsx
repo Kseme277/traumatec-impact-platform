@@ -1,7 +1,16 @@
 import { useAuth } from "@clerk/clerk-react";
 import { useCallback, useEffect, useState } from "react";
+import { Check, Download, Eye, X } from "lucide-react";
 import Badge from "../../components/ui/badge/Badge";
 import Button from "../../components/ui/button/Button";
+import TableIconButton from "../../components/common/TableIconButton";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHeader,
+  TableRow,
+} from "../../components/ui/table";
 import OnlyOfficeEditor, { type OnlyOfficeEditorConfig } from "../documents/OnlyOfficeEditor";
 import {
   downloadPackageFile,
@@ -195,126 +204,155 @@ export default function WorkflowFileReviewList({
         </div>
       </div>
 
-      <div className="overflow-x-auto rounded-xl border border-gray-200 dark:border-gray-800">
-        <table className="min-w-full divide-y divide-gray-200 text-sm dark:divide-gray-800">
-          <thead className="bg-gray-50 dark:bg-gray-900/60">
-            <tr>
-              <th className="px-3 py-2.5 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
-                {t("workflow.filesTable.document")}
-              </th>
-              <th className="px-3 py-2.5 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
-                {t("workflow.filesTable.status")}
-              </th>
-              <th className="min-w-[220px] px-3 py-2.5 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
-                {t("workflow.filesTable.remark")}
-              </th>
-              <th className="px-3 py-2.5 text-right text-xs font-semibold uppercase tracking-wide text-gray-500">
-                {t("workflow.filesTable.actions")}
-              </th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-200 bg-white dark:divide-gray-800 dark:bg-transparent">
-            {localFiles.map((file) => {
-              const displayName = file.file_path || file.template_code;
-              const isActive = activeCode === file.id;
-              const savedRemark = file.comment?.trim() ?? "";
-              const draftRemark = remarks[file.template_code] ?? savedRemark;
-              return (
-                <tr
-                  key={file.id}
-                  className={
-                    isActive
-                      ? "bg-brand-50/50 dark:bg-brand-500/5"
-                      : "hover:bg-gray-50/80 dark:hover:bg-gray-900/30"
-                  }
+      <div className="-mx-4 overflow-hidden sm:-mx-6">
+        <div className="overflow-x-auto px-4 sm:px-6">
+          <Table className="min-w-[960px] table-fixed w-full">
+            <colgroup>
+              <col />
+              <col className="w-[110px]" />
+              <col className="w-[240px]" />
+              <col className="w-[180px]" />
+            </colgroup>
+            <TableHeader className="border-b border-gray-100 dark:border-white/[0.05]">
+              <TableRow>
+                <TableCell
+                  isHeader
+                  className="px-4 py-3 text-start text-theme-xs font-medium text-gray-500 dark:text-gray-400"
                 >
-                  <td className="px-3 py-3 align-top">
-                    <p className="font-medium break-all text-gray-800 dark:text-white/90">
-                      {displayName}
-                    </p>
-                    <p className="mt-0.5 text-xs text-gray-400">{file.template_code}</p>
-                  </td>
-                  <td className="px-3 py-3 align-top">
-                    <Badge color={fileStatusColor(file.status)} size="sm">
-                      {t(`workflow.fileStatus.${file.status}`)}
-                    </Badge>
-                  </td>
-                  <td className="px-3 py-3 align-top">
-                    {canReview ? (
-                      <div className="space-y-2">
-                        <textarea
-                          className="w-full min-w-[200px] rounded-lg border border-gray-200 bg-white p-2 text-xs dark:border-gray-700 dark:bg-gray-900"
-                          rows={2}
-                          placeholder={t("workflow.remarkPlaceholder")}
-                          value={draftRemark}
-                          onChange={(e) =>
-                            setRemarks((prev) => ({ ...prev, [file.template_code]: e.target.value }))
-                          }
-                          onBlur={() => void handleSaveRemark(file.id, file.template_code)}
-                        />
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          disabled={savingRemark === file.id || draftRemark.trim() === savedRemark}
-                          onClick={() => void handleSaveRemark(file.id, file.template_code)}
-                        >
-                          {savingRemark === file.id
-                            ? t("common.saving")
-                            : t("workflow.saveRemark")}
-                        </Button>
-                      </div>
-                    ) : savedRemark ? (
-                      <p className="rounded-lg bg-gray-50 px-2 py-1.5 text-xs text-gray-700 dark:bg-gray-900 dark:text-gray-300">
-                        {savedRemark}
+                  {t("workflow.filesTable.document")}
+                </TableCell>
+                <TableCell
+                  isHeader
+                  className="px-4 py-3 text-start text-theme-xs font-medium text-gray-500 dark:text-gray-400"
+                >
+                  {t("workflow.filesTable.status")}
+                </TableCell>
+                <TableCell
+                  isHeader
+                  className="px-4 py-3 text-start text-theme-xs font-medium text-gray-500 dark:text-gray-400"
+                >
+                  {t("workflow.filesTable.remark")}
+                </TableCell>
+                <TableCell
+                  isHeader
+                  className="px-4 py-3 text-end text-theme-xs font-medium text-gray-500 dark:text-gray-400"
+                >
+                  {t("workflow.filesTable.actions")}
+                </TableCell>
+              </TableRow>
+            </TableHeader>
+            <TableBody className="divide-y divide-gray-100 dark:divide-white/[0.05]">
+              {localFiles.map((file) => {
+                const displayName = file.file_path || file.template_code;
+                const isActive = activeCode === file.id;
+                const savedRemark = file.comment?.trim() ?? "";
+                const draftRemark = remarks[file.template_code] ?? savedRemark;
+                return (
+                  <TableRow
+                    key={file.id}
+                    className={
+                      isActive
+                        ? "bg-brand-50/50 dark:bg-brand-500/5"
+                        : "hover:bg-gray-50 dark:hover:bg-white/[0.02]"
+                    }
+                  >
+                    <TableCell className="px-4 py-3.5 align-top text-start">
+                      <p
+                        className="truncate font-medium text-gray-800 dark:text-white/90"
+                        title={displayName}
+                      >
+                        {displayName}
                       </p>
-                    ) : (
-                      <p className="text-xs italic text-gray-400">{t("workflow.noRemarkYet")}</p>
-                    )}
-                  </td>
-                  <td className="px-3 py-3 align-top">
-                    <div className="flex flex-col items-end gap-2">
-                      <div className="flex flex-wrap justify-end gap-2">
-                        <Button
-                          size="sm"
-                          variant={isActive ? "primary" : "outline"}
-                          onClick={() => void loadPreview(file.id)}
-                        >
-                          {t("workflow.viewFile")}
-                        </Button>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => void handleDownload(file.id)}
-                        >
-                          {t("common.download")}
-                        </Button>
-                      </div>
+                      <p className="mt-0.5 truncate text-xs text-gray-400">{file.template_code}</p>
+                    </TableCell>
+                    <TableCell className="px-4 py-3.5 align-top text-start">
+                      <Badge color={fileStatusColor(file.status)} size="sm">
+                        {t(`workflow.fileStatus.${file.status}`)}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="px-4 py-3.5 align-top text-start">
                       {canReview ? (
-                        <div className="flex flex-wrap justify-end gap-2">
-                          <Button
-                            size="sm"
-                            disabled={submitting === file.id}
-                            onClick={() => void handleReview(file.id, file.template_code, "approved")}
-                          >
-                            {t("workflow.validateFile")}
-                          </Button>
+                        <div className="space-y-2">
+                          <textarea
+                            className="w-full rounded-lg border border-gray-200 bg-white p-2 text-xs dark:border-gray-700 dark:bg-gray-900"
+                            rows={2}
+                            placeholder={t("workflow.remarkPlaceholder")}
+                            value={draftRemark}
+                            onChange={(e) =>
+                              setRemarks((prev) => ({
+                                ...prev,
+                                [file.template_code]: e.target.value,
+                              }))
+                            }
+                            onBlur={() => void handleSaveRemark(file.id, file.template_code)}
+                          />
                           <Button
                             size="sm"
                             variant="outline"
-                            disabled={submitting === file.id}
-                            onClick={() => void handleReview(file.id, file.template_code, "rejected")}
+                            disabled={
+                              savingRemark === file.id || draftRemark.trim() === savedRemark
+                            }
+                            onClick={() => void handleSaveRemark(file.id, file.template_code)}
                           >
-                            {t("workflow.rejectFile")}
+                            {savingRemark === file.id
+                              ? t("common.saving")
+                              : t("workflow.saveRemark")}
                           </Button>
                         </div>
-                      ) : null}
-                    </div>
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
+                      ) : savedRemark ? (
+                        <p className="line-clamp-3 text-xs text-gray-700 dark:text-gray-300">
+                          {savedRemark}
+                        </p>
+                      ) : (
+                        <p className="text-xs italic text-gray-400">{t("workflow.noRemarkYet")}</p>
+                      )}
+                    </TableCell>
+                    <TableCell className="px-4 py-3.5 align-top text-end">
+                      <div className="flex flex-wrap items-center justify-end gap-1.5">
+                        <TableIconButton
+                          label={t("workflow.viewFile")}
+                          onClick={() => void loadPreview(file.id)}
+                        >
+                          <Eye className="size-4.5" />
+                        </TableIconButton>
+                        <TableIconButton
+                          label={t("common.download")}
+                          onClick={() => void handleDownload(file.id)}
+                        >
+                          <Download className="size-4.5" />
+                        </TableIconButton>
+                        {canReview ? (
+                          <>
+                            <TableIconButton
+                              label={t("workflow.validateFile")}
+                              variant="success"
+                              disabled={submitting === file.id}
+                              onClick={() =>
+                                void handleReview(file.id, file.template_code, "approved")
+                              }
+                            >
+                              <Check className="size-4.5" />
+                            </TableIconButton>
+                            <TableIconButton
+                              label={t("workflow.rejectFile")}
+                              variant="danger"
+                              disabled={submitting === file.id}
+                              onClick={() =>
+                                void handleReview(file.id, file.template_code, "rejected")
+                              }
+                            >
+                              <X className="size-4.5" />
+                            </TableIconButton>
+                          </>
+                        ) : null}
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+        </div>
       </div>
 
       {activeCode && editorLoading ? (

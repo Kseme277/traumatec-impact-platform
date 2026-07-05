@@ -1,16 +1,13 @@
 import { useEffect, useMemo, useState } from "react";
-import { Link, Navigate, useNavigate, useSearchParams } from "react-router";
-import { ChevronRight, FileArchive } from "lucide-react";
+import { Navigate, useNavigate, useSearchParams } from "react-router";
 import AdminBreadcrumb from "../components/common/AdminBreadcrumb";
 import ComponentCard from "../components/common/ComponentCard";
 import PageMeta from "../components/common/PageMeta";
 import AuthLoadingScreen from "../components/auth/AuthLoadingScreen";
-import GuidedEmptyState from "../components/common/GuidedEmptyState";
 import Label from "../components/form/Label";
 import Input from "../components/form/input/InputField";
 import Select from "../components/form/Select";
-import Button from "../components/ui/button/Button";
-import Badge from "../components/ui/badge/Badge";
+import GenerationEventsTable from "../features/documents/GenerationEventsTable";
 import GenerationProcessGuide from "../features/documents/GenerationProcessGuide";
 import PackageDueEventsPanel from "../features/events/PackageDueEventsPanel";
 import { useEvents } from "../features/events/useEvents";
@@ -19,13 +16,11 @@ import {
   distinctEventTypeFilterOptions,
   eventMatchesEventTypeFilter,
   eventMatchesSearch,
-  formatEventDateRange,
   isGeneratableEvent,
   isUpcomingEvent,
 } from "../features/events/eventDates";
 import { isEventPackageApproved } from "../features/documents/eventWorkflowUi";
 import { needsPackageGenerationHighlight } from "../features/events/packageGenerationUrgency";
-import { statusColor, statusLabel } from "../features/events/types";
 import { useTranslation } from "../i18n/useTranslation";
 
 export default function DocumentsGenerationPage() {
@@ -124,47 +119,10 @@ export default function DocumentsGenerationPage() {
           </div>
         </div>
 
-        {filteredEvents.length === 0 ? (
-          <GuidedEmptyState
-            icon={FileArchive}
-            title={t("documents.noEligible")}
-            message={t("ux.noEventsDesc")}
-          >
-            <Link to="/evenements">
-              <Button size="sm" variant="outline">
-                {t("documents.eventList")}
-              </Button>
-            </Link>
-          </GuidedEmptyState>
-        ) : (
-          <ul className="space-y-3">
-            {filteredEvents.map((event) => (
-              <li key={event.id}>
-                <button
-                  type="button"
-                  className="group flex w-full items-start justify-between gap-4 rounded-2xl border border-gray-200 p-4 text-left transition-colors hover:border-brand-200 hover:bg-gray-50/80 dark:border-gray-800 dark:hover:border-brand-500/30 dark:hover:bg-white/[0.03]"
-                  onClick={() => navigate(`/documents/generation/${event.id}`)}
-                >
-                  <div className="min-w-0">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="font-medium text-gray-800 dark:text-white/90">
-                        {event.project_number}
-                      </span>
-                      <Badge color={statusColor(event.status)} size="sm">
-                        {statusLabel(event.status, t)}
-                      </Badge>
-                    </div>
-                    <p className="mt-1 truncate text-sm text-gray-600 dark:text-gray-300">{event.title}</p>
-                    <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                      {formatEventDateRange(event)} · {[event.city, event.country].filter(Boolean).join(", ")}
-                    </p>
-                  </div>
-                  <ChevronRight className="mt-1 size-5 shrink-0 text-gray-400 transition-transform group-hover:translate-x-0.5 group-hover:text-brand-500" />
-                </button>
-              </li>
-            ))}
-          </ul>
-        )}
+        <GenerationEventsTable
+          events={filteredEvents}
+          onOpen={(eventId) => navigate(`/documents/generation/${eventId}`)}
+        />
       </ComponentCard>
     </>
   );

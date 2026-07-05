@@ -1,9 +1,17 @@
 import { Link } from "react-router";
-import { ChevronRight, ClipboardList } from "lucide-react";
-import CompactListPagination from "../../components/common/CompactListPagination";
+import { ClipboardList, Eye } from "lucide-react";
+import DataTablePagination from "../../components/common/DataTablePagination";
 import GuidedEmptyState from "../../components/common/GuidedEmptyState";
+import TableIconButton from "../../components/common/TableIconButton";
 import TableLoader from "../../components/common/TableLoader";
 import Badge from "../../components/ui/badge/Badge";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHeader,
+  TableRow,
+} from "../../components/ui/table";
 import type { WorkflowQueueItem } from "../../api/workflow";
 import { workflowStatusLabel } from "../auth/types";
 import { workflowStatusBadgeColor } from "../documents/workflowStatusVisual";
@@ -47,50 +55,103 @@ export default function WorkflowQueueList({
 
   return (
     <>
-      <ul className="space-y-3">
-        {pagination.paginatedItems.map((item) => {
-          const isActive = activeId === item.id;
-          return (
-            <li key={item.id}>
-              <Link
-                to={`${basePath}/${item.id}`}
-                className={`group flex items-start justify-between gap-3 rounded-2xl border p-4 transition-colors ${
-                  isActive
-                    ? "border-brand-500 bg-brand-50/60 dark:border-brand-500/40 dark:bg-brand-500/10"
-                    : "border-gray-200 hover:border-brand-200 hover:bg-gray-50/80 dark:border-gray-800 dark:hover:border-brand-500/30 dark:hover:bg-white/[0.03]"
-                }`}
-              >
-                <div className="min-w-0 flex-1">
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="font-medium text-sm text-gray-800 dark:text-white/90">
-                      {item.project_number ?? item.event_title}
-                    </span>
-                    <Badge color={workflowStatusBadgeColor(item.workflow_status)} size="sm">
-                      {workflowStatusLabel(item.workflow_status, t)}
-                    </Badge>
-                  </div>
-                  {item.event_title && item.project_number ? (
-                    <p className="mt-1 truncate text-xs text-gray-500 dark:text-gray-400">
-                      {item.event_title}
-                    </p>
-                  ) : null}
-                  <WorkflowPhaseDeadline
-                    phaseDueAt={item.phase_due_at}
-                    isOverdue={item.is_overdue}
-                    className="mt-2"
-                  />
-                </div>
-                <ChevronRight
-                  className={`mt-0.5 size-5 shrink-0 text-gray-400 transition-transform group-hover:translate-x-0.5 ${
-                    isActive ? "text-brand-500" : ""
-                  }`}
-                />
-              </Link>
-            </li>
-          );
-        })}
-      </ul>
-      <CompactListPagination
+      <div className="-mx-4 overflow-hidden sm:-mx-6">
+        <div className="overflow-x-auto px-4 sm:px-6">
+          <Table className="min-w-[880px] table-fixed w-full">
+            <colgroup>
+              <col className="w-[110px]" />
+              <col />
+              <col className="w-[130px]" />
+              <col className="w-[160px]" />
+              <col className="w-[72px]" />
+            </colgroup>
+            <TableHeader className="border-b border-gray-100 dark:border-white/[0.05]">
+              <TableRow>
+                <TableCell
+                  isHeader
+                  className="px-4 py-3 text-start text-theme-xs font-medium text-gray-500 dark:text-gray-400"
+                >
+                  {t("workflow.queueTable.project")}
+                </TableCell>
+                <TableCell
+                  isHeader
+                  className="px-4 py-3 text-start text-theme-xs font-medium text-gray-500 dark:text-gray-400"
+                >
+                  {t("workflow.queueTable.event")}
+                </TableCell>
+                <TableCell
+                  isHeader
+                  className="px-4 py-3 text-start text-theme-xs font-medium text-gray-500 dark:text-gray-400"
+                >
+                  {t("common.status")}
+                </TableCell>
+                <TableCell
+                  isHeader
+                  className="px-4 py-3 text-start text-theme-xs font-medium text-gray-500 dark:text-gray-400"
+                >
+                  {t("workflow.deadline")}
+                </TableCell>
+                <TableCell
+                  isHeader
+                  className="px-4 py-3 text-end text-theme-xs font-medium text-gray-500 dark:text-gray-400"
+                >
+                  {t("common.actions")}
+                </TableCell>
+              </TableRow>
+            </TableHeader>
+            <TableBody className="divide-y divide-gray-100 dark:divide-white/[0.05]">
+              {pagination.paginatedItems.map((item) => {
+                const isActive = activeId === item.id;
+                return (
+                  <TableRow
+                    key={item.id}
+                    className={
+                      isActive
+                        ? "bg-brand-50/50 dark:bg-brand-500/5"
+                        : "hover:bg-gray-50 dark:hover:bg-white/[0.02]"
+                    }
+                  >
+                    <TableCell className="px-4 py-3.5 text-start font-mono text-theme-sm text-gray-700 dark:text-gray-300">
+                      <span className="block truncate" title={item.project_number ?? undefined}>
+                        {item.project_number ?? "—"}
+                      </span>
+                    </TableCell>
+                    <TableCell className="px-4 py-3.5 text-start">
+                      <Link
+                        to={`${basePath}/${item.id}`}
+                        className="block truncate font-medium text-gray-800 transition hover:text-brand-500 dark:text-white/90 dark:hover:text-brand-400"
+                        title={item.event_title ?? undefined}
+                      >
+                        {item.event_title ?? item.project_number ?? "—"}
+                      </Link>
+                    </TableCell>
+                    <TableCell className="px-4 py-3.5 text-start">
+                      <Badge color={workflowStatusBadgeColor(item.workflow_status)} size="sm">
+                        {workflowStatusLabel(item.workflow_status, t)}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="px-4 py-3.5 text-start text-theme-sm text-gray-600 dark:text-gray-400">
+                      <WorkflowPhaseDeadline
+                        phaseDueAt={item.phase_due_at}
+                        isOverdue={item.is_overdue}
+                      />
+                    </TableCell>
+                    <TableCell className="px-4 py-3.5 text-end">
+                      <TableIconButton
+                        href={`${basePath}/${item.id}`}
+                        label={t("workflow.queueTable.open")}
+                      >
+                        <Eye className="size-4.5" />
+                      </TableIconButton>
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+        </div>
+      </div>
+      <DataTablePagination
         page={pagination.page}
         totalPages={pagination.totalPages}
         totalItems={pagination.totalItems}

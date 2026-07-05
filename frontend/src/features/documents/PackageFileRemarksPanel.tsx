@@ -1,4 +1,11 @@
 import Badge from "../../components/ui/badge/Badge";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHeader,
+  TableRow,
+} from "../../components/ui/table";
 import type { WorkflowFileReview } from "../../api/workflow";
 import { workflowStatusLabel, type WorkflowStatus } from "../auth/types";
 import { useTranslation } from "../../i18n/useTranslation";
@@ -51,50 +58,69 @@ export default function PackageFileRemarksPanel({
         </p>
       </div>
 
-      <div className="overflow-x-auto rounded-xl border border-gray-200 dark:border-gray-800">
-        <table className="min-w-full divide-y divide-gray-200 text-sm dark:divide-gray-800">
-          <thead className="bg-gray-50 dark:bg-gray-900/60">
-            <tr>
-              <th className="px-3 py-2.5 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
-                {t("workflow.filesTable.document")}
-              </th>
-              <th className="px-3 py-2.5 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
-                {t("workflow.filesTable.status")}
-              </th>
-              <th className="min-w-[200px] px-3 py-2.5 text-left text-xs font-semibold uppercase tracking-wide text-gray-500">
-                {t("workflow.filesTable.remark")}
-              </th>
-            </tr>
-          </thead>
-          <tbody className="divide-y divide-gray-200 bg-white dark:divide-gray-800 dark:bg-transparent">
-            {files.map((file) => {
-              const displayName = file.file_path || file.template_code;
-              const remark = file.comment?.trim();
-              return (
-                <tr key={file.id} className="hover:bg-gray-50/80 dark:hover:bg-gray-900/30">
-                  <td className="px-3 py-3 align-top">
-                    <p className="font-medium break-all text-gray-800 dark:text-white/90">{displayName}</p>
-                    <p className="mt-0.5 text-xs text-gray-400">{file.template_code}</p>
-                  </td>
-                  <td className="px-3 py-3 align-top">
-                    <Badge color={fileStatusColor(file.status)} size="sm">
-                      {t(`workflow.fileStatus.${file.status}`)}
-                    </Badge>
-                  </td>
-                  <td className="px-3 py-3 align-top">
-                    {remark ? (
-                      <p className="rounded-lg bg-gray-50 px-2 py-1.5 text-xs text-gray-700 dark:bg-gray-900 dark:text-gray-300">
-                        {remark}
+      <div className="-mx-4 overflow-hidden sm:-mx-6">
+        <div className="overflow-x-auto px-4 sm:px-6">
+          <Table className="min-w-[720px] table-fixed w-full">
+            <colgroup>
+              <col />
+              <col className="w-[110px]" />
+              <col className="w-[280px]" />
+            </colgroup>
+            <TableHeader className="border-b border-gray-100 dark:border-white/[0.05]">
+              <TableRow>
+                <TableCell
+                  isHeader
+                  className="px-4 py-3 text-start text-theme-xs font-medium text-gray-500 dark:text-gray-400"
+                >
+                  {t("workflow.filesTable.document")}
+                </TableCell>
+                <TableCell
+                  isHeader
+                  className="px-4 py-3 text-start text-theme-xs font-medium text-gray-500 dark:text-gray-400"
+                >
+                  {t("workflow.filesTable.status")}
+                </TableCell>
+                <TableCell
+                  isHeader
+                  className="px-4 py-3 text-start text-theme-xs font-medium text-gray-500 dark:text-gray-400"
+                >
+                  {t("workflow.filesTable.remark")}
+                </TableCell>
+              </TableRow>
+            </TableHeader>
+            <TableBody className="divide-y divide-gray-100 dark:divide-white/[0.05]">
+              {files.map((file) => {
+                const displayName = file.file_path || file.template_code;
+                const remark = file.comment?.trim();
+                return (
+                  <TableRow key={file.id} className="hover:bg-gray-50 dark:hover:bg-white/[0.02]">
+                    <TableCell className="px-4 py-3.5 text-start">
+                      <p
+                        className="truncate font-medium text-gray-800 dark:text-white/90"
+                        title={displayName}
+                      >
+                        {displayName}
                       </p>
-                    ) : (
-                      <p className="text-xs italic text-gray-400">{t("workflow.noRemarkYet")}</p>
-                    )}
-                  </td>
-                </tr>
-              );
-            })}
-          </tbody>
-        </table>
+                      <p className="mt-0.5 truncate text-xs text-gray-400">{file.template_code}</p>
+                    </TableCell>
+                    <TableCell className="px-4 py-3.5 text-start">
+                      <Badge color={fileStatusColor(file.status)} size="sm">
+                        {t(`workflow.fileStatus.${file.status}`)}
+                      </Badge>
+                    </TableCell>
+                    <TableCell className="px-4 py-3.5 text-start">
+                      {remark ? (
+                        <p className="line-clamp-3 text-xs text-gray-700 dark:text-gray-300">{remark}</p>
+                      ) : (
+                        <p className="text-xs italic text-gray-400">{t("workflow.noRemarkYet")}</p>
+                      )}
+                    </TableCell>
+                  </TableRow>
+                );
+              })}
+            </TableBody>
+          </Table>
+        </div>
       </div>
 
       {withRemarks.length === 0 ? (
