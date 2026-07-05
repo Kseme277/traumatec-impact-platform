@@ -26,10 +26,54 @@ function colorClassFor(user: Pick<Utilisateur, "email" | "id">): string {
   return AVATAR_COLORS[hash % AVATAR_COLORS.length];
 }
 
+interface UserAvatarProps {
+  user: Utilisateur;
+  size?: "sm" | "md";
+  linkTo?: string;
+}
+
+const avatarSizeClasses = {
+  sm: "h-10 w-10 text-sm",
+  md: "h-11 w-11 text-sm",
+};
+
+export function UserAvatar({ user, size = "md", linkTo }: UserAvatarProps) {
+  const initials = initialsFor(user);
+  const fullName = `${user.prenom} ${user.nom}`.trim();
+  const sizeClass = avatarSizeClasses[size];
+
+  const content = user.avatar_url ? (
+    <img
+      src={user.avatar_url}
+      alt=""
+      referrerPolicy="no-referrer"
+      className={`${sizeClass} shrink-0 rounded-full object-cover ring-1 ring-gray-100 dark:ring-gray-800`}
+    />
+  ) : (
+    <span
+      className={`flex shrink-0 items-center justify-center rounded-full font-semibold ring-1 ring-gray-100 dark:ring-gray-800 ${sizeClass} ${colorClassFor(user)}`}
+      aria-hidden
+    >
+      {initials}
+    </span>
+  );
+
+  if (linkTo) {
+    return (
+      <Link to={linkTo} className="inline-flex shrink-0" title={fullName} aria-label={fullName}>
+        {content}
+      </Link>
+    );
+  }
+
+  return content;
+}
+
 interface UserProfileCellProps {
   user: Utilisateur;
   subtitle?: string;
   showPrimaryRole?: boolean;
+  hideAvatar?: boolean;
   linkTo?: string;
   t?: (key: string) => string;
 }
@@ -38,28 +82,12 @@ export default function UserProfileCell({
   user,
   subtitle,
   showPrimaryRole = false,
+  hideAvatar = false,
   linkTo,
   t,
 }: UserProfileCellProps) {
   const fullName = `${user.prenom} ${user.nom}`.trim();
   const roleText = showPrimaryRole ? roleLabel(user.role, t) : subtitle;
-  const initials = initialsFor(user);
-
-  const avatar = user.avatar_url ? (
-    <img
-      src={user.avatar_url}
-      alt=""
-      referrerPolicy="no-referrer"
-      className="h-11 w-11 shrink-0 rounded-full object-cover ring-1 ring-gray-100 dark:ring-gray-800"
-    />
-  ) : (
-    <span
-      className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-sm font-semibold ring-1 ring-gray-100 dark:ring-gray-800 ${colorClassFor(user)}`}
-      aria-hidden
-    >
-      {initials}
-    </span>
-  );
 
   const nameBlock = (
     <div className="min-w-0">
@@ -74,9 +102,19 @@ export default function UserProfileCell({
     </div>
   );
 
+  if (hideAvatar) {
+    return linkTo ? (
+      <Link to={linkTo} className="min-w-0 hover:text-brand-600 dark:hover:text-brand-400">
+        {nameBlock}
+      </Link>
+    ) : (
+      nameBlock
+    );
+  }
+
   return (
     <div className="flex min-w-0 items-center gap-3">
-      {avatar}
+      <UserAvatar user={user} />
       {linkTo ? (
         <Link to={linkTo} className="min-w-0 hover:text-brand-600 dark:hover:text-brand-400">
           {nameBlock}
