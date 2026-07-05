@@ -1,3 +1,11 @@
+export function templateDisplayName(template: PackageTemplate): string {
+  const source = template.placeholders?.source_file;
+  if (typeof source === "string" && source.trim()) {
+    return source;
+  }
+  return template.name;
+}
+
 export interface ParcoursStep {
   step: number;
   code: string;

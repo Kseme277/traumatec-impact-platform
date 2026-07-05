@@ -35,7 +35,7 @@ class PackageImportJob:
     total: int = 0
     message: str = "Import en attente…"
     current_file: str = ""
-    use_ai: bool = True
+    use_ai: bool = False
     result: dict[str, Any] | None = None
     error: str | None = None
     _lock: asyncio.Lock = field(default_factory=asyncio.Lock, repr=False, compare=False)

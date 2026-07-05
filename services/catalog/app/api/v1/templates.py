@@ -14,6 +14,7 @@ from app.schemas.catalog import (
     PackageTemplateResponse,
     TemplateEditorConfigResponse,
     TemplateUploadResponse,
+    TemplateVariablesGuideResponse,
 )
 from app.services.onlyoffice import (
     build_editor_config,
@@ -32,6 +33,18 @@ from tip_common.redis_cache import cached_call
 from tip_common.security import AuthenticatedUser, get_current_user, require_admin
 
 router = APIRouter()
+
+
+@router.get("/variables-guide", response_model=TemplateVariablesGuideResponse)
+async def template_variables_guide(
+    locale: str = Query(default="fr", description="fr | en"),
+    _: AuthenticatedUser = Depends(get_current_user),
+) -> TemplateVariablesGuideResponse:
+    """Registre des variables reconnues à la génération (placeholders + champs événement)."""
+    from tip_common.variable_registry import build_variables_guide
+
+    payload = build_variables_guide(locale=locale)
+    return TemplateVariablesGuideResponse.model_validate(payload)
 
 
 async def _list_templates_impl(

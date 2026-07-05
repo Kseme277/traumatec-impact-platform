@@ -60,6 +60,14 @@ export function fetchTemplates(
   return fetchJson<PackageTemplate[]>(`/v1/templates${q}`, token);
 }
 
+export function fetchTemplateVariablesGuide(token: string | null, locale = "fr") {
+  const q = locale ? `?locale=${encodeURIComponent(locale)}` : "";
+  return fetchJson<import("../features/documents/TemplateVariablesGuide").TemplateVariablesGuide>(
+    `/v1/templates/variables-guide${q}`,
+    token,
+  );
+}
+
 export function fetchTemplateEditorConfig(
   token: string | null,
   templateId: string,
@@ -148,7 +156,7 @@ export async function uploadPackageZip(
     message: "Envoi du fichier ZIP…",
     filename: file.name,
     current_file: null,
-    use_ai: true,
+    use_ai: false,
     result: null,
     error: null,
   });

@@ -481,21 +481,40 @@ async def scan_document_sections(
     filename: str,
     file_bytes: bytes,
     document_role: str = "autre",
-    use_ai: bool = True,
+    use_ai: bool = False,
 ) -> dict[str, Any]:
+    from tip_common.brace_placeholder_scanner import scan_brace_placeholders
+
+    brace_scan = scan_brace_placeholders(
+        filename=filename,
+        file_bytes=file_bytes,
+        document_role=document_role,
+    )
+    brace_fields = brace_scan.get("replacement_fields") or []
+
     sections = extract_all_sections(filename, file_bytes)
     rule_fields = sections_to_fields(sections)
-    ai_fields = (
-        await nvidia_classify_sections(filename, document_role, sections) if use_ai else None
-    )
-    fields = _merge_field_lists(ai_fields, rule_fields)
-    classifier = "nvidia+rules" if ai_fields else "rules"
+
+    ai_fields: list[dict[str, Any]] | None = None
+    if use_ai:
+        ai_fields = await nvidia_classify_sections(filename, document_role, sections)
+
+    fields = _merge_field_lists(brace_fields, rule_fields, ai_fields)
+
+    classifier_parts: list[str] = []
+    if brace_fields:
+        classifier_parts.append("brace")
+    if rule_fields:
+        classifier_parts.append("rules")
+    if ai_fields:
+        classifier_parts.append("nvidia")
+    classifier = "+".join(classifier_parts) if classifier_parts else "none"
 
     return {
         "filename": filename,
         "document_role": document_role,
         "classifier": classifier,
-        "section_count": len(sections),
+        "section_count": len(sections) or brace_scan.get("section_count", 0),
         "replaceable_count": len([f for f in fields if f.get("strategy") != "keep"]),
         "sections": [asdict(s) for s in sections],
         "replacement_fields": fields,

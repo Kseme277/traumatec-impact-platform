@@ -38,7 +38,7 @@ async def analyze_template_in_db(
         filename=filename,
         file_bytes=data,
         document_role=meta.get("document_role") or template.document_type or "autre",
-        use_ai=True,
+        use_ai=False,
     )
     fields = analysis.get("replacement_fields") or analysis.get("fields") or []
     meta["replacement_fields"] = fields

@@ -2,6 +2,7 @@ import AdminBreadcrumb from "../components/common/AdminBreadcrumb";
 import ComponentCard from "../components/common/ComponentCard";
 import PageMeta from "../components/common/PageMeta";
 import PackageTemplatesManager from "../features/documents/PackageTemplatesManager";
+import TemplateVariablesGuide from "../features/documents/TemplateVariablesGuide";
 import { useTipAuth } from "../context/TipAuthContext";
 import { useTranslation } from "../i18n/useTranslation";
 
@@ -25,7 +26,7 @@ export default function DocumentsTemplatesPage() {
       </ComponentCard>
 
       <ComponentCard title={t("documents.variablesTitle")} desc={t("documents.variablesDesc")} className="mt-6">
-        <p className="text-sm text-gray-500 dark:text-gray-400">{t("documents.variablesHint")}</p>
+        <TemplateVariablesGuide />
       </ComponentCard>
     </>
   );

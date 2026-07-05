@@ -802,7 +802,7 @@ _CANONICAL_PROGRAMME_STEM: dict[str, str] = {
     PACKAGE_TYPE_OP_C: "02_Modèle Programme_Op C_v2",
     PACKAGE_TYPE_IEC_C: "02_Modèle Programme_Op C_v2",
     PACKAGE_TYPE_IEC_F: "02_Modèle Programme_Op C_v2",
-    PACKAGE_TYPE_FET: "02_Modèle Programme_Op C_v2",
+    PACKAGE_TYPE_FET: "02_Modèle_Programme_FET",
     PACKAGE_TYPE_ORP_C: "02_Modèle programme_ORP C_Congo_v2",
     PACKAGE_TYPE_PBO_F: "02_Modèle programme_ORP C_Congo_v2",
     PACKAGE_TYPE_NONOP_C: "02_Modèle Programme_Nonp C_SEN",

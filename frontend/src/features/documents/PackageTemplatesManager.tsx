@@ -30,6 +30,7 @@ import { ApiError } from "../../api/client";
 import { getApiToken } from "../../lib/clerkToken";
 import { useTranslation } from "../../i18n/useTranslation";
 import type { PackageBundle, PackageImportProgress, PackageTemplate, TemplateEditorConfig } from "./types";
+import { templateDisplayName } from "./types";
 import PackageImportProgressBar from "./PackageImportProgressBar";
 import {
   ACTIVITY_KINDS,
@@ -45,6 +46,7 @@ import { documentRoleLabel } from "./documentRoleLabel";
 import { themeLabel, type PreparationTheme } from "../events/types";
 import { confirmAction, showError, showSuccess } from "../../lib/swal";
 import OnlyOfficeEditor from "./OnlyOfficeEditor";
+import TemplateFileFieldsPanel from "./TemplateFileFieldsPanel";
 import { isOnlyofficeEditable, templateFileExtension } from "./templateFileExtension";
 import { filterTemplatesByPackageDuration } from "./templateDurationFilter";
 
@@ -238,10 +240,15 @@ export default function PackageTemplatesManager({ isAdmin }: PackageTemplatesMan
         onProgress: setUploadProgress,
       });
       await showSuccess(t("documents.packageUploadDone"), result.message);
-      const updatedBundles = await loadBundles(token);
-      const newActive =
-        updatedBundles.find((b) => canonicalPackageType(b.package_type) === selectedType && b.is_active) ?? null;
-      await loadTemplatesForType(token, newActive, selectedType);
+      try {
+        const freshToken = await getApiToken(getToken);
+        const updatedBundles = await loadBundles(freshToken);
+        const newActive =
+          updatedBundles.find((b) => canonicalPackageType(b.package_type) === selectedType && b.is_active) ?? null;
+        await loadTemplatesForType(freshToken, newActive, selectedType);
+      } catch {
+        void refreshAll();
+      }
     } catch (err) {
       await showError(t("common.error"), err instanceof ApiError ? err.message : t("documents.packageUploadFailed"));
     } finally {
@@ -295,7 +302,7 @@ export default function PackageTemplatesManager({ isAdmin }: PackageTemplatesMan
   const handleDeleteTemplate = async (template: PackageTemplate) => {
     const confirmed = await confirmAction({
       title: t("documents.deleteFileTitle"),
-      text: template.name,
+      text: templateDisplayName(template),
       confirmText: t("common.delete"),
       icon: "warning",
     });
@@ -304,7 +311,7 @@ export default function PackageTemplatesManager({ isAdmin }: PackageTemplatesMan
     try {
       const token = await getApiToken(getToken);
       await deleteTemplate(token, template.id);
-      await showSuccess(t("documents.fileDeleted"), template.name);
+      await showSuccess(t("documents.fileDeleted"), templateDisplayName(template));
       if (openedTemplateId === template.id) {
         setOpenedTemplateId(null);
         setEditorConfig(null);
@@ -621,7 +628,7 @@ export default function PackageTemplatesManager({ isAdmin }: PackageTemplatesMan
                             className={isOpen ? "bg-brand-50/80 dark:bg-brand-500/10" : ""}
                           >
                             <TableCell className="px-3 py-2">
-                              <p className="text-sm font-medium truncate" title={tmpl.name}>{tmpl.name}</p>
+                              <p className="text-sm font-medium truncate" title={templateDisplayName(tmpl)}>{templateDisplayName(tmpl)}</p>
                               <p className="text-xs text-gray-500">
                                 {documentRoleLabel(tmpl.document_type, t)} · {templateFileExtension(tmpl.file_path)}
                               </p>
@@ -700,6 +707,7 @@ export default function PackageTemplatesManager({ isAdmin }: PackageTemplatesMan
                       </div>
                     )}
                     <p className="mt-2 text-xs text-gray-500">{t("documents.editorSaveHint")}</p>
+                    <TemplateFileFieldsPanel template={openedTemplate} />
                   </div>
                   <div className="min-h-[400px] p-3">
                     {editorNote ? (

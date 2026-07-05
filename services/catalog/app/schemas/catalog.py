@@ -29,6 +29,37 @@ class TemplateEditorConfigResponse(BaseModel):
     config: dict
 
 
+class TemplateVariableGuideItem(BaseModel):
+    key: str
+    placeholders: list[str]
+    event_field: str
+    example: str
+    label: str
+    description: str
+    primary_placeholder: str
+    category: str
+
+
+class TemplateVariableKeepItem(BaseModel):
+    sample: str
+    label: str
+    description: str
+
+
+class TemplateVariableMechanism(BaseModel):
+    id: str
+    title: str
+    description: str
+
+
+class TemplateVariablesGuideResponse(BaseModel):
+    locale: str
+    variables: list[TemplateVariableGuideItem]
+    keep_samples: list[TemplateVariableKeepItem]
+    categories: list[dict[str, str]]
+    mechanisms: list[TemplateVariableMechanism]
+
+
 class PackageBundleResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 

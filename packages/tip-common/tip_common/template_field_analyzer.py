@@ -460,9 +460,29 @@ def context_value_for_key(key: str, context: dict[str, Any]) -> str | None:
         "package_label": context.get("package_label"),
         "cost_center": context.get("cost_center"),
         "date_du_jour": context.get("date_du_jour") or context.get("today"),
+        "date_single_formatted": context.get("date_single_formatted"),
+        "date_range_formatted": context.get("date_range_formatted"),
+        "header_lieu_date": context.get("header_lieu_date"),
+        "organizer_responsible_name": context.get("organizer_responsible_name"),
+        "year": context.get("year") or context.get("annee"),
     }
     if key in direct and direct[key]:
         return str(direct[key]).strip() or None
+    if key.startswith("teacher_") or key.startswith("enseignant_"):
+        try:
+            index = int(key.rsplit("_", 1)[-1]) - 1
+        except ValueError:
+            return None
+        names = list(context.get("teacher_names") or [])
+        if not names:
+            for teacher in context.get("teachers") or []:
+                if isinstance(teacher, dict):
+                    name = f"{teacher.get('first_name', '')} {teacher.get('last_name', '')}".strip()
+                    if name:
+                        names.append(name)
+        if 0 <= index < len(names):
+            return str(names[index]).strip() or None
+        return None
     if key == "participant_name":
         return None
     if key == "contact_line":

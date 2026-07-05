@@ -19,14 +19,23 @@ from app.core.config import Settings
 from app.models.catalog import EventProfile, PackageBundle, PackageTemplate
 from tip_common.package_analyzer import analyze_package_zip
 from tip_common.package_types import (
-    adapt_package_filename,
     PACKAGE_TYPE_SPECS,
     filter_templates_by_package_duration,
     normalize_package_type,
 )
+from tip_common.redis_cache import invalidate_prefix
 from tip_common.storage import PACKAGES_BUNDLES_PREFIX, get_object_storage
 
 logger = logging.getLogger(__name__)
+
+
+def _zip_arcname(filename: str) -> str:
+    """Nom du fichier tel qu'il apparaît dans le ZIP importé (sans renommage canonique)."""
+    return PurePosixPath(str(filename).replace("\\", "/")).name
+
+
+async def _invalidate_templates_cache(settings: Settings) -> None:
+    await invalidate_prefix(settings.redis_url, "tip:catalog:templates:")
 
 
 def _import_scan_use_ai(explicit: bool | None = None) -> bool:
@@ -96,7 +105,11 @@ async def _sync_profile_for_bundle(
     return profile
 
 
-async def activate_package_bundle(db: AsyncSession, bundle_id: UUID) -> PackageBundle:
+async def activate_package_bundle(
+    db: AsyncSession,
+    settings: Settings,
+    bundle_id: UUID,
+) -> PackageBundle:
     bundle = await db.get(PackageBundle, bundle_id)
     if bundle is None:
         raise ValueError("Version de paquet introuvable.")
@@ -125,6 +138,7 @@ async def activate_package_bundle(db: AsyncSession, bundle_id: UUID) -> PackageB
     await _sync_profile_for_bundle(db, bundle, bundle_templates)
     await db.commit()
     await db.refresh(bundle)
+    await _invalidate_templates_cache(settings)
     return bundle
 
 
@@ -224,7 +238,7 @@ async def import_package_zip(
     total_files = len(sorted_files)
     field_by_name: dict[str, dict] = {}
     for index, analyzed in enumerate(sorted_files, start=1):
-        label = "Analyse IA" if use_ai_for_scan else "Analyse"
+        label = "Variables {{ }}" if not use_ai_for_scan else "Analyse IA"
         if on_progress:
             on_progress(
                 phase="analyzing",
@@ -258,7 +272,7 @@ async def import_package_zip(
         data = entry_map.get(analyzed.filename)
         if data is None:
             raise ValueError(f"Fichier manquant dans le ZIP : {analyzed.filename}")
-        arcname = adapt_package_filename(analyzed.filename, package_type)
+        arcname = _zip_arcname(analyzed.filename)
         storage_key = f"{bundle_prefix}files/{arcname}"
         storage.upload_bytes(storage_key, data, content_type=_content_type(arcname))
         code = _template_code(package_type, version, arcname)
@@ -313,6 +327,7 @@ async def import_package_zip(
         await _sync_profile_for_bundle(db, bundle, created_templates)
 
     await db.commit()
+    await _invalidate_templates_cache(settings)
     logger.info(
         "Paquet importé : %s v%s (%s fichiers, activate=%s)",
         package_type,
@@ -519,8 +534,7 @@ async def export_package_type_zip(
     with zipfile.ZipFile(buffer, "w", compression=zipfile.ZIP_DEFLATED) as archive:
         for tpl in templates:
             meta = tpl.placeholders or {}
-            source = meta.get("source_file") or tpl.name
-            arcname = adapt_package_filename(source, code)
+            arcname = meta.get("source_file") or tpl.name
             data = storage.download_bytes(tpl.file_path)
             archive.writestr(arcname, data)
 
@@ -556,8 +570,7 @@ async def export_bundle_zip(
     with zipfile.ZipFile(buffer, "w", compression=zipfile.ZIP_DEFLATED) as archive:
         for tpl in bundle_templates:
             meta = tpl.placeholders or {}
-            source = meta.get("source_file") or tpl.name
-            arcname = adapt_package_filename(source, bundle.package_type)
+            arcname = meta.get("source_file") or tpl.name
             data = storage.download_bytes(tpl.file_path)
             archive.writestr(arcname, data)
 
@@ -595,4 +608,4 @@ async def delete_package_bundle(
 
     await db.delete(bundle)
     await db.commit()
-
+    await _invalidate_templates_cache(settings)

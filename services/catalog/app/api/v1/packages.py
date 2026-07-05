@@ -54,7 +54,7 @@ async def list_package_bundles(
 
 
 def _upload_scan_use_ai() -> bool:
-    return os.getenv("CATALOG_IMPORT_SCAN_USE_AI", "true").strip().lower() not in ("0", "false", "no")
+    return os.getenv("CATALOG_IMPORT_SCAN_USE_AI", "").strip().lower() in ("1", "true", "yes")
 
 
 @router.post(
@@ -205,8 +205,9 @@ async def activate_bundle(
     _: AuthenticatedUser = Depends(require_admin),
     db: AsyncSession = Depends(get_db),
 ) -> PackageBundle:
+    settings = get_settings()
     try:
-        bundle = await activate_package_bundle(db, bundle_id)
+        bundle = await activate_package_bundle(db, settings, bundle_id)
     except ValueError as exc:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
     return bundle
