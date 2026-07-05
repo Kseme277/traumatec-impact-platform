@@ -846,6 +846,7 @@ export default function DocumentsGenerationDetailPage() {
                 centralRemark={centralRemark}
                 jobId={workflowJob?.id ?? null}
                 canEdit={canCorrectFiles}
+                onFileCorrected={() => void loadFileReviews()}
               />
             )}
           </ComponentCard>

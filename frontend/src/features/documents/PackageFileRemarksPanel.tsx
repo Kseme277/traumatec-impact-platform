@@ -1,8 +1,4 @@
-import { useAuth } from "@clerk/clerk-react";
-import { useCallback, useState } from "react";
-import { Download, Pencil } from "lucide-react";
 import Badge from "../../components/ui/badge/Badge";
-import Button from "../../components/ui/button/Button";
 import {
   Table,
   TableBody,
@@ -10,14 +6,10 @@ import {
   TableHeader,
   TableRow,
 } from "../../components/ui/table";
-import { downloadPackageFile, fetchPackageFileEditorConfig, fetchPackageFileRevision, forceSavePackageFile } from "../../api/workflow";
 import type { WorkflowFileReview } from "../../api/workflow";
-import { getApiToken } from "../../lib/clerkToken";
-import { ApiError } from "../../api/client";
-import { showError, showSuccess } from "../../lib/swal";
-import OnlyOfficeEditor, { type OnlyOfficeEditorConfig } from "./OnlyOfficeEditor";
 import { workflowStatusLabel, type WorkflowStatus } from "../auth/types";
 import { isWorkflowRejected } from "./eventPackageLock";
+import PackageFileCorrectionActions from "./PackageFileCorrectionActions";
 import { useTranslation } from "../../i18n/useTranslation";
 
 interface PackageFileRemarksPanelProps {
@@ -26,6 +18,7 @@ interface PackageFileRemarksPanelProps {
   centralRemark?: string | null;
   jobId?: string | null;
   canEdit?: boolean;
+  onFileCorrected?: () => void;
 }
 
 function fileStatusColor(status: WorkflowFileReview["status"]) {
@@ -40,67 +33,9 @@ export default function PackageFileRemarksPanel({
   centralRemark,
   jobId,
   canEdit = false,
+  onFileCorrected,
 }: PackageFileRemarksPanelProps) {
-  const { getToken } = useAuth();
   const { t } = useTranslation();
-  const [activeCode, setActiveCode] = useState<string | null>(null);
-  const [editorConfig, setEditorConfig] = useState<OnlyOfficeEditorConfig | null>(null);
-  const [editorLoading, setEditorLoading] = useState(false);
-  const [previewUnavailable, setPreviewUnavailable] = useState(false);
-
-  const loadEditor = useCallback(
-    async (fileReviewId: string) => {
-      if (!jobId) return;
-      setActiveCode(fileReviewId);
-      setEditorConfig(null);
-      setPreviewUnavailable(false);
-      setEditorLoading(true);
-      try {
-        const token = await getApiToken(getToken);
-        const config = await fetchPackageFileEditorConfig(token, jobId, fileReviewId, "edit");
-        setEditorConfig(config);
-      } catch (err) {
-        setEditorConfig(null);
-        if (err instanceof ApiError && err.status === 422) {
-          setPreviewUnavailable(true);
-        } else {
-          showError(
-            t("common.error"),
-            err instanceof ApiError ? err.message : t("common.unknownError"),
-          );
-        }
-      } finally {
-        setEditorLoading(false);
-      }
-    },
-    [getToken, jobId, t],
-  );
-
-  async function handleDownload(fileReviewId: string) {
-    if (!jobId) return;
-    try {
-      const token = await getApiToken(getToken);
-      await downloadPackageFile(token, jobId, fileReviewId);
-    } catch (err) {
-      showError(
-        t("common.error"),
-        err instanceof ApiError ? err.message : t("common.unknownError"),
-      );
-    }
-  }
-
-  async function handleSaved() {
-    if (jobId && activeCode) {
-      try {
-        const token = await getApiToken(getToken);
-        const config = await fetchPackageFileEditorConfig(token, jobId, activeCode, "edit");
-        setEditorConfig(config);
-      } catch {
-        /* conserver l'éditeur courant si le rechargement échoue */
-      }
-    }
-    void showSuccess(t("documents.packageFileSaved"), t("documents.packageFileSavedDesc"));
-  }
 
   if (files.length === 0 && !centralRemark) {
     return (
@@ -154,7 +89,7 @@ export default function PackageFileRemarksPanel({
               <col />
               <col className="w-[110px]" />
               <col className={showEditActions ? "w-[220px]" : "w-[280px]"} />
-              {!showEditActions ? null : <col className="w-[200px]" />}
+              {!showEditActions ? null : <col className="w-[320px]" />}
             </colgroup>
             <TableHeader className="border-b border-gray-100 dark:border-white/[0.05]">
               <TableRow>
@@ -190,17 +125,9 @@ export default function PackageFileRemarksPanel({
               {files.map((file) => {
                 const displayName = file.file_path || file.template_code;
                 const remark = file.comment?.trim();
-                const isActive = activeCode === file.id;
                 const canEditFile = showEditActions && file.status === "rejected";
                 return (
-                  <TableRow
-                    key={file.id}
-                    className={
-                      isActive
-                        ? "bg-brand-50/40 dark:bg-brand-500/10"
-                        : "hover:bg-gray-50 dark:hover:bg-white/[0.02]"
-                    }
-                  >
+                  <TableRow key={file.id} className="hover:bg-gray-50 dark:hover:bg-white/[0.02]">
                     <TableCell className="px-4 py-3.5 text-start">
                       <p
                         className="truncate font-medium text-gray-800 dark:text-white/90"
@@ -223,26 +150,13 @@ export default function PackageFileRemarksPanel({
                       )}
                     </TableCell>
                     {showEditActions ? (
-                      <TableCell className="px-4 py-3.5 text-end">
-                        {canEditFile ? (
-                          <div className="flex flex-wrap justify-end gap-2">
-                            <Button
-                              size="sm"
-                              variant={isActive ? "primary" : "outline"}
-                              onClick={() => void loadEditor(file.id)}
-                            >
-                              <Pencil className="mr-1.5 size-4" />
-                              {t("documents.openAndEdit")}
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              onClick={() => void handleDownload(file.id)}
-                            >
-                              <Download className="mr-1.5 size-4" />
-                              {t("documents.downloadZip")}
-                            </Button>
-                          </div>
+                      <TableCell className="px-4 py-3.5 text-end align-top">
+                        {canEditFile && jobId ? (
+                          <PackageFileCorrectionActions
+                            jobId={jobId}
+                            file={file}
+                            onCorrected={onFileCorrected}
+                          />
                         ) : (
                           <span className="text-xs text-gray-400">—</span>
                         )}
@@ -255,49 +169,6 @@ export default function PackageFileRemarksPanel({
           </Table>
         </div>
       </div>
-
-      {showEditActions && activeCode ? (
-        <div className="rounded-xl border border-gray-200 p-3 dark:border-gray-800">
-          <p className="mb-3 text-sm font-medium text-gray-800 dark:text-white/90">
-            {t("documents.editingFile")} :{" "}
-            {files.find((file) => file.id === activeCode)?.file_path ?? activeCode}
-          </p>
-          {editorLoading ? (
-            <p className="text-sm text-gray-500">{t("documents.onlyofficeLoading")}</p>
-          ) : previewUnavailable ? (
-            <p className="text-sm text-warning-600 dark:text-warning-400">
-              {t("documents.onlyofficeUnsupportedFormat")}
-            </p>
-          ) : editorConfig ? (
-            <OnlyOfficeEditor
-              editorConfig={editorConfig}
-              manualSave
-              fileRevision={editorConfig.file_revision}
-              pollFileRevision={async () => {
-                if (!jobId || !activeCode) return 0;
-                const file = files.find((item) => item.id === activeCode);
-                const code = file?.template_code ?? activeCode;
-                const token = await getApiToken(getToken);
-                const result = await fetchPackageFileRevision(token, jobId, code);
-                return result.revision;
-              }}
-              onBackendForceSave={async () => {
-                if (!jobId || !activeCode) return { error: 1 };
-                const file = files.find((item) => item.id === activeCode);
-                const code = file?.template_code ?? activeCode;
-                const token = await getApiToken(getToken);
-                return forceSavePackageFile(token, jobId, code);
-              }}
-              onDocumentSaved={() => void handleSaved()}
-              autoFullscreen
-              onClose={() => {
-                setActiveCode(null);
-                setEditorConfig(null);
-              }}
-            />
-          ) : null}
-        </div>
-      ) : null}
 
       {withRemarks.length === 0 ? (
         <p className="text-xs text-gray-500">{t("documents.fileRemarksNoComments")}</p>

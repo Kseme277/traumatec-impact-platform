@@ -39,6 +39,16 @@ FULL_COUNTRY = "République démocratique du Congo"
 FULL_TITLE = CONTEXT["title_formatted"]
 
 
+def _header_has_full_country(docx_bytes: bytes) -> bool:
+    marker = "31 décembre 2026".encode("utf-16-le")
+    idx = docx_bytes.find(marker)
+    if idx < 0:
+        return False
+    chunk = docx_bytes[idx : idx + 240].decode("utf-16-le", errors="replace")
+    line = chunk.split("\r")[0]
+    return FULL_COUNTRY in line and "Kinshasa, République démocratique du Congo" in line
+
+
 def _header_lines(docx_bytes: bytes) -> list[str]:
     lines: list[str] = []
     with zipfile.ZipFile(BytesIO(docx_bytes)) as zf:
@@ -73,6 +83,10 @@ def test_programme_02() -> list[tuple[str, bool]]:
             and b"R\xe9publique d\xe9m.\x00" not in out,
         ),
         (
+            "02 header line full country",
+            _header_has_full_country(out),
+        ),
+        (
             "02 page-1 title complete",
             "Information, \xc9ducation et Communication (IEC)".encode("utf-16-le") in out,
         ),
@@ -100,6 +114,35 @@ def test_programme_02() -> list[tuple[str, bool]]:
         checks.append(("02 communautaire not truncated", "communautaire" in welcome))
     else:
         checks.append(("02 welcome paragraph built", False))
+
+    teacher_names = [
+        "Albert Désiré Atangana Fouda",
+        "Saouwada Paul Beme appolinaire",
+        "Marie Virginie Edu mengue",
+    ]
+    out_teachers = apply_programme_doc_replacements(
+        doc,
+        {**CONTEXT, "teacher_names": teacher_names},
+    )
+    sec_start = out_teachers.find("Enseignants nationaux".encode("utf-16-le"))
+    sec_end = out_teachers.find("Organisation du séminaire".encode("utf-16-le"))
+    if sec_start >= 0 and sec_end > sec_start:
+        section = out_teachers[sec_start:sec_end].decode("utf-16-le", errors="replace")
+        lines = [
+            line.strip()
+            for line in section.split("\r")
+            if line.strip() and "Enseignants nationaux" not in line
+        ]
+        checks.append(("02 teachers one per line", lines == teacher_names))
+        checks.append(
+            ("02 teachers no dual column row",
+             not any(
+                 sum(1 for name in teacher_names if name.split()[0] in line) >= 2
+                 for line in lines
+             )),
+        )
+    else:
+        checks.append(("02 teachers one per line", False))
 
     return checks
 

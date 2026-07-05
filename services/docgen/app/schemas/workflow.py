@@ -18,6 +18,7 @@ class WorkflowFileReview(BaseModel):
     reviewed_by_id: int | None
     reviewed_at: datetime | None
     created_at: datetime
+    file_revision: int = 0
 
 
 class WorkflowStep(BaseModel):
@@ -116,3 +117,10 @@ class DeliveryMailtoResponse(BaseModel):
 class SubmitResponse(BaseModel):
     message: str = "Paquet soumis pour contrôle procédure"
     workflow: WorkflowStateResponse
+
+
+class PackageFileUploadResponse(BaseModel):
+    template_code: str
+    filename: str
+    revision: int
+    message: str = "Fichier corrigé enregistré"

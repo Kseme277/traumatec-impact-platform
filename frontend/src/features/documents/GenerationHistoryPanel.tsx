@@ -191,6 +191,17 @@ export default function GenerationHistoryPanel({
                   centralRemark={centralRemark}
                   jobId={job.id}
                   canEdit={job.status === "completed" && canEditPackageFiles(job)}
+                  onFileCorrected={() => {
+                    void (async () => {
+                      try {
+                        const token = await getApiToken(getToken);
+                        const state = await fetchWorkflowState(token, job.id);
+                        setRemarksByJob((prev) => ({ ...prev, [job.id]: state }));
+                      } catch {
+                        /* ignore */
+                      }
+                    })();
+                  }}
                 />
               </div>
             ) : null}

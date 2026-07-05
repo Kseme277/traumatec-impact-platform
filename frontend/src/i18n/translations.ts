@@ -1091,10 +1091,20 @@ const fr = {
       "Ce paquet est validé : il n'apparaît plus dans la liste de génération. Téléchargez-le depuis la fiche événement.",
     downloadValidatedPackage: "Télécharger le paquet validé",
     packageCorrectionTitle: "Corriger les fichiers du paquet",
-    packageCorrectionSubtitle: "Ouvrez chaque document dans ONLYOFFICE, enregistrez, puis soumettez au contrôle.",
+    packageCorrectionSubtitle:
+      "Téléchargez chaque fichier rejeté, corrigez-le dans Word sur votre ordinateur, importez la version corrigée puis soumettez à nouveau le paquet.",
     packageCorrectionDesc:
-      "Modifiez les fichiers un par un. Les changements mettent à jour le ZIP automatiquement. Ensuite, soumettez le paquet au contrôle procédure.",
-    packageCorrectionHint: "Sélectionnez un fichier et cliquez « Ouvrir / éditer » pour corriger dans ONLYOFFICE.",
+      "Pour chaque fichier rejeté : téléchargez-le, modifiez-le localement (Word), importez la correction. Le fichier et le ZIP du paquet sont mis à jour automatiquement. Ensuite, soumettez le paquet au contrôle procédure.",
+    packageCorrectionHint:
+      "Après import, utilisez « Aperçu » pour vérifier le fichier enregistré, ou retéléchargez-le avant de resoumettre le paquet.",
+    downloadFile: "Télécharger",
+    uploadCorrection: "Importer la correction",
+    uploadingCorrection: "Import en cours…",
+    previewCorrectedFile: "Aperçu",
+    fileCorrectedBadge: "Corrigé",
+    packageFileUploaded: "Correction enregistrée",
+    packageFileUploadedDesc:
+      "Le fichier corrigé a été enregistré sur le serveur et inclus dans le ZIP du paquet.",
     packageFileSaved: "Fichier enregistré",
     packageFileSavedDesc: "Le fichier et le ZIP du paquet ont été mis à jour.",
     editingFile: "Édition",
@@ -2696,10 +2706,20 @@ const en: typeof fr = {
       "This package is validated: it no longer appears in the generation list. Download it from the event detail page.",
     downloadValidatedPackage: "Download validated package",
     packageCorrectionTitle: "Correct package files",
-    packageCorrectionSubtitle: "Open each document in ONLYOFFICE, save, then submit for review.",
+    packageCorrectionSubtitle:
+      "Download each rejected file, fix it in Word on your computer, upload the corrected version, then submit the package again.",
     packageCorrectionDesc:
-      "Edit files one by one. Changes update the ZIP automatically. Then submit the package for procedure review.",
-    packageCorrectionHint: "Select a file and click « Open / edit » to correct it in ONLYOFFICE.",
+      "For each rejected file: download it, edit locally (Word), upload the correction. The file and package ZIP are updated automatically. Then submit the package for procedure review.",
+    packageCorrectionHint:
+      "After upload, use « Preview » to verify the stored file, or download it again before resubmitting the package.",
+    downloadFile: "Download",
+    uploadCorrection: "Upload correction",
+    uploadingCorrection: "Uploading…",
+    previewCorrectedFile: "Preview",
+    fileCorrectedBadge: "Corrected",
+    packageFileUploaded: "Correction saved",
+    packageFileUploadedDesc:
+      "The corrected file was saved on the server and included in the package ZIP.",
     packageFileSaved: "File saved",
     packageFileSavedDesc: "The file and package ZIP have been updated.",
     editingFile: "Editing",

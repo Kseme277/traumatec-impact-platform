@@ -95,6 +95,33 @@ def assert_package_editable(job: dict[str, Any], user) -> None:
         )
 
 
+async def assert_file_correction_upload_allowed(
+    db: AsyncSession,
+    job: dict[str, Any],
+    template_code: str,
+) -> None:
+    wf = job.get("workflow_status") or "generated"
+    if wf not in ("procedure_rejected", "validator_rejected"):
+        return
+
+    result = await db.execute(
+        text(
+            """
+            SELECT status
+            FROM docgen.package_file_reviews
+            WHERE generation_job_id = :job_id AND template_code = :code
+            """
+        ),
+        {"job_id": str(job["id"]), "code": template_code},
+    )
+    row = result.first()
+    if row is None or row[0] != "rejected":
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Seuls les fichiers rejetés peuvent être remplacés à cette étape.",
+        )
+
+
 async def _set_workflow_phase(
     db: AsyncSession,
     job_id: UUID,
@@ -720,8 +747,18 @@ async def get_workflow_history(db: AsyncSession, job_id: UUID) -> list[dict[str,
 
 
 async def get_workflow_state(db: AsyncSession, job_id: UUID) -> dict[str, Any]:
+    from app.services.package_file_storage import file_revision as package_file_revision
+
     job = await _get_job_row(db, job_id)
     files = await _ensure_file_reviews(db, job)
+    trace = job.get("template_versions_json") or {}
+    enriched_files = [
+        {
+            **dict(row),
+            "file_revision": package_file_revision(trace, row["template_code"]),
+        }
+        for row in files
+    ]
     history = await get_workflow_history(db, job_id)
     due_at = job.get("phase_due_at")
     return {
@@ -738,7 +775,7 @@ async def get_workflow_state(db: AsyncSession, job_id: UUID) -> dict[str, Any]:
         "phase_started_at": job.get("phase_started_at"),
         "phase_due_at": due_at,
         "is_overdue": is_phase_overdue(due_at),
-        "files": files,
+        "files": enriched_files,
         "history": history,
     }
 

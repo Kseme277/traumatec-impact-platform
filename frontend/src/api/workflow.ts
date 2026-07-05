@@ -12,6 +12,7 @@ export interface WorkflowFileReview {
   reviewed_by_id: number | null;
   reviewed_at: string | null;
   created_at: string;
+  file_revision?: number;
 }
 
 export interface WorkflowStep {
@@ -217,6 +218,42 @@ export function forceSavePackageFile(
     token,
     { method: "POST" },
   );
+}
+
+export interface PackageFileUploadResult {
+  template_code: string;
+  filename: string;
+  revision: number;
+  message: string;
+}
+
+export async function uploadPackageFileCorrection(
+  token: string | null,
+  jobId: string,
+  templateCode: string,
+  file: File,
+): Promise<PackageFileUploadResult> {
+  const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "/api";
+  const form = new FormData();
+  form.append("file", file);
+  const headers = new Headers();
+  if (token) headers.set("Authorization", `Bearer ${token}`);
+
+  const response = await fetch(
+    `${API_BASE}/v1/generations/${jobId}/files/${encodeURIComponent(templateCode)}/upload`,
+    { method: "POST", headers, body: form },
+  );
+  if (!response.ok) {
+    let detail = "Import impossible";
+    try {
+      const body = (await response.json()) as { detail?: string };
+      detail = body.detail ?? detail;
+    } catch {
+      /* ignore */
+    }
+    throw new ApiError(detail, response.status);
+  }
+  return response.json() as Promise<PackageFileUploadResult>;
 }
 
 export async function downloadPackageFile(

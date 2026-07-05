@@ -1,9 +1,10 @@
 from uuid import UUID
 
 import asyncio
+import os
 
 from botocore.exceptions import ClientError
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from fastapi import APIRouter, Depends, File, HTTPException, Query, Request, UploadFile, status
 from fastapi.responses import JSONResponse, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -19,12 +20,13 @@ from app.schemas.workflow import (
     RejectPayload,
     SubmitPayload,
     SubmitResponse,
+    PackageFileUploadResponse,
     WorkflowQueueItem,
     WorkflowStateResponse,
     WorkflowStatsResponse,
 )
 from app.services import package_workflow as wf
-from app.services.package_file_storage import file_revision, rebuild_job_zip_for_id
+from app.services.package_file_storage import file_revision, rebuild_job_zip_for_id, replace_package_file_bytes
 from app.services.package_file_onlyoffice import (
     build_package_file_editor_config,
     content_type_for_filename,
@@ -324,6 +326,62 @@ async def package_file_onlyoffice(
             "Content-Disposition": f'inline; filename="{filename}"',
             "Cache-Control": "no-store, no-cache, must-revalidate",
         },
+    )
+
+
+_MAX_CORRECTION_UPLOAD_BYTES = 50 * 1024 * 1024
+
+
+@router.post("/{job_id}/files/{template_code:path}/upload", response_model=PackageFileUploadResponse)
+async def package_file_upload_correction(
+    job_id: UUID,
+    template_code: str,
+    file: UploadFile = File(...),
+    user: AuthenticatedUser = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> PackageFileUploadResponse:
+    settings = get_settings()
+    job = await wf._get_job_row(db, job_id)
+    if job["status"] != "completed":
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Paquet non généré")
+    wf.assert_package_editable(job, user)
+    resolved_code = await wf.resolve_template_code(db, job_id, template_code)
+    await wf.assert_file_correction_upload_allowed(db, job, resolved_code)
+    _, expected_filename = resolve_package_file(job, resolved_code)
+
+    if not file.filename:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Nom de fichier requis.")
+
+    expected_ext = os.path.splitext(expected_filename)[1].lower()
+    upload_ext = os.path.splitext(file.filename)[1].lower()
+    if not upload_ext or upload_ext != expected_ext:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Extension attendue : {expected_ext or 'inconnue'}",
+        )
+
+    raw = await file.read()
+    if not raw:
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Fichier vide.")
+    if len(raw) > _MAX_CORRECTION_UPLOAD_BYTES:
+        raise HTTPException(
+            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            detail="Fichier trop volumineux (max 50 Mo).",
+        )
+
+    trace = await replace_package_file_bytes(
+        db,
+        settings,
+        job,
+        resolved_code,
+        raw,
+        rebuild_zip=True,
+    )
+    revision = file_revision(trace, resolved_code)
+    return PackageFileUploadResponse(
+        template_code=resolved_code,
+        filename=expected_filename,
+        revision=revision,
     )
 
 
