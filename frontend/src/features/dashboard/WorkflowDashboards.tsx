@@ -4,6 +4,7 @@ import { Link } from "react-router";
 import Button from "../../components/ui/button/Button";
 import EventStatCard from "../events/EventStatCard";
 import RecentGenerationsPanel from "./RecentGenerationsPanel";
+import RecentWorkflowHistoryPanel from "./RecentWorkflowHistoryPanel";
 import { useTipAuth } from "../../context/TipAuthContext";
 import { fetchWorkflowStats } from "../../api/workflow";
 import { getApiToken } from "../../lib/clerkToken";
@@ -160,9 +161,19 @@ export function DashboardControleProcedure() {
           hint={t("dashboard.metricHintOverdue")}
         />
       </div>
-      <Link to="/workflow/controle">
-        <Button size="sm">{t("dashboard.openControleQueue")}</Button>
-      </Link>
+      <div className="mb-6">
+        <RecentWorkflowHistoryPanel role="controle" limit={8} />
+      </div>
+      <div className="flex flex-wrap gap-3">
+        <Link to="/workflow/controle">
+          <Button size="sm">{t("dashboard.openControleQueue")}</Button>
+        </Link>
+        <Link to="/workflow/controle?scope=history">
+          <Button size="sm" variant="outline">
+            {t("dashboard.viewAllHistory")}
+          </Button>
+        </Link>
+      </div>
     </>
   );
 }

@@ -25,7 +25,8 @@ export default function WorkflowControlePage() {
   const [queue, setQueue] = useState<WorkflowQueueItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [queueScope, setQueueScope] = useState<"pending" | "history">("pending");
+  const initialScope = searchParams.get("scope") === "history" ? "history" : "pending";
+  const [queueScope, setQueueScope] = useState<"pending" | "history">(initialScope);
 
   const loadQueue = useCallback(async () => {
     setLoading(true);
@@ -44,6 +45,10 @@ export default function WorkflowControlePage() {
   useEffect(() => {
     void loadQueue();
   }, [loadQueue]);
+
+  useEffect(() => {
+    setQueueScope(searchParams.get("scope") === "history" ? "history" : "pending");
+  }, [searchParams]);
 
   const queuePagination = usePagination(queue, WORKFLOW_QUEUE_PAGE_SIZE, `controle-${queueScope}-${queue.length}`);
 

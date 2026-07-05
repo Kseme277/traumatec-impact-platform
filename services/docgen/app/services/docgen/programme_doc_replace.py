@@ -402,6 +402,103 @@ def _nom_event_blob(doc_bytes: bytes, placeholder: str) -> str | None:
         return None
 
 
+def _find_utf16_blob(doc_bytes: bytes, sample: str) -> str | None:
+    needle = sample.encode("utf-16-le")
+    idx = doc_bytes.find(needle)
+    if idx < 0:
+        return None
+    end = idx + len(needle)
+    while end + 1 < len(doc_bytes):
+        chunk = doc_bytes[end : end + 2]
+        if chunk in (b"\t\x00", b" \x00"):
+            end += 2
+            continue
+        if chunk == b"\r\x00":
+            end += 2
+            continue
+        break
+    try:
+        return doc_bytes[idx:end].decode("utf-16-le")
+    except UnicodeDecodeError:
+        return None
+
+
+def _contact_section_pairs(
+    context: dict[str, Any],
+    *,
+    doc_bytes: bytes | None = None,
+) -> list[tuple[str, str]]:
+    """Personne de contact (programme IEC .doc) : nom, courriel, téléphone."""
+    if not doc_bytes:
+        return []
+
+    responsible = (
+        context.get("responsible_formatted")
+        or context.get("responsible_person")
+        or context.get("responsable")
+        or context.get("national_responsible_name")
+        or ""
+    ).strip()
+    email = (context.get("responsible_email") or context.get("national_responsible_email") or "").strip()
+    phone = (context.get("responsible_phone") or context.get("national_responsible_phone") or "").strip()
+
+    pairs: list[tuple[str, str]] = []
+    seen: set[str] = set()
+
+    for sample in ("Prénom/ Nom", "Prénom Nom", "Prénom/Nom"):
+        blob = _find_utf16_blob(doc_bytes, sample)
+        if not blob or blob in seen or not responsible:
+            continue
+        fitted = _fit_line_blob(blob, responsible)
+        if fitted and fitted != blob:
+            seen.add(blob)
+            pairs.append((blob, fitted))
+
+    for sample in (
+        "Courriel : xxxxx@email.com",
+        "Courriel: xxxxx@email.com",
+        "Courriel : adresse@email",
+        "Courriel: adresse@email",
+        "Courriel: adresse@emailTéléphone: +11 111 111 111 111",
+    ):
+        blob = _find_utf16_blob(doc_bytes, sample)
+        if not blob or blob in seen or not email:
+            continue
+        from tip_common.contact_fields import format_contact_from_sample
+
+        fitted = format_contact_from_sample(blob, {**context, "responsible_email": email, "responsible_phone": phone})
+        if not fitted:
+            fitted = _fit_line_blob(blob, f"Courriel : {email}")
+        if fitted and len(fitted) <= len(blob):
+            fitted = fitted.ljust(len(blob))[: len(blob)]
+        if fitted and fitted != blob:
+            seen.add(blob)
+            pairs.append((blob, fitted))
+
+    for sample in (
+        "Téléphone : +xx xxx xxx xxx",
+        "Telephone : +xx xxx xxx xxx",
+        "Téléphone: +11 111 111 111 111",
+        "+xx xxx xxx xxx",
+    ):
+        blob = _find_utf16_blob(doc_bytes, sample)
+        if not blob or blob in seen or not phone:
+            continue
+        from tip_common.contact_fields import format_contact_from_sample, format_phone_sample
+
+        fitted = format_phone_sample(blob, context) or format_contact_from_sample(blob, context)
+        if not fitted:
+            prefix = "Téléphone : " if "Téléphone" in blob or "Telephone" in blob else ""
+            fitted = _fit_line_blob(blob, f"{prefix}{phone}".strip())
+        if fitted and len(fitted) <= len(blob):
+            fitted = fitted.ljust(len(blob))[: len(blob)]
+        if fitted and fitted != blob:
+            seen.add(blob)
+            pairs.append((blob, fitted))
+
+    return pairs
+
+
 def _nom_event_pairs(
     context: dict[str, Any],
     *,
@@ -418,7 +515,7 @@ def _nom_event_pairs(
         old_blob = _nom_event_blob(doc_bytes, placeholder)
         if not old_blob or old_blob == placeholder:
             continue
-        fitted = _fit_line_blob(old_blob, title)
+        fitted = _fit_line_blob(old_blob, _programme_title_for_width(title, len(old_blob)))
         if fitted and fitted != old_blob:
             pairs.append((old_blob, fitted))
     return pairs
@@ -436,6 +533,40 @@ def _pair_same_width(old: str, new: str) -> tuple[str, str] | None:
     return old, new
 
 
+def _truncate_at_word(text: str, max_len: int) -> str:
+    """Tronque à la dernière frontière de mot (évite « Informatio »)."""
+    if len(text) <= max_len:
+        return text
+    cut = text[:max_len]
+    if max_len < len(text) and text[max_len : max_len + 1].isalnum() and cut and cut[-1].isalnum():
+        last_space = cut.rfind(" ")
+        if last_space > max(8, max_len // 3):
+            cut = cut[:last_space]
+    return cut.rstrip()
+
+
+def _programme_title_for_width(title: str, budget: int) -> str:
+    """Titre lisible pour une zone à largeur fixe (programme page 1)."""
+    title = _normalize_for_doc_text(title.strip())
+    if len(title) <= budget:
+        return title
+    lowered = title.lower()
+    if "information" in lowered and "communication" in lowered and "iec" in lowered:
+        candidates = (
+            "Séminaire AO Alliance—IEC",
+            "Séminaire AO Alliance—Information, Éducation et Communication (IEC)",
+            "Séminaire AO Alliance—Information, Éducation et Communication",
+            "Séminaire AO Alliance—Information et Communication (IEC)",
+        )
+        for candidate in candidates:
+            if len(candidate) <= budget:
+                return candidate
+    short = _short_title_for_nom_event(title, budget)
+    if len(short) <= budget:
+        return short
+    return _truncate_at_word(title, budget)
+
+
 def _fit_title_blob(old_blob: str, title: str) -> str | None:
     """
     Répartit le titre sur les mêmes lignes (\\r) que le modèle Word.
@@ -445,19 +576,35 @@ def _fit_title_blob(old_blob: str, title: str) -> str | None:
         return None
     title = _normalize_for_doc_text(title)
     if "\r" not in old_blob:
-        return _fit_to_sample_width(old_blob, title)
+        fitted = _fit_to_sample_width(old_blob, _programme_title_for_width(title, len(old_blob)))
+        return fitted
 
     segments = old_blob.split("\r")
     widths = [len(segment) for segment in segments]
     budget = sum(widths)
-    chars = list(title[:budget])
-    while len(chars) < budget:
-        chars.append(" ")
+    title = _programme_title_for_width(title, budget)
+
+    words = title.split()
+    lines: list[list[str]] = [[] for _ in segments]
+    line_idx = 0
+    for word in words:
+        candidate = " ".join([*lines[line_idx], word]).strip()
+        if line_idx < len(widths) and len(candidate) <= widths[line_idx]:
+            lines[line_idx].append(word)
+            continue
+        if line_idx + 1 < len(lines):
+            line_idx += 1
+            lines[line_idx] = [word]
+        else:
+            lines[line_idx].append(word)
+
     rebuilt: list[str] = []
-    pos = 0
-    for width in widths:
-        rebuilt.append("".join(chars[pos : pos + width]))
-        pos += width
+    for index, width in enumerate(widths):
+        line = " ".join(lines[index]).strip()
+        if len(line) > width:
+            line = _truncate_at_word(line, width)
+        rebuilt.append(line.ljust(width)[:width])
+
     new_blob = "\r".join(rebuilt)
     if len(new_blob) != len(old_blob):
         return None
@@ -707,6 +854,7 @@ def _build_safe_pairs(
     pairs.extend(combined_pairs)
     pairs.extend(ville_pays_pairs)
     pairs.extend(_nom_event_pairs(context, doc_bytes=doc_bytes))
+    pairs.extend(_contact_section_pairs(context, doc_bytes=doc_bytes))
     pairs.extend(_teacher_line_pairs(context, doc_bytes=doc_bytes))
     pairs.extend(_welcome_seminar_title_pairs(context, doc_bytes=doc_bytes))
     pairs.extend(build_replacement_pairs(fields, context))
@@ -742,13 +890,16 @@ def _build_safe_pairs(
     extras: list[tuple[str, str]] = []
     if context.get("project_number"):
         extras.append(("TBD", str(context["project_number"])))
-    if email and len(email) <= len("adresse@email"):
-        extras.append(("adresse@email", email))
+    if email:
+        for old_email in ("adresse@email", "xxxxx@email.com"):
+            if len(email) <= len(old_email):
+                extras.append((old_email, email))
     if phone:
         extras.extend(
             [
                 (f"Téléphone: +11\xa0111\xa0111\xa0111 111", f"Téléphone: {phone}"),
                 ("+11 111 111 111 111", phone),
+                ("+xx xxx xxx xxx", phone),
             ]
         )
     signature_pair = (
