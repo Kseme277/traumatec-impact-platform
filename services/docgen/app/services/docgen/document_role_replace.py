@@ -412,10 +412,14 @@ _PROGRAMME_FIELD_SECTION_KINDS = frozenset(
 
 
 def _programme_field_eligible(field: dict[str, Any]) -> bool:
+    from tip_common.french_placeholders import is_french_brace_placeholder
+
     if str(field.get("strategy", "replace")).lower() == "keep":
         return False
     sample = str(field.get("sample", "")).strip()
     if not sample:
+        return False
+    if is_french_brace_placeholder(sample):
         return False
     kind = str(field.get("section_kind", "")).lower()
     if kind not in _PROGRAMME_FIELD_SECTION_KINDS:
@@ -479,6 +483,10 @@ def replace_line_for_role(
     for field in fields:
         sample = str(field.get("sample", "")).strip()
         if not sample:
+            continue
+        from tip_common.french_placeholders import is_french_brace_placeholder
+
+        if programme_like and is_french_brace_placeholder(sample):
             continue
         if strict or programme_like:
             if stripped != sample:

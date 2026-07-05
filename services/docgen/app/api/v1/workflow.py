@@ -1,7 +1,9 @@
 from uuid import UUID
 
+import asyncio
+
 from botocore.exceptions import ClientError
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from fastapi.responses import Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -22,7 +24,7 @@ from app.schemas.workflow import (
     WorkflowStatsResponse,
 )
 from app.services import package_workflow as wf
-from app.services.package_file_storage import file_revision, rebuild_job_zip_for_id
+from app.services.package_file_storage import file_revision
 from app.services.package_file_onlyoffice import (
     build_package_file_editor_config,
     content_type_for_filename,
@@ -265,8 +267,8 @@ async def package_file_onlyoffice_forcesave(
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Paquet non généré")
     wf.assert_package_editable(job, user)
     resolved_code = await wf.resolve_template_code(db, job_id, template_code)
-    revision = file_revision(job.get("template_versions_json"), resolved_code)
-    doc_key = document_key(job_id, resolved_code, revision)
+    revision_before = file_revision(job.get("template_versions_json"), resolved_code)
+    doc_key = document_key(job_id, resolved_code, revision_before)
     try:
         result = await trigger_onlyoffice_forcesave(settings, doc_key)
     except Exception as exc:
@@ -275,10 +277,28 @@ async def package_file_onlyoffice_forcesave(
             detail=f"Enregistrement ONLYOFFICE impossible : {exc}",
         ) from exc
     error_code = int(result.get("error", 3))
+    if error_code == 4:
+        return {
+            "error": error_code,
+            "revision": revision_before,
+            "no_changes": True,
+            "saved": True,
+        }
+    if error_code != 0:
+        return {"error": error_code, "revision": revision_before, "saved": False}
+
+    for _ in range(60):
+        await asyncio.sleep(1)
+        fresh = await wf._get_job_row(db, job_id)
+        revision_after = file_revision(fresh.get("template_versions_json"), resolved_code)
+        if revision_after > revision_before:
+            return {"error": 0, "revision": revision_after, "saved": True}
+
     return {
-        "error": error_code,
-        "revision": revision,
-        "no_changes": error_code == 4,
+        "error": 0,
+        "revision": revision_before,
+        "saved": False,
+        "timeout": True,
     }
 
 
@@ -307,7 +327,10 @@ async def package_file_onlyoffice(
     return Response(
         content=data,
         media_type=content_type_for_filename(filename),
-        headers={"Content-Disposition": f'inline; filename="{filename}"'},
+        headers={
+            "Content-Disposition": f'inline; filename="{filename}"',
+            "Cache-Control": "no-store, no-cache, must-revalidate",
+        },
     )
 
 
@@ -334,7 +357,10 @@ async def package_file_download(
     return Response(
         content=data,
         media_type=content_type_for_filename(filename),
-        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        headers={
+            "Content-Disposition": f'attachment; filename="{filename}"',
+            "Cache-Control": "no-store, no-cache, must-revalidate",
+        },
     )
 
 
@@ -343,7 +369,6 @@ async def package_file_onlyoffice_callback(
     job_id: UUID,
     template_code: str,
     body: dict,
-    background_tasks: BackgroundTasks,
     token: str | None = Query(default=None),
     db: AsyncSession = Depends(get_db),
 ) -> dict:
@@ -361,8 +386,6 @@ async def package_file_onlyoffice_callback(
     resolved_code = await wf.resolve_template_code(db, job_id, template_code)
     try:
         result = await handle_package_file_callback(db, settings, job, resolved_code, body)
-        if result.get("error") == 0 and body.get("status") in (2, 6):
-            background_tasks.add_task(rebuild_job_zip_for_id, job_id)
         return result
     except Exception as exc:
         from fastapi import HTTPException, status

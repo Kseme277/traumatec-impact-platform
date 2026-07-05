@@ -1,10 +1,13 @@
 #!/usr/bin/env python3
-"""Test complet des remplacements du programme 02 (texte + logo PNG)."""
+"""Test des remplacements programme 02 et listes de présence 07a/08a."""
 
 from __future__ import annotations
 
 import sys
+import zipfile
+from io import BytesIO
 from pathlib import Path
+from xml.etree import ElementTree as ET
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path[:0] = [
@@ -13,8 +16,11 @@ sys.path[:0] = [
 ]
 
 from app.services.docgen.programme_doc_replace import apply_programme_doc_replacements  # noqa: E402
+from app.services.docgen.template_render import build_event_context, render_package_document  # noqa: E402
+from app.services.docgen.docx_xml_replace import _paragraph_text  # noqa: E402
 
-TEMPLATE = ROOT / "Template/Paquet_Sem/Paquet_Sem IEC/02_Modèle_Programme_IEC.doc"
+W_NS = "http://schemas.openxmlformats.org/wordprocessingml/2006/main"
+TEMPLATE_DIR = ROOT / "Template/Paquet_Sem/Paquet_Sem IEC"
 
 CONTEXT = {
     "title": "Séminaire AO Alliance—Information, Éducation et Communication (IEC)",
@@ -29,23 +35,47 @@ EXPECTED_MIDDLE_SNIPPETS = (
     "des agents de santé communautaire",
 )
 EXPECTED_ENDING = "à Kinshasa, République démocratique du Congo."
+FULL_COUNTRY = "République démocratique du Congo"
+FULL_TITLE = CONTEXT["title_formatted"]
 
 
-def main() -> int:
-    if not TEMPLATE.is_file():
-        print(f"MISSING template: {TEMPLATE}")
-        return 1
+def _header_lines(docx_bytes: bytes) -> list[str]:
+    lines: list[str] = []
+    with zipfile.ZipFile(BytesIO(docx_bytes)) as zf:
+        for name in sorted(zf.namelist()):
+            if "header" in name and name.endswith(".xml"):
+                root = ET.fromstring(zf.read(name))
+                for paragraph in root.iter(f"{{{W_NS}}}p"):
+                    text = _paragraph_text(paragraph).strip()
+                    if text:
+                        lines.append(text)
+    return lines
 
-    doc = TEMPLATE.read_bytes()
+
+def test_programme_02() -> list[tuple[str, bool]]:
+    template = TEMPLATE_DIR / "02_Modèle_Programme_IEC.doc"
+    if not template.is_file():
+        return [("02 template exists", False)]
+
+    doc = template.read_bytes()
     png_before = doc.find(b"\x89PNG")
     out = apply_programme_doc_replacements(doc, CONTEXT)
     png_after = out.find(b"\x89PNG")
 
     checks: list[tuple[str, bool]] = [
-        ("PNG preserved", png_before >= 0 and png_before == png_after),
-        ("file size unchanged", len(out) == len(doc)),
-        ("no placeholder {{Nom de l", "{{Nom de l".encode("utf-16-le") not in out),
-        ("date filled", "31 d\xe9cembre 2026".encode("utf-16-le") in out),
+        ("02 PNG preserved", png_before >= 0 and png_before == png_after),
+        ("02 file size unchanged", len(out) == len(doc)),
+        ("02 no placeholder {{Nom de l", "{{Nom de l".encode("utf-16-le") not in out),
+        ("02 date filled", "31 d\xe9cembre 2026".encode("utf-16-le") in out),
+        (
+            "02 header full country",
+            "R\xe9publique d\xe9mocratique du Congo".encode("utf-16-le") in out
+            and b"R\xe9publique d\xe9m.\x00" not in out,
+        ),
+        (
+            "02 page-1 title complete",
+            "Information, \xc9ducation et Communication (IEC)".encode("utf-16-le") in out,
+        ),
     ]
 
     idx = out.find("Bienvenue au séminaire ".encode("utf-16-le"))
@@ -53,23 +83,66 @@ def main() -> int:
         chunk = out[idx : idx + 800].decode("utf-16-le")
         end = chunk.find("\r\r")
         welcome = chunk[:end] if end > 0 else chunk
-        checks.append(("welcome paragraph built", "Bienvenue au séminaire" in welcome))
+        checks.append(("02 welcome paragraph built", "Bienvenue au séminaire" in welcome))
         for snippet in EXPECTED_MIDDLE_SNIPPETS:
-            checks.append((f"welcome contains {snippet!r}", snippet in welcome))
-        checks.append((f"welcome ending {EXPECTED_ENDING!r}", EXPECTED_ENDING in welcome))
-        checks.append(("no Prob. abbreviation", "Prob." not in welcome))
-        checks.append(("communautaire not truncated to comm", "communautaire" in welcome))
+            checks.append((f"02 welcome contains {snippet!r}", snippet in welcome))
+        checks.append((f"02 welcome ending {EXPECTED_ENDING!r}", EXPECTED_ENDING in welcome))
+        checks.append(("02 no Prob. abbreviation", "Prob." not in welcome))
+        checks.append(("02 communautaire not truncated", "communautaire" in welcome))
     else:
-        welcome = None
-        checks.append(("welcome paragraph built", False))
+        checks.append(("02 welcome paragraph built", False))
+
+    return checks
+
+
+def test_presence(template_name: str, role: str) -> list[tuple[str, bool]]:
+    template = TEMPLATE_DIR / template_name
+    if not template.is_file():
+        return [(f"{template_name} exists", False)]
+
+    ctx = build_event_context({**CONTEXT, "package_duration_days": 1})
+    bad_fields = [
+        {
+            "sample": "{{Nom de L\u2019évenement}}",
+            "context_key": "city",
+            "strategy": "replace",
+            "section_kind": "placeholder",
+        },
+        {
+            "sample": "{{Ville}}, {{Pays}}  {{Date de l\u2019évenement}}",
+            "context_key": "city",
+            "strategy": "replace",
+            "section_kind": "date_lieu_combined",
+        },
+    ]
+    out = render_package_document(
+        template.read_bytes(),
+        suffix=".docx",
+        context=ctx,
+        replacement_fields=bad_fields,
+        document_role=role,
+        day_index=1,
+    )
+    lines = _header_lines(out)
+    title_lines = [line for line in lines if line.startswith("Séminaire") or "Information" in line]
+    lieu_lines = [line for line in lines if FULL_COUNTRY in line or "Kinshasa" in line]
+
+    return [
+        (f"{template_name} title not city", not any(line == ctx["city"] for line in title_lines)),
+        (f"{template_name} full title", any(FULL_TITLE in line for line in lines)),
+        (f"{template_name} full country", any(FULL_COUNTRY in line for line in lieu_lines)),
+        (f"{template_name} no double city header", lines.count(ctx["city"]) < 2),
+    ]
+
+
+def main() -> int:
+    checks = test_programme_02()
+    checks.extend(test_presence("08a_Liste de présence Participants_Jour 1.docx", "presence_participants"))
+    checks.extend(test_presence("07a_ Liste de présence d' Enseignants_Jour 1.docx", "presence_enseignants"))
 
     failed = [name for name, ok in checks if not ok]
     for name, ok in checks:
         print(f"{'OK' if ok else 'FAIL'}: {name}")
-
-    if welcome:
-        print("\nWelcome paragraph:")
-        print(repr(welcome))
 
     if failed:
         print(f"\n{len(failed)} check(s) failed.")

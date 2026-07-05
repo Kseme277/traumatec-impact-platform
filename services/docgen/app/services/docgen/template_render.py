@@ -362,7 +362,10 @@ def render_package_document(
     rendered = apply_highlight_replacements_docx(
         rendered, context, replacement_fields=highlight_fields
     )
-    if is_programme_like:
+    if is_programme_like and document_role not in {
+        "presence_enseignants",
+        "presence_participants",
+    }:
         rendered = apply_exhaustive_pairs_docx(rendered, exhaustive)
     if document_role in strict_roles or is_programme_like:
         if document_role == "programme" and context.get("responsible_photo_bytes"):

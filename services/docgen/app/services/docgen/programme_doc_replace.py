@@ -30,6 +30,7 @@ _DOC_APOSTROPHE_CHARS = ("'", "\u2019", "\u2018", "`", _DOC_APOSTROPHE)
 
 # Ligne entête page 1 : {{Date}}       {{Ville}}, {{Pays}} (49 car. dans le modèle IEC)
 _COMBINED_HEADER_SPACING = "       "
+_COMBINED_HEADER_SUFFIX = "\r\r\x01\r"
 _COMBINED_HEADER_SKIP = frozenset(
     {
         "{{Pays}}",
@@ -173,16 +174,10 @@ def _build_combined_header_replacement(
     date_val = _normalize_for_doc_text(date_val.strip())
     city = _normalize_for_doc_text(city.strip())
     tail_budget = len(template) - date_width
-    country_budget = max(4, tail_budget - len(city) - 3)
     country_display = _normalize_for_doc_text(
-        country_doc_display(country, max_len=country_budget)
+        country_doc_display(country, max_len=0)
     )
     content = f"{city}, {country_display}"
-    if len(content) > tail_budget - 1:
-        country_display = _normalize_for_doc_text(
-            country_doc_display(country, max_len=max(3, country_budget - 2))
-        )
-        content = f"{city}, {country_display}"
     if len(content) > tail_budget - 1:
         content = _truncate_at_word(content, tail_budget - 1)
     spacing = tail_budget - len(content)
@@ -197,6 +192,132 @@ def _build_combined_header_replacement(
     date_part = date_val.ljust(date_width)[:date_width]
 
     return f"{date_part}{' ' * spacing}{content}"
+
+
+def _combined_header_expandable_region(
+    doc_bytes: bytes,
+    template: str,
+) -> tuple[str, int, int] | None:
+    """Zone entête page 1 (nulls + contrôles + ligne date/lieu) à largeur binaire fixe."""
+    needle = template.encode("utf-16-le")
+    idx = doc_bytes.find(needle)
+    if idx < 0:
+        return None
+    suffix_b = _COMBINED_HEADER_SUFFIX.encode("utf-16-le")
+    end = idx + len(needle)
+    if doc_bytes[end : end + len(suffix_b)] != suffix_b:
+        return None
+    end += len(suffix_b)
+    start = idx
+    while start >= 2:
+        pair = doc_bytes[start - 2 : start]
+        if pair == b"\x00\x00":
+            start -= 2
+            continue
+        try:
+            ch = pair.decode("utf-16-le")
+        except UnicodeDecodeError:
+            break
+        if ch in "\r\t\x08\x01":
+            start -= 2
+            continue
+        break
+    try:
+        region = doc_bytes[start:end].decode("utf-16-le")
+    except UnicodeDecodeError:
+        return None
+    if len(region) < len(template) + len(_COMBINED_HEADER_SUFFIX) + 8:
+        return None
+    return region, start, end
+
+
+def _build_combined_header_expandable_region(
+    old_region: str,
+    *,
+    template: str,
+    date_val: str,
+    city: str,
+    country: str,
+) -> str | None:
+    """Remplit date + ville + pays complets en consommant le padding binaire de la zone."""
+    from tip_common.location_fields import country_doc_display
+
+    if not old_region.endswith(_COMBINED_HEADER_SUFFIX):
+        return None
+    body = old_region[: -len(_COMBINED_HEADER_SUFFIX)]
+    idx = body.rfind(template)
+    if idx < 0:
+        return None
+    before = body[:idx]
+    controls = before.lstrip("\x00")
+    null_count = len(before) - len(controls)
+    line_budget = null_count + len(template)
+    if line_budget < len(template):
+        return None
+
+    date_val = _normalize_for_doc_text(date_val.strip())
+    city = _normalize_for_doc_text(city.strip())
+    country_fr = _normalize_for_doc_text(country_doc_display(country, max_len=0))
+    location = f"{city}, {country_fr}"
+    spacing = max(1, line_budget - len(date_val) - len(location))
+    line = f"{date_val}{' ' * spacing}{location}"
+    if len(line) > line_budget:
+        line = _truncate_at_word(line, line_budget)
+    line = line.ljust(line_budget)[:line_budget]
+    remaining_nulls = line_budget - len(line)
+    new_body = ("\x00" * remaining_nulls) + controls + line
+    if len(new_body) != len(body):
+        return None
+    return new_body + _COMBINED_HEADER_SUFFIX
+
+
+def _combined_header_expandable_pairs(
+    context: dict[str, Any],
+    *,
+    doc_bytes: bytes | None = None,
+) -> list[tuple[str, str]]:
+    if not doc_bytes:
+        return []
+
+    from tip_common.location_fields import resolve_lieu_display
+
+    date_val = str(
+        context.get("date_single_formatted")
+        or context.get("start_date_long")
+        or context.get("start_date")
+        or ""
+    ).strip()
+    city = str(context.get("city") or context.get("ville") or "").strip()
+    country = str(context.get("country") or context.get("pays") or "").strip()
+    if not city or not country:
+        lieu = resolve_lieu_display(context)
+        if ", " in lieu:
+            city_part, country_part = lieu.split(", ", 1)
+            city = city or city_part.strip()
+            country = country or country_part.strip()
+    if not date_val or not city or not country:
+        return []
+
+    pairs: list[tuple[str, str]] = []
+    seen: set[str] = set()
+    for template in _combined_header_templates():
+        found = _combined_header_expandable_region(doc_bytes, template)
+        if not found:
+            continue
+        old_region, _, _ = found
+        if old_region in seen:
+            continue
+        new_region = _build_combined_header_expandable_region(
+            old_region,
+            template=template,
+            date_val=date_val,
+            city=city,
+            country=country,
+        )
+        if new_region and new_region != old_region:
+            seen.add(old_region)
+            pairs.append((old_region, new_region))
+    return pairs
 
 
 def _combined_header_pairs(
@@ -1008,16 +1129,12 @@ def _build_welcome_lieu_replacement(city: str, country: str, template: str) -> s
 
     city = _normalize_for_doc_text(city.strip())
     location_template = "{{Ville}}, {{Pays}}"
-    country_budget = max(4, len(location_template) - len(city) - 2)
     country_display = _normalize_for_doc_text(
-        country_doc_display(country, max_len=country_budget)
+        country_doc_display(country, max_len=0)
     )
     location = f"{city}, {country_display}"
     if len(location) > len(location_template):
-        country_display = _normalize_for_doc_text(
-            country_doc_display(country, max_len=max(3, country_budget - 1))
-        )
-        location = f"{city}, {country_display}"
+        location = _truncate_at_word(location, len(location_template))
     location = location.ljust(len(location_template))[: len(location_template)]
     value = f"à {location}."
     if len(value) < len(marker):
@@ -1064,16 +1181,10 @@ def _build_ville_pays_replacement(city: str, country: str) -> str | None:
 
     template = "{{Ville}}, {{Pays}}"
     city = _normalize_for_doc_text(city.strip())
-    country_budget = max(4, len(template) - len(city) - 2)
     country_display = _normalize_for_doc_text(
-        country_doc_display(country, max_len=country_budget)
+        country_doc_display(country, max_len=0)
     )
     value = f"{city}, {country_display}"
-    if len(value) > len(template):
-        country_display = _normalize_for_doc_text(
-            country_doc_display(country, max_len=max(3, country_budget - 1))
-        )
-        value = f"{city}, {country_display}"
     if len(value) > len(template):
         value = _truncate_at_word(value, len(template))
     return value.ljust(len(template))[: len(template)]
@@ -1162,6 +1273,19 @@ def _legacy_template_pairs(
     return pairs
 
 
+def _build_expandable_pairs(
+    context: dict[str, Any],
+    *,
+    doc_bytes: bytes | None = None,
+) -> list[tuple[str, str]]:
+    if not doc_bytes:
+        return []
+    pairs: list[tuple[str, str]] = []
+    pairs.extend(_combined_header_expandable_pairs(context, doc_bytes=doc_bytes))
+    pairs.extend(_nom_event_expandable_pairs(context, doc_bytes=doc_bytes))
+    return pairs
+
+
 def _build_safe_pairs(
     context: dict[str, Any],
     replacement_fields: list[dict[str, Any]] | None,
@@ -1174,7 +1298,11 @@ def _build_safe_pairs(
 
     fields = _programme_fields_for_role(replacement_fields)
     pairs: list[tuple[str, str]] = _legacy_template_pairs(context, doc_bytes=doc_bytes)
-    combined_pairs = _combined_header_pairs(context, doc_bytes=doc_bytes)
+    combined_expandable = _combined_header_expandable_pairs(context, doc_bytes=doc_bytes)
+    nom_expandable = _nom_event_expandable_pairs(context, doc_bytes=doc_bytes)
+    combined_pairs = (
+        [] if combined_expandable else _combined_header_pairs(context, doc_bytes=doc_bytes)
+    )
     ville_pays_pairs = _ville_pays_pairs(context, doc_bytes=doc_bytes)
     welcome_ville_pays_pairs = _welcome_ville_pays_pairs(context, doc_bytes=doc_bytes)
     welcome_paragraph_pairs = _welcome_paragraph_pairs(context, doc_bytes=doc_bytes)
@@ -1182,7 +1310,8 @@ def _build_safe_pairs(
     pairs.extend(ville_pays_pairs)
     if not welcome_paragraph_pairs:
         pairs.extend(welcome_ville_pays_pairs)
-    pairs.extend(_nom_event_pairs(context, doc_bytes=doc_bytes))
+    if not nom_expandable:
+        pairs.extend(_nom_event_pairs(context, doc_bytes=doc_bytes))
     pairs.extend(welcome_paragraph_pairs)
     if not welcome_paragraph_pairs:
         pairs.extend(_welcome_seminar_title_pairs(context, doc_bytes=doc_bytes))
@@ -1299,13 +1428,26 @@ def apply_programme_doc_replacements(
     *,
     replacement_fields: list[dict[str, Any]] | None = None,
 ) -> bytes:
-    pairs = _build_safe_pairs(context, replacement_fields, doc_bytes=doc_bytes)
-    if not pairs:
-        return doc_bytes
-
     from app.services.docgen.doc_binary_replace import replace_fixed_width_in_binary
 
     result = doc_bytes
+    expandable = _build_expandable_pairs(context, doc_bytes=doc_bytes)
+    expanded = 0
+    for old, new in expandable:
+        new = _normalize_for_doc_text(new)
+        if len(new) != len(old):
+            continue
+        result, count = replace_fixed_width_in_binary(
+            result,
+            old,
+            new,
+            encodings=("utf-16-le", "utf-8", "latin-1"),
+        )
+        expanded += count
+
+    pairs = _build_safe_pairs(context, replacement_fields, doc_bytes=result)
+    if not pairs and not expanded:
+        return doc_bytes
     replaced = 0
     for old, new, max_count in pairs:
         new = _normalize_for_doc_text(new)
@@ -1320,6 +1462,6 @@ def apply_programme_doc_replacements(
         )
         replaced += count
 
-    if replaced:
-        logger.info("Programme .doc : %s remplacement(s) sûr(s)", replaced)
-    return result
+    if replaced or expanded:
+        logger.info("Programme .doc : %s remplacement(s) sûr(s)", replaced + expanded)
+    return result if replaced or expanded else doc_bytes

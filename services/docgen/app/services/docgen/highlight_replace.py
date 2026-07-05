@@ -106,6 +106,10 @@ def _replacement_from_field_hints(
         sample = str(field.get("sample", "")).strip()
         if not sample:
             continue
+        from tip_common.french_placeholders import is_french_brace_placeholder
+
+        if is_french_brace_placeholder(sample):
+            continue
         key = str(field.get("context_key", "")).strip()
         kind = str(field.get("section_kind", "")).lower()
         if key == "title" or kind in {"document_title", "event_header"}:

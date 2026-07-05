@@ -206,7 +206,13 @@ export function forceSavePackageFile(
   jobId: string,
   templateCode: string,
 ) {
-  return apiFetch<{ error: number; revision: number; no_changes?: boolean }>(
+  return apiFetch<{
+    error: number;
+    revision: number;
+    no_changes?: boolean;
+    saved?: boolean;
+    timeout?: boolean;
+  }>(
     `/v1/generations/${jobId}/files/${encodeURIComponent(templateCode)}/onlyoffice-forcesave`,
     token,
     { method: "POST" },

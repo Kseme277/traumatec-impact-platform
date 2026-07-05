@@ -55,6 +55,27 @@ def _responsable_org_keys() -> list[str]:
     return keys
 
 
+def is_french_brace_placeholder(sample: str) -> bool:
+    """True si le texte est un placeholder {{…}} des modèles AO (pas une valeur réelle)."""
+    text = (sample or "").strip()
+    if "{{" not in text or "}}" not in text:
+        return False
+    lowered = text.lower()
+    markers = (
+        "ville",
+        "pays",
+        "nom de",
+        "date de",
+        "responsable",
+        "email",
+        "project number",
+        "cost center",
+        "date du jour",
+        "ens.",
+    )
+    return any(marker in lowered for marker in markers)
+
+
 def _append_pairs(
     pairs: list[tuple[str, str]],
     keys: list[str],
@@ -119,8 +140,10 @@ def build_french_placeholder_pairs(context: dict[str, Any]) -> list[tuple[str, s
     city = str(context.get("city") or context.get("ville") or "").strip()
     country = str(context.get("country") or context.get("pays") or "").strip()
     date_event = str(
-        context.get("date_range_formatted")
+        context.get("date_du_jour")
+        or context.get("date_range_formatted")
         or context.get("date_single_formatted")
+        or context.get("start_date_long")
         or context.get("start_date")
         or ""
     ).strip()

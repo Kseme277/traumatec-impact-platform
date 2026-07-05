@@ -22,7 +22,13 @@ interface OnlyOfficeEditorProps {
   /** Interroge le serveur jusqu'à détection d'une nouvelle révision (forcesave). */
   pollFileRevision?: () => Promise<number>;
   /** Enregistrement via command service backend (fiable pour les .doc). */
-  onBackendForceSave?: () => Promise<{ no_changes?: boolean; error?: number }>;
+  onBackendForceSave?: () => Promise<{
+    no_changes?: boolean;
+    error?: number;
+    saved?: boolean;
+    timeout?: boolean;
+    revision?: number;
+  }>;
 }
 
 interface DocEditorInstance {
@@ -155,7 +161,6 @@ export default function OnlyOfficeEditor({
       setSavePending(false);
       if (success) {
         setIsDirty(false);
-        fileRevisionRef.current += 1;
         onDocumentSavedRef.current?.();
       } else {
         setError(t("documents.saveFailed"));
@@ -266,6 +271,17 @@ export default function OnlyOfficeEditor({
             finishSave(true);
             return;
           }
+          if (result.saved) {
+            if (typeof result.revision === "number") {
+              fileRevisionRef.current = result.revision;
+            }
+            finishSave(true);
+            return;
+          }
+          if (result.timeout) {
+            finishSave(false);
+            return;
+          }
           if (result.error !== undefined && result.error !== 0) {
             finishSave(false);
             return;
@@ -365,9 +381,6 @@ export default function OnlyOfficeEditor({
               setIsDirty(dirty);
 
               if (manualSave) {
-                if (savePendingRef.current && !dirty) {
-                  finishSave(true);
-                }
                 return;
               }
 

@@ -203,11 +203,18 @@ def country_short_display(country: str, *, max_len: int = 8) -> str:
     return country_doc_display(country, max_len=max_len)
 
 
-def country_doc_display(country: str, *, max_len: int = 8) -> str:
-    """Libellé pays pour documents (priorité au nom français lisible)."""
+def country_doc_display(country: str, *, max_len: int = 0) -> str:
+    """Libellé pays pour documents (priorité au nom français lisible).
+
+    ``max_len <= 0`` : nom complet sans troncature.
+    """
     text = (country or "").strip()
-    if not text or max_len <= 0:
+    if not text:
         return ""
+    if max_len <= 0:
+        from tip_common.title_formatter import _country_to_fr
+
+        return (_country_to_fr(text) or text).strip()
 
     from tip_common.title_formatter import _country_to_fr
 

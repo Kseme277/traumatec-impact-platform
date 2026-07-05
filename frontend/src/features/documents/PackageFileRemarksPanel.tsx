@@ -90,6 +90,15 @@ export default function PackageFileRemarksPanel({
   }
 
   async function handleSaved() {
+    if (jobId && activeCode) {
+      try {
+        const token = await getApiToken(getToken);
+        const config = await fetchPackageFileEditorConfig(token, jobId, activeCode, "edit");
+        setEditorConfig(config);
+      } catch {
+        /* conserver l'éditeur courant si le rechargement échoue */
+      }
+    }
     void showSuccess(t("documents.packageFileSaved"), t("documents.packageFileSavedDesc"));
   }
 

@@ -41,7 +41,6 @@ CONTEXT_KEYS = (
 )
 
 _RULE_PATTERNS: list[tuple[str, str, str]] = [
-    (r"\bTBD\b", "city", "replace"),
     (r"\bZurich\b", "city", "replace"),
     (r"Titre de l[’']événement\s*:", "title", "replace"),
     (r"Date\s*:.*Lieu de l[’']événement\s*:", "date_range", "replace"),
@@ -76,7 +75,7 @@ _RULE_PATTERNS: list[tuple[str, str, str]] = [
     (r"\{\{\s*Nom du responsable\s*\}\}", "responsible_person", "replace"),
     (r"\{\{\s*Numéro du responsable\s*\}\}", "responsible_phone", "replace"),
     (rf"\{{\{{\s*Nom de l{APOSTROPHE}{EVENEMENT}\s*\}}\}}", "title", "replace"),
-    (rf"\{{\{{\s*Date de l{APOSTROPHE}{EVENEMENT}\s*\}}\}}", "start_date", "replace"),
+    (rf"\{{\{{\s*Date de l{APOSTROPHE}{EVENEMENT}\s*\}}\}}", "date_du_jour", "replace"),
 ]
 
 
@@ -604,6 +603,11 @@ def build_replacement_pairs(
             continue
         sample = str(field.get("sample", "")).strip()
         if not sample or sample in seen or _is_static_label_sample(sample):
+            continue
+        from tip_common.french_placeholders import is_french_brace_placeholder
+
+        key = str(field.get("context_key", "")).strip()
+        if is_french_brace_placeholder(sample) and key in {"city", "country", "lieu", "region"}:
             continue
         value = format_value_for_field(field, context) or context_value_for_key(
             str(field.get("context_key", "")), context
