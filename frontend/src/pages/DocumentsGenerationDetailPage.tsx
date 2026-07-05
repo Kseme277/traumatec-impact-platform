@@ -222,8 +222,6 @@ export default function DocumentsGenerationDetailPage() {
     } else {
       setThemeDraft("");
     }
-
-    setActiveJob(null);
   }, [
     selectedEventId,
     selectedEvent?.preparation_theme,
@@ -304,6 +302,10 @@ export default function DocumentsGenerationDetailPage() {
   const needsEventData = Boolean(selectedEvent && selectedIsGeneratable && readinessIssues.length > 0);
   const generationLocked = isEventGenerationLocked(history);
   const latestPackageWorkflow = latestWorkflowStatus(history);
+  const remarksJob = useMemo(() => getRemarksJob(history), [history]);
+  const workflowJob = remarksJob ?? activeJob ?? getLatestCompletedJob(history);
+  const canCorrectFiles = Boolean(workflowJob && canEditPackageFiles(workflowJob));
+  const canSubmitForReview = Boolean(workflowJob && canSubmitPackageWorkflow(workflowJob));
   const canGenerate = canStartPackageGeneration(history);
   const workflowInReview = isWorkflowInReview(latestPackageWorkflow);
   const workflowRejected = isWorkflowRejected(latestPackageWorkflow);
@@ -842,14 +844,14 @@ export default function DocumentsGenerationDetailPage() {
                 files={fileReviews}
                 workflowStatus={latestPackageWorkflow}
                 centralRemark={centralRemark}
-                jobId={activeJob?.id ?? null}
-                canEdit={Boolean(activeJob && canEditPackageFiles(activeJob))}
+                jobId={workflowJob?.id ?? null}
+                canEdit={canCorrectFiles}
               />
             )}
           </ComponentCard>
         ) : null}
 
-        {activeJob && canSubmitWorkflow(activeJob) ? (
+        {workflowJob && canSubmitForReview ? (
           <ComponentCard title={t("workflow.submitForReview")} desc={t("workflow.selectReviewer")}>
             <div className="flex w-full flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
               <div className="min-w-[220px] flex-1">
@@ -863,7 +865,7 @@ export default function DocumentsGenerationDetailPage() {
                   onChange={setSubmitReviewerId}
                 />
               </div>
-              <Button size="sm" onClick={() => void handleSubmit(activeJob)}>
+              <Button size="sm" onClick={() => void handleSubmit(workflowJob)}>
                 {t("workflow.submitForReview")}
               </Button>
             </div>

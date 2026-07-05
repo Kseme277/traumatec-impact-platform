@@ -12,6 +12,7 @@ import { useTranslation } from "../../i18n/useTranslation";
 import { fetchWorkflowState, type WorkflowState } from "../../api/workflow";
 import { getApiToken } from "../../lib/clerkToken";
 import { getCentralRejectComment } from "./workflowRemarks";
+import { canEditPackageFiles } from "./eventPackageLock";
 
 interface GenerationHistoryPanelProps {
   jobs: GenerationJob[];
@@ -188,6 +189,8 @@ export default function GenerationHistoryPanel({
                   files={remarksState.files}
                   workflowStatus={job.workflow_status}
                   centralRemark={centralRemark}
+                  jobId={job.id}
+                  canEdit={job.status === "completed" && canEditPackageFiles(job)}
                 />
               </div>
             ) : null}
