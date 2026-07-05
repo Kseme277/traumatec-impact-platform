@@ -134,27 +134,6 @@ async def start_generation(
             ),
         )
 
-    approved = await db.execute(
-        text(
-            """
-            SELECT id FROM docgen.generation_jobs
-            WHERE event_id = :event_id
-              AND status = 'completed'
-              AND workflow_status = 'approved'
-            LIMIT 1
-            """
-        ),
-        {"event_id": str(event_id)},
-    )
-    if approved.scalar_one_or_none():
-        raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail=(
-                "Un paquet validé existe déjà pour cet événement. "
-                "Une nouvelle génération n'est pas autorisée."
-            ),
-        )
-
     latest_wf = await db.execute(
         text(
             """
@@ -170,6 +149,14 @@ async def start_generation(
     latest_row = latest_wf.one_or_none()
     if latest_row:
         wf = str(latest_row.workflow_status or "generated")
+        if wf == "approved":
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=(
+                    "Un paquet validé existe déjà pour cet événement. "
+                    "Une nouvelle génération n'est pas autorisée."
+                ),
+            )
         if wf in {
             "submitted",
             "under_procedure_review",
@@ -181,11 +168,6 @@ async def start_generation(
                     "Génération impossible : le paquet est en cours de validation. "
                     "Attendez la fin du contrôle ou de la validation finale."
                 ),
-            )
-        if wf != "generated":
-            raise HTTPException(
-                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail="Génération impossible pour l'état actuel du paquet.",
             )
 
     job = GenerationJob(

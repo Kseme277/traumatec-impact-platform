@@ -25,6 +25,7 @@ from app.services.package_file_onlyoffice import (
     build_package_file_editor_config,
     content_type_for_filename,
     download_package_file_bytes,
+    handle_package_file_callback,
     onlyoffice_document_meta,
     resolve_package_file,
     verify_access_token,
@@ -134,6 +135,7 @@ async def review_file(
 async def package_file_editor_config(
     job_id: UUID,
     template_code: str,
+    mode: str = Query(default="view", pattern="^(view|edit)$"),
     user: AuthenticatedUser = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> CertificateEditorConfigResponse:
@@ -141,7 +143,13 @@ async def package_file_editor_config(
     job = await wf._get_job_row(db, job_id)
     if job["status"] != "completed":
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Paquet non généré")
-    storage_key, filename = resolve_package_file(job, template_code)
+    if mode == "edit":
+        wf.assert_package_editable(job, user)
+    else:
+        from tip_common.event_scope import assert_event_access
+
+        assert_event_access(user, job.get("organizer_responsible_user_id"))
+    _, filename = resolve_package_file(job, template_code)
     if onlyoffice_document_meta(filename) is None:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
@@ -154,6 +162,8 @@ async def package_file_editor_config(
         filename=filename,
         user_id=str(user.id),
         user_name=f"{user.prenom} {user.nom}".strip(),
+        mode=mode,
+        trace=job.get("template_versions_json"),
     )
     return CertificateEditorConfigResponse(
         document_server_url=payload["document_server_url"],
@@ -213,6 +223,36 @@ async def package_file_download(
         media_type=content_type_for_filename(filename),
         headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
+
+
+@router.post("/{job_id}/files/{template_code:path}/onlyoffice-callback")
+async def package_file_onlyoffice_callback(
+    job_id: UUID,
+    template_code: str,
+    body: dict,
+    token: str | None = Query(default=None),
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    settings = get_settings()
+    if not verify_access_token(settings, job_id, template_code, "callback", token):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Jeton ONLYOFFICE invalide")
+
+    job = await wf._get_job_row(db, job_id)
+    if job["status"] != "completed":
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Paquet non généré")
+    wf_status = job.get("workflow_status") or "generated"
+    if wf_status not in wf.EDITABLE_PACKAGE:
+        return {"error": 1}
+
+    try:
+        return await handle_package_file_callback(db, settings, job, template_code, body)
+    except Exception as exc:
+        from fastapi import HTTPException, status
+
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Enregistrement ONLYOFFICE impossible : {exc}",
+        ) from exc
 
 
 @router.post("/{job_id}/procedure/complete", response_model=WorkflowStateResponse)

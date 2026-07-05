@@ -1,19 +1,25 @@
-"""ONLYOFFICE — aperçu des fichiers d'un paquet documentaire (lecture seule)."""
+"""ONLYOFFICE — aperçu et édition des fichiers d'un paquet documentaire."""
 
 from __future__ import annotations
 
 import hashlib
 import hmac
+import logging
 import time
 from pathlib import Path
 from urllib.parse import quote
 from uuid import UUID
 
+import httpx
 from fastapi import HTTPException, status
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings
+from app.services.package_file_storage import file_revision, replace_package_file_bytes
 from app.services.package_workflow import trace_package_files
 from tip_common.storage import get_object_storage
+
+logger = logging.getLogger(__name__)
 
 CONTENT_TYPES = {
     ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
@@ -24,6 +30,9 @@ CONTENT_TYPES = {
     ".pdf": "application/pdf",
     ".txt": "text/plain; charset=utf-8",
 }
+
+DOCX_FALLBACK = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
+XLSX_FALLBACK = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 
 
 def _sign(secret: str, job_id: UUID, template_code: str, purpose: str, expires: int) -> str:
@@ -78,13 +87,9 @@ def onlyoffice_document_meta(filename: str) -> tuple[str, str, str] | None:
     return None
 
 
-DOCX_FALLBACK = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
-XLSX_FALLBACK = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-
-
-def document_key(job_id: UUID, template_code: str) -> str:
+def document_key(job_id: UUID, template_code: str, revision: int = 0) -> str:
     code_hash = hashlib.sha256(template_code.encode()).hexdigest()[:12]
-    return f"pkg_{job_id}_{code_hash}"
+    return f"pkg_{job_id}_{code_hash}_{revision}"
 
 
 def build_package_file_editor_config(
@@ -95,12 +100,14 @@ def build_package_file_editor_config(
     filename: str,
     user_id: str,
     user_name: str,
+    mode: str = "view",
+    trace: dict | None = None,
 ) -> dict:
     meta = onlyoffice_document_meta(filename)
     if meta is None:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-            detail="Ce type de fichier ne peut pas être prévisualisé dans ONLYOFFICE",
+            detail="Ce type de fichier ne peut pas être ouvert dans ONLYOFFICE",
         )
     file_type, document_type, _ = meta
     file_token = create_access_token(settings, job_id, template_code, "file")
@@ -111,22 +118,37 @@ def build_package_file_editor_config(
         f"{base}{prefix}/generations/{job_id}/files/{encoded}/onlyoffice-file"
         f"?token={file_token}"
     )
+
+    revision = file_revision(trace, template_code)
+    editor_mode = "edit" if mode == "edit" else "view"
+    editor_config: dict = {
+        "mode": editor_mode,
+        "lang": "fr",
+        "user": {"id": user_id, "name": user_name},
+        "customization": {
+            "forcesave": mode == "edit",
+            "compactToolbar": mode != "edit",
+        },
+    }
+
+    if mode == "edit":
+        callback_token = create_access_token(settings, job_id, template_code, "callback")
+        editor_config["callbackUrl"] = (
+            f"{base}{prefix}/generations/{job_id}/files/{encoded}/onlyoffice-callback"
+            f"?token={callback_token}"
+        )
+
     return {
         "document_server_url": settings.onlyoffice_public_url.rstrip("/"),
         "config": {
             "document": {
                 "fileType": file_type,
-                "key": document_key(job_id, template_code),
+                "key": document_key(job_id, template_code, revision),
                 "title": filename,
                 "url": file_url,
             },
             "documentType": document_type,
-            "editorConfig": {
-                "mode": "view",
-                "lang": "fr",
-                "user": {"id": user_id, "name": user_name},
-                "customization": {"compactToolbar": True},
-            },
+            "editorConfig": editor_config,
             "height": "100%",
             "width": "100%",
         },
@@ -141,3 +163,36 @@ def download_package_file_bytes(settings: Settings, storage_key: str) -> bytes:
 def content_type_for_filename(filename: str) -> str:
     ext = Path(filename).suffix.lower()
     return CONTENT_TYPES.get(ext, "application/octet-stream")
+
+
+async def handle_package_file_callback(
+    db: AsyncSession,
+    settings: Settings,
+    job: dict,
+    template_code: str,
+    body: dict,
+) -> dict:
+    status_code = body.get("status")
+    if status_code in (1, 4):
+        return {"error": 0}
+    if status_code != 2:
+        logger.info(
+            "ONLYOFFICE callback ignoré status=%s job=%s file=%s",
+            status_code,
+            job.get("id"),
+            template_code,
+        )
+        return {"error": 0}
+
+    download_url = body.get("url")
+    if not isinstance(download_url, str) or not download_url.strip():
+        logger.warning("ONLYOFFICE callback sans URL job=%s file=%s", job.get("id"), template_code)
+        return {"error": 1}
+
+    async with httpx.AsyncClient(timeout=120.0, follow_redirects=True) as client:
+        response = await client.get(download_url)
+        response.raise_for_status()
+        data = response.content
+
+    await replace_package_file_bytes(db, settings, job, template_code, data)
+    return {"error": 0}

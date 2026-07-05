@@ -164,9 +164,11 @@ export function fetchPackageFileEditorConfig(
   token: string | null,
   jobId: string,
   templateCode: string,
+  mode: "view" | "edit" = "view",
 ) {
+  const query = mode === "edit" ? "?mode=edit" : "";
   return apiFetch<PackageFileEditorConfig>(
-    `/v1/generations/${jobId}/files/${encodeURIComponent(templateCode)}/editor-config`,
+    `/v1/generations/${jobId}/files/${encodeURIComponent(templateCode)}/editor-config${query}`,
     token,
   );
 }

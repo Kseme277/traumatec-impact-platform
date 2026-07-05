@@ -71,3 +71,8 @@ export function canSubmitPackageWorkflow(job: GenerationJob | null | undefined):
   const wf = (job.workflow_status ?? "generated") as WorkflowStatus;
   return wf === "generated" || isWorkflowRejected(wf);
 }
+
+/** Correction fichier par fichier (ONLYOFFICE) avant resoumission manuelle. */
+export function canEditPackageFiles(job: GenerationJob | null | undefined): boolean {
+  return canSubmitPackageWorkflow(job);
+}

@@ -45,6 +45,7 @@ import { validateEventForGeneration } from "../features/events/eventGenerationRe
 import {
   canStartPackageGeneration,
   canSubmitPackageWorkflow,
+  canEditPackageFiles,
   getLatestCompletedJob,
   hasCompletedPackage,
   isEventGenerationLocked,
@@ -72,6 +73,7 @@ import { jobStatusColor, jobStatusLabel } from "../features/documents/types";
 import { useTranslation } from "../i18n/useTranslation";
 import { confirmAction, showError, showSuccess } from "../lib/swal";
 import PackageFileRemarksPanel from "../features/documents/PackageFileRemarksPanel";
+import PackageCorrectionPanel from "../features/documents/PackageCorrectionPanel";
 import { isEventPackageApproved } from "../features/documents/eventWorkflowUi";
 import { getCentralRejectComment, getRemarksJob } from "../features/documents/workflowRemarks";
 import { needsPackageGenerationHighlight } from "../features/events/packageGenerationUrgency";
@@ -987,6 +989,15 @@ export default function DocumentsGenerationPage() {
                     centralRemark={centralRemark}
                   />
                 )}
+              </ComponentCard>
+            ) : null}
+
+            {activeJob && canEditPackageFiles(activeJob) && fileReviews.length > 0 ? (
+              <ComponentCard
+                title={t("documents.packageCorrectionTitle")}
+                desc={t("documents.packageCorrectionSubtitle")}
+              >
+                <PackageCorrectionPanel jobId={activeJob.id} files={fileReviews} />
               </ComponentCard>
             ) : null}
 

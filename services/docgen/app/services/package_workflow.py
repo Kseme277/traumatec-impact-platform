@@ -31,6 +31,7 @@ WORKFLOW_STATUSES = frozenset(
 )
 
 SUBMITTABLE = frozenset({"generated", "procedure_rejected", "validator_rejected"})
+EDITABLE_PACKAGE = SUBMITTABLE
 
 _SKIP_TRACE_FILES = frozenset({"00_README.txt"})
 
@@ -80,6 +81,18 @@ def trace_package_files(trace: dict[str, Any] | str | None) -> list[dict[str, An
 
 def _actor_name(user) -> str:
     return f"{user.prenom} {user.nom}".strip()
+
+
+def assert_package_editable(job: dict[str, Any], user) -> None:
+    assert_event_access(user, job.get("organizer_responsible_user_id"))
+    if not can_submit_packages(list(user.roles)) and not getattr(user, "is_admin", False):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Modification non autorisée")
+    wf = job.get("workflow_status") or "generated"
+    if wf not in EDITABLE_PACKAGE:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"Modification impossible depuis l'état {wf}",
+        )
 
 
 async def _set_workflow_phase(
