@@ -11,6 +11,7 @@ import WorkflowStatusStepper from "../documents/WorkflowStatusStepper";
 import { workflowStatusLabel } from "../auth/types";
 import { workflowStatusBadgeColor } from "../documents/workflowStatusVisual";
 import type { Utilisateur } from "../auth/types";
+import { formatWorkflowPackageTitle } from "./workflowPackageTitle";
 import type { WorkflowState } from "../../api/workflow";
 
 interface WorkflowControleDetailPanelProps {
@@ -55,16 +56,19 @@ export default function WorkflowControleDetailPanel({
   const canReviewFiles = ["under_procedure_review", "submitted"].includes(state.workflow_status);
   const fileReview = useFileReviewSummary(state.files);
   const inReview = canReviewFiles;
+  const packageTitle = formatWorkflowPackageTitle(state.project_number, state.event_title);
 
   return (
     <div className="space-y-6">
       <ComponentCard>
         <div className="flex flex-wrap items-start justify-between gap-4">
-          <div>
-            <p className="text-lg font-semibold text-gray-800 dark:text-white/90">
-              {state.project_number}
+          <div className="min-w-0">
+            <p
+              className="text-lg font-semibold text-gray-800 dark:text-white/90"
+              title={packageTitle}
+            >
+              {packageTitle}
             </p>
-            <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{state.event_title}</p>
           </div>
           <Badge color={workflowStatusBadgeColor(state.workflow_status)}>
             {workflowStatusLabel(state.workflow_status, t)}

@@ -20,6 +20,7 @@ import type { WorkflowState } from "../api/workflow";
 import { ApiError } from "../api/client";
 import { confirmAction, promptComment, showError, showSuccess } from "../lib/swal";
 import { useTranslation } from "../i18n/useTranslation";
+import { formatWorkflowPackageTitle } from "../features/workflow/workflowPackageTitle";
 
 export default function WorkflowControleDetailPage() {
   const { jobId } = useParams();
@@ -137,14 +138,16 @@ export default function WorkflowControleDetailPage() {
     }
   }
 
+  const packageTitle = formatWorkflowPackageTitle(state.project_number, state.event_title);
+
   return (
     <>
       <PageMeta
-        title={`${state.project_number ?? t("nav.workflowControle")} | TIP`}
+        title={`${packageTitle || t("nav.workflowControle")} | TIP`}
         description={t("workflow.controleDesc")}
       />
       <AdminBreadcrumb
-        pageTitle={state.project_number ?? t("workflow.packageDetail")}
+        pageTitle={packageTitle || t("workflow.packageDetail")}
         crumbs={[
           { label: t("nav.workflowControle"), to: "/workflow/controle" },
         ]}
