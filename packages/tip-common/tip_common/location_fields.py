@@ -211,8 +211,18 @@ def country_doc_display(country: str, *, max_len: int = 8) -> str:
         "côte d'ivoire": "Côte d'Ivoire",
         "cote d'ivoire": "Côte d'Ivoire",
     }
+    compact_15: dict[str, str] = {
+        "democratic republic of the congo": "République dém.",
+        "république démocratique du congo": "République dém.",
+        "rdc": "République dém.",
+    }
     if max_len <= 8:
         for marker, label in compact_8.items():
+            if marker in fr_key or marker in key:
+                if len(label) <= max_len:
+                    return label
+    if max_len <= 15:
+        for marker, label in compact_15.items():
             if marker in fr_key or marker in key:
                 if len(label) <= max_len:
                     return label
@@ -226,6 +236,8 @@ def country_doc_display(country: str, *, max_len: int = 8) -> str:
     cut = fr[:max_len]
     if max_len < len(fr) and fr[max_len : max_len + 1].isalnum() and cut and cut[-1].isalnum():
         last_space = cut.rfind(" ")
-        if last_space > max(3, max_len // 3):
+        if last_space > max(3, max_len // 4):
+            cut = cut[:last_space]
+        elif last_space > 0:
             cut = cut[:last_space]
     return cut.rstrip()

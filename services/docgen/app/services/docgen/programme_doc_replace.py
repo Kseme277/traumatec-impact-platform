@@ -172,24 +172,31 @@ def _build_combined_header_replacement(
 
     date_val = _normalize_for_doc_text(date_val.strip())
     city = _normalize_for_doc_text(city.strip())
-    ville_pays_template = "{{Ville}}, {{Pays}}"
-    country_budget = max(4, len(ville_pays_template) - len(city.strip()) - 2)
+    tail_budget = len(template) - date_width
+    country_budget = max(4, tail_budget - len(city) - 3)
     country_display = _normalize_for_doc_text(
         country_doc_display(country, max_len=country_budget)
     )
-    ville_pays = f"{city.strip()}, {country_display}"
-    if len(ville_pays) > len(ville_pays_template):
+    content = f"{city}, {country_display}"
+    if len(content) > tail_budget - 1:
         country_display = _normalize_for_doc_text(
-            country_doc_display(country, max_len=max(3, country_budget - 1))
+            country_doc_display(country, max_len=max(3, country_budget - 2))
         )
-        ville_pays = f"{city.strip()}, {country_display}"
-    ville_pays = ville_pays.ljust(len(ville_pays_template))[: len(ville_pays_template)]
+        content = f"{city}, {country_display}"
+    if len(content) > tail_budget - 1:
+        content = _truncate_at_word(content, tail_budget - 1)
+    spacing = tail_budget - len(content)
+    if spacing < 1:
+        content = _truncate_at_word(content, tail_budget - 1)
+        spacing = tail_budget - len(content)
+    if spacing < 1:
+        return None
 
     if len(date_val) > date_width:
         date_val = _safe_truncate(date_val, date_width)
     date_part = date_val.ljust(date_width)[:date_width]
 
-    return f"{date_part}{_COMBINED_HEADER_SPACING}{ville_pays}"
+    return f"{date_part}{' ' * spacing}{content}"
 
 
 def _combined_header_pairs(
@@ -354,7 +361,6 @@ def _compress_welcome_middle(middle: str, budget: int) -> str:
         (" des ", " "),
         (" de ", " "),
         ("communautaire ", "comm. "),
-        ("communautaire", "comm."),
         ("Prise en Charge", "Prise en charge"),
         ("Fractures", "fractures"),
     )
@@ -410,7 +416,11 @@ def _build_welcome_paragraph_replacement(
     if middle_budget < 8:
         return None
     middle = _compress_welcome_middle(old_middle, middle_budget).rstrip()
-    middle = f"{middle} ".ljust(middle_budget)[:middle_budget]
+    middle = middle.replace(" santé comm ", " santé comm. ")
+    middle = middle.replace(" santé comm.", " santé comm.")
+    if middle.endswith(" comm"):
+        middle = f"{middle}."
+    middle = f"{middle.rstrip()} ".ljust(middle_budget)[:middle_budget]
     new_para = f"{prefix}{title_part}\xa0:{middle}{ending}"
     if len(new_para) != len(old_para):
         return None
@@ -1160,18 +1170,16 @@ def _build_safe_pairs(
     ville_pays_pairs = _ville_pays_pairs(context, doc_bytes=doc_bytes)
     welcome_ville_pays_pairs = _welcome_ville_pays_pairs(context, doc_bytes=doc_bytes)
     welcome_paragraph_pairs = _welcome_paragraph_pairs(context, doc_bytes=doc_bytes)
-    nom_event_expandable_pairs = _nom_event_expandable_pairs(context, doc_bytes=doc_bytes)
     pairs.extend(combined_pairs)
     pairs.extend(ville_pays_pairs)
     if not welcome_paragraph_pairs:
         pairs.extend(welcome_ville_pays_pairs)
-    pairs.extend(nom_event_expandable_pairs)
-    if not nom_event_expandable_pairs:
-        pairs.extend(_nom_event_pairs(context, doc_bytes=doc_bytes))
+    pairs.extend(_nom_event_pairs(context, doc_bytes=doc_bytes))
     pairs.extend(welcome_paragraph_pairs)
+    if not welcome_paragraph_pairs:
+        pairs.extend(_welcome_seminar_title_pairs(context, doc_bytes=doc_bytes))
     pairs.extend(_contact_section_pairs(context, doc_bytes=doc_bytes))
     pairs.extend(_teacher_line_pairs(context, doc_bytes=doc_bytes))
-    pairs.extend(_welcome_seminar_title_pairs(context, doc_bytes=doc_bytes))
     pairs.extend(build_replacement_pairs(fields, context))
 
     combined_date_keys = {
@@ -1239,10 +1247,6 @@ def _build_safe_pairs(
         if not old or not new or old == new:
             continue
         if any(old == wp for wp, _ in welcome_paragraph_pairs):
-            if old not in {p[0] for p in safe}:
-                safe.append((old, new, limits.get(old)))
-            continue
-        if any(old == nep for nep, _ in nom_event_expandable_pairs):
             if old not in {p[0] for p in safe}:
                 safe.append((old, new, limits.get(old)))
             continue
