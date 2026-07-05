@@ -286,6 +286,79 @@ def _combined_header_expandable_region(
     return region, start, end
 
 
+def _compact_header_date(date_val: str) -> str:
+    """Forme courte de la date si la ligne entête dépasse la largeur binaire."""
+    text = _normalize_for_doc_text(date_val.strip())
+    match = _DATE_IN_TEXT_RE.search(text)
+    if not match:
+        return text
+    parts = match.group(0).split()
+    if len(parts) != 3:
+        return text
+    day, month, year = parts
+    abbrev = _SCHEDULE_MONTH_ABBREV.get(month.lower(), month)
+    if len(abbrev) > 4:
+        abbrev = abbrev[:4].rstrip(".") + "."
+    compact = f"{day} {abbrev}{year}"
+    return text.replace(match.group(0), compact, 1)
+
+
+def _compose_combined_header_line(
+    *,
+    date_val: str,
+    city: str,
+    country: str,
+    line_budget: int,
+) -> str | None:
+    """Compose la ligne date/lieu dans la largeur binaire sans toucher aux contrôles Word."""
+    from tip_common.location_fields import country_doc_display
+
+    if line_budget < 12:
+        return None
+
+    city = _normalize_for_doc_text(city.strip())
+    country_fr = _normalize_for_doc_text(country_doc_display(country, max_len=0))
+    location = f"{city}, {country_fr}"
+
+    date_candidates: list[str] = []
+    for candidate in (
+        _normalize_for_doc_text(date_val.strip()),
+        _compact_header_date(date_val),
+    ):
+        if candidate and candidate not in date_candidates:
+            date_candidates.append(candidate)
+
+    def _fit(line: str) -> str:
+        return line.ljust(line_budget)[:line_budget]
+
+    for date_text in date_candidates:
+        single = f"{date_text}  {location}"
+        if len(single) <= line_budget:
+            spacing = max(2, line_budget - len(date_text) - len(location))
+            return _fit(f"{date_text}{' ' * spacing}{location}")
+
+        city_country = f"{date_text} {city}\r{country_fr}"
+        if len(city_country) <= line_budget:
+            return _fit(city_country)
+
+        two_line = f"{date_text}\r{location}"
+        if len(two_line) <= line_budget:
+            return _fit(two_line)
+
+    for date_text in date_candidates:
+        country_only = f"{date_text}\r{country_fr}"
+        if len(country_only) <= line_budget:
+            return _fit(country_only)
+
+        trimmed_location = _truncate_at_word(location, max(8, line_budget - len(date_text) - 1))
+        two_line = f"{date_text}\r{trimmed_location}"
+        if len(two_line) <= line_budget:
+            return _fit(two_line)
+
+    fallback = _truncate_at_word(f"{date_candidates[0]}  {location}", line_budget)
+    return _fit(fallback)
+
+
 def _build_combined_header_expandable_region(
     old_region: str,
     *,
@@ -294,9 +367,7 @@ def _build_combined_header_expandable_region(
     city: str,
     country: str,
 ) -> str | None:
-    """Remplit date + ville + pays complets en consommant le padding binaire de la zone."""
-    from tip_common.location_fields import country_doc_display
-
+    """Remplit date + ville + pays en conservant les contrôles Word (position en bas de page)."""
     if not old_region.endswith(_COMBINED_HEADER_SUFFIX):
         return None
     body = old_region[: -len(_COMBINED_HEADER_SUFFIX)]
@@ -305,21 +376,21 @@ def _build_combined_header_expandable_region(
         return None
     before = body[:idx]
     controls = before.lstrip("\x00")
-    null_prefix_len = len(before) - len(controls)
-    replaceable_budget = len(body) - null_prefix_len
-    if replaceable_budget < len(template):
+    null_count = len(before) - len(controls)
+    line_budget = null_count + len(template)
+    if line_budget < len(template):
         return None
 
-    date_val = _normalize_for_doc_text(date_val.strip())
-    city = _normalize_for_doc_text(city.strip())
-    country_fr = _normalize_for_doc_text(country_doc_display(country, max_len=0))
-    location = f"{city}, {country_fr}"
+    line = _compose_combined_header_line(
+        date_val=date_val,
+        city=city,
+        country=country,
+        line_budget=line_budget,
+    )
+    if not line or len(line) != line_budget:
+        return None
 
-    line = f"{date_val}  {location}"
-    if len(line) > replaceable_budget:
-        line = _truncate_at_word(line, replaceable_budget)
-    line = line.ljust(replaceable_budget)[:replaceable_budget]
-    new_body = before[:null_prefix_len] + line
+    new_body = controls + line
     if len(new_body) != len(body):
         return None
     return new_body + _COMBINED_HEADER_SUFFIX
@@ -470,7 +541,7 @@ def _teacher_placeholder_labels(index: int | str) -> list[str]:
 _NOM_EVENT_X01_INDEX = 33
 _NOM_EVENT_TAIL_START = 38
 _NOM_EVENT_FIRST_LINE_WIDTH = 22
-_NOM_EVENT_LINE_WIDTH = 32
+_NOM_EVENT_LINE_WIDTH = 45
 
 
 def _nom_event_title_lines(title: str) -> list[str]:

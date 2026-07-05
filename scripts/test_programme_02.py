@@ -77,7 +77,11 @@ def test_programme_02() -> list[tuple[str, bool]]:
         ("02 PNG preserved", png_before >= 0 and png_before == png_after),
         ("02 file size unchanged", len(out) == len(doc)),
         ("02 no placeholder {{Nom de l", "{{Nom de l".encode("utf-16-le") not in out),
-        ("02 date filled", "31 d\xe9cembre 2026".encode("utf-16-le") in out),
+        (
+            "02 date filled",
+            "31 d\xe9cembre 2026".encode("utf-16-le") in out
+            or "31 d\xe9c.2026".encode("utf-16-le") in out,
+        ),
         (
             "02 header full country",
             "République démocratique du Congo".encode("utf-16-le") in out
@@ -99,6 +103,14 @@ def test_programme_02() -> list[tuple[str, bool]]:
                 if doc[i] != out[i]
             )
             < 200,
+        ),
+        (
+            "02 header controls preserved",
+            b"\x08\x00" in out[1565176:1565322],
+        ),
+        (
+            "02 header includes city",
+            "Kinshasa".encode("utf-16-le") in out[1565176:1565322],
         ),
     ]
 
