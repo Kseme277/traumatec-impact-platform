@@ -38,24 +38,24 @@ export default function UtilisateursReadOnlyPage() {
       {loading ? <SpinnerLoader message={t("common.loading")} /> : null}
       <div className="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-white/[0.05] dark:bg-white/[0.03]">
         <div className="max-w-full overflow-x-auto">
-          <Table className="min-w-[640px]">
+          <Table className="w-full table-fixed">
             <TableHeader className="border-b border-gray-100 dark:border-white/[0.05]">
               <TableRow>
                 <TableCell
                   isHeader
-                  className="px-5 py-3 text-start text-theme-xs font-medium text-gray-500 dark:text-gray-400"
+                  className="w-[38%] px-5 py-3 text-start text-theme-xs font-medium text-gray-500 dark:text-gray-400"
                 >
                   {t("users.profilePhoto")}
                 </TableCell>
                 <TableCell
                   isHeader
-                  className="px-5 py-3 text-start text-theme-xs font-medium text-gray-500 dark:text-gray-400"
+                  className="w-[42%] px-5 py-3 text-start text-theme-xs font-medium text-gray-500 dark:text-gray-400"
                 >
                   {t("common.email")}
                 </TableCell>
                 <TableCell
                   isHeader
-                  className="px-5 py-3 text-start text-theme-xs font-medium text-gray-500 dark:text-gray-400"
+                  className="w-[20%] px-5 py-3 text-start text-theme-xs font-medium text-gray-500 dark:text-gray-400"
                 >
                   {t("common.status")}
                 </TableCell>

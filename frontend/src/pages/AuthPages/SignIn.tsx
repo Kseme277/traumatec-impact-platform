@@ -9,7 +9,7 @@ export default function SignIn() {
   const { isLoaded, isSignedIn } = useAuth();
 
   if (!isLoaded) {
-    return <AuthLoadingScreen message="Vérification de votre session…" />;
+    return <AuthLoadingScreen message="Vérification de votre session…" splash />;
   }
 
   if (isSignedIn) {

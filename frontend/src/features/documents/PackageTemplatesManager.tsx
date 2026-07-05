@@ -52,6 +52,7 @@ import { isOnlyofficeEditable, templateFileExtension } from "./templateFileExten
 import { Download, Eye, Trash2 } from "lucide-react";
 import TableIconButton from "../../components/common/TableIconButton";
 import DocumentFileManagerTable from "./DocumentFileManagerTable";
+import PackageTypeAdminPanel from "./PackageTypeAdminPanel";
 import { filterTemplatesByPackageDuration } from "./templateDurationFilter";
 
 interface PackageTemplatesManagerProps {
@@ -442,6 +443,8 @@ export default function PackageTemplatesManager({ isAdmin }: PackageTemplatesMan
         <p className="text-sm text-gray-700 dark:text-gray-200">{t("documents.eventTypeHelp")}</p>
         <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">{t("documents.eventVsPackageHelp")}</p>
       </div>
+
+      {isAdmin ? <PackageTypeAdminPanel onChanged={() => void refreshAll()} /> : null}
 
       <div className="flex flex-wrap gap-2">
         {ACTIVITY_KINDS.map((kind) => (

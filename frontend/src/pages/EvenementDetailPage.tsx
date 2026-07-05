@@ -4,7 +4,7 @@ import { useAuth } from "@clerk/clerk-react";
 import AdminBreadcrumb from "../components/common/AdminBreadcrumb";
 import ComponentCard from "../components/common/ComponentCard";
 import PageMeta from "../components/common/PageMeta";
-import AuthLoadingScreen from "../components/auth/AuthLoadingScreen";
+import SpinnerLoader from "../components/common/SpinnerLoader";
 import Button from "../components/ui/button/Button";
 import Badge from "../components/ui/badge/Badge";
 import { useEvents } from "../features/events/useEvents";
@@ -101,7 +101,7 @@ export default function EvenementDetailPage() {
   );
 
   if (isLoading) {
-    return <AuthLoadingScreen message={t("events.loading")} />;
+    return <SpinnerLoader message={t("events.loading")} className="min-h-[50vh]" />;
   }
 
   if (!event) {

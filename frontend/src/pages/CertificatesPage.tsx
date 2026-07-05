@@ -19,6 +19,7 @@ import {
   type Participant,
   type ParticipantStats,
   downloadCertificateGeneration,
+  downloadParticipantImportTemplate,
   fetchCertificateEditorConfig,
   fetchCertificateGenerations,
   fetchCertificateTitleSuggestion,
@@ -589,6 +590,20 @@ export default function CertificatesPage() {
                 onClick={() => fileRef.current?.click()}
               >
                 {isImporting ? t("participants.importing") : t("participants.importButton")}
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                startIcon={<Download className="size-4" />}
+                disabled={isImporting}
+                onClick={() =>
+                  void (async () => {
+                    const token = await getApiToken(getToken);
+                    await downloadParticipantImportTemplate(token);
+                  })()
+                }
+              >
+                {t("imports.downloadParticipantsTemplate")}
               </Button>
               {stats?.last_imported_at && (
                 <p className="self-center text-xs text-gray-500 dark:text-gray-400">

@@ -2,6 +2,7 @@ import math
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, File, HTTPException, Query, UploadFile, status
+from fastapi.responses import Response
 from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -17,7 +18,11 @@ from app.schemas.participant import (
     ParticipantResponse,
     ParticipantStatsResponse,
 )
-from app.services.participant_import import REGISTRATION_COLUMNS_HELP, parse_registration_workbook
+from app.services.participant_import import (
+    REGISTRATION_COLUMNS_HELP,
+    build_participant_import_template_xlsx,
+    parse_registration_workbook,
+)
 from app.services.teacher_sync import sync_teacher_from_import_row
 from tip_common.audit import record_audit_event
 from tip_common.participant_identity import dedupe_participant_records, participant_identity_key
@@ -28,6 +33,18 @@ router = APIRouter()
 
 DEFAULT_PAGE_SIZE = 20
 MAX_PAGE_SIZE = 100
+
+
+@router.get("/import-template")
+async def download_participant_import_template(
+    _: AuthenticatedUser = Depends(get_current_user),
+) -> Response:
+    content = build_participant_import_template_xlsx()
+    return Response(
+        content=content,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": 'attachment; filename="tip-import-participants-certificats.xlsx"'},
+    )
 
 
 async def _invalidate_participant_cache() -> None:

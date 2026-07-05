@@ -6,7 +6,7 @@ import { useAuth } from "@clerk/clerk-react";
 import AdminBreadcrumb from "../components/common/AdminBreadcrumb";
 import ComponentCard from "../components/common/ComponentCard";
 import PageMeta from "../components/common/PageMeta";
-import AuthLoadingScreen from "../components/auth/AuthLoadingScreen";
+import SpinnerLoader from "../components/common/SpinnerLoader";
 import TipAnimatedLogo from "../components/brand/TipAnimatedLogo";
 import Label from "../components/form/Label";
 import Button from "../components/ui/button/Button";
@@ -525,7 +525,19 @@ export default function DocumentsGenerationDetailPage() {
   }));
 
   if (isLoading) {
-    return <AuthLoadingScreen message={t("documents.loadingReady")} />;
+    return (
+      <>
+        <PageMeta title={`${t("documents.generationTitle")} | TIP`} description={t("documents.generationMeta")} />
+        <AdminBreadcrumb
+          pageTitle={t("documents.generationTitle")}
+          crumbs={[
+            { label: t("nav.documents"), to: "/documents/templates" },
+            { label: t("nav.generation"), to: "/documents/generation" },
+          ]}
+        />
+        <SpinnerLoader message={t("documents.loadingReady")} />
+      </>
+    );
   }
 
   if (!selectedEventId || !selectedEvent) {

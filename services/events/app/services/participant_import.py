@@ -372,3 +372,49 @@ def parse_registration_workbook(
         raise ValueError("Aucun participant valide trouvé dans le fichier.")
 
     return parsed, warnings, source_title
+
+
+PARTICIPANT_IMPORT_COLUMNS = (
+    "Nom",
+    "prenom",
+    "Statut",
+    "Nom_evenement",
+    "Formation_sanitaire",
+    "Email",
+    "telephone",
+    "specialite",
+    "autreprofil",
+    "pays_evenement",
+)
+
+
+def build_participant_import_template_xlsx() -> bytes:
+    from openpyxl import Workbook
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Participants"
+    ws.append(list(PARTICIPANT_IMPORT_COLUMNS))
+    ws.append(
+        [
+            "Dupont",
+            "Marie",
+            "Participant",
+            "702294 - Cours opératoire Yaoundé 10-12 mars 2026",
+            "Hôpital Central",
+            "marie.dupont@example.org",
+            "+237600000000",
+            "Chirurgie",
+            "",
+            "Cameroun",
+        ]
+    )
+
+    help_ws = wb.create_sheet("Aide")
+    help_ws.append(["Colonne", "Description"])
+    for line in REGISTRATION_COLUMNS_HELP.split(" : ", 1)[-1].split(", "):
+        help_ws.append(["", line.strip()])
+
+    buffer = BytesIO()
+    wb.save(buffer)
+    return buffer.getvalue()

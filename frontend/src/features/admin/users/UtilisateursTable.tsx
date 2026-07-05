@@ -63,14 +63,28 @@ export default function UtilisateursTable({
   return (
     <div className="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-white/[0.05] dark:bg-white/[0.03]">
       <div className="max-w-full overflow-x-auto">
-        <Table className="min-w-[980px] w-full">
+        <Table className="w-full table-fixed">
           <TableHeader className="border-b border-gray-100 dark:border-white/[0.05]">
             <TableRow>
-              {headers.map((header) => (
+              {headers.map((header, index) => (
                 <TableCell
                   key={header}
                   isHeader
-                  className="px-5 py-3 text-start text-theme-xs font-medium text-gray-500 dark:text-gray-400"
+                  className={`px-5 py-3 text-start text-theme-xs font-medium text-gray-500 dark:text-gray-400 ${
+                    index === 0
+                      ? "w-[24%]"
+                      : index === 1
+                        ? "w-[18%]"
+                        : index === 2
+                          ? "w-[10%]"
+                          : index === 3
+                            ? "w-[14%]"
+                            : index === 4
+                              ? "w-[12%]"
+                              : index === 5
+                                ? "w-[10%]"
+                                : "w-[12%]"
+                  }`}
                 >
                   {header}
                 </TableCell>

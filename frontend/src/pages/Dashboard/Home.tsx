@@ -1,5 +1,5 @@
-import AuthLoadingScreen from "../../components/auth/AuthLoadingScreen";
 import PageMeta from "../../components/common/PageMeta";
+import SpinnerLoader from "../../components/common/SpinnerLoader";
 import { useTipAuth } from "../../context/TipAuthContext";
 import { useTranslation } from "../../i18n/useTranslation";
 import DashboardAdmin from "../../features/dashboard/DashboardAdmin";
@@ -16,7 +16,7 @@ export default function Home() {
   const { tipUser, isLoading, hasRole } = useTipAuth();
 
   if (isLoading || !tipUser) {
-    return <AuthLoadingScreen message={t("dashboard.loading")} />;
+    return <SpinnerLoader message={t("dashboard.loading")} className="min-h-[50vh]" />;
   }
 
   let dashboard = <DashboardPreparateur />;

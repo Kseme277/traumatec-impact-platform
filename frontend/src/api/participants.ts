@@ -1,4 +1,29 @@
-import { apiFetch } from "./client";
+import { apiFetch, ApiError } from "./client";
+
+const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "/api";
+
+export async function downloadParticipantImportTemplate(token: string | null): Promise<void> {
+  const headers = new Headers();
+  if (token) headers.set("Authorization", `Bearer ${token}`);
+  const response = await fetch(`${API_BASE}/v1/participants/import-template`, { headers });
+  if (!response.ok) {
+    let detail = "Téléchargement impossible";
+    try {
+      const body = (await response.json()) as { detail?: string };
+      if (body.detail) detail = body.detail;
+    } catch {
+      /* ignore */
+    }
+    throw new ApiError(detail, response.status);
+  }
+  const blob = await response.blob();
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = "tip-import-participants-certificats.xlsx";
+  anchor.click();
+  URL.revokeObjectURL(url);
+}
 
 export interface Participant {
   id: string;

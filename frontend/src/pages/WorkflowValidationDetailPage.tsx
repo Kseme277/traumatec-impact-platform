@@ -4,7 +4,7 @@ import { Link, Navigate, useParams } from "react-router";
 import { ArrowLeft } from "lucide-react";
 import PageMeta from "../components/common/PageMeta";
 import AdminBreadcrumb from "../components/common/AdminBreadcrumb";
-import AuthLoadingScreen from "../components/auth/AuthLoadingScreen";
+import SpinnerLoader from "../components/common/SpinnerLoader";
 import Button from "../components/ui/button/Button";
 import WorkflowValidationDetailPanel from "../features/workflow/WorkflowValidationDetailPanel";
 import {
@@ -56,7 +56,7 @@ export default function WorkflowValidationDetailPage() {
   }
 
   if (loading) {
-    return <AuthLoadingScreen message={t("common.loading")} />;
+    return <SpinnerLoader message={t("common.loading")} className="min-h-[50vh]" />;
   }
 
   if (notFound || !state) {

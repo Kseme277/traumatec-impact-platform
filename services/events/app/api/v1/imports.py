@@ -2,6 +2,7 @@ import asyncio
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
+from fastapi.responses import Response
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -9,11 +10,24 @@ from app.core.database import get_db
 from app.models.event import AnnualImport
 from app.schemas.event import ImportJobProgressResponse, ImportJobStartResponse, ImportResultResponse
 from app.services.annual_import_runner import run_annual_import_job
+from app.services.excel_import import build_annual_plan_template_xlsx
 from app.services.import_jobs import import_job_store
 from tip_common.audit import record_audit_event
 from tip_common.security import AuthenticatedUser, require_admin
 
 router = APIRouter()
+
+
+@router.get("/annual-plan/template")
+async def download_annual_plan_template(
+    _: AuthenticatedUser = Depends(require_admin),
+) -> Response:
+    content = build_annual_plan_template_xlsx()
+    return Response(
+        content=content,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": 'attachment; filename="tip-import-evenements.xlsx"'},
+    )
 
 
 @router.post(

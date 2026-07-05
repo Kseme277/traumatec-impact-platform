@@ -48,6 +48,43 @@ export function fetchPackageTypes(token: string | null) {
   );
 }
 
+export function fetchCustomPackageTypes(token: string | null) {
+  return fetchJson<import("../features/documents/types").PackageTypeDefinitionRecord[]>(
+    "/v1/packages/types/custom",
+    token,
+  );
+}
+
+export function createPackageTypeDefinition(
+  token: string | null,
+  payload: import("../features/documents/types").PackageTypeDefinitionPayload,
+) {
+  return fetchJson<import("../features/documents/types").PackageTypeDefinitionRecord>(
+    "/v1/packages/types",
+    token,
+    { method: "POST", body: JSON.stringify(payload) },
+  );
+}
+
+export async function deletePackageTypeDefinition(token: string | null, code: string): Promise<void> {
+  const headers = new Headers();
+  headers.set("Content-Type", "application/json");
+  if (token) headers.set("Authorization", `Bearer ${token}`);
+  const response = await fetch(`${API_BASE}/v1/packages/types/${encodeURIComponent(code)}`, {
+    method: "DELETE",
+    headers,
+  });
+  if (!response.ok) {
+    let detail = "Suppression impossible";
+    try {
+      detail = parseApiDetail(await response.json(), detail);
+    } catch {
+      /* ignore */
+    }
+    throw new ApiError(detail, response.status);
+  }
+}
+
 export function fetchTemplates(
   token: string | null,
   options?: { theme?: string; packageType?: string; bundleId?: string },

@@ -3,6 +3,7 @@ import ComponentCard from "../components/common/ComponentCard";
 import PageMeta from "../components/common/PageMeta";
 import PackageTemplatesManager from "../features/documents/PackageTemplatesManager";
 import TemplateVariablesGuide from "../features/documents/TemplateVariablesGuide";
+import ImportFlowDiagram from "../features/imports/ImportFlowDiagram";
 import { useTipAuth } from "../context/TipAuthContext";
 import { useTranslation } from "../i18n/useTranslation";
 
@@ -27,6 +28,10 @@ export default function DocumentsTemplatesPage() {
 
       <ComponentCard title={t("documents.variablesTitle")} desc={t("documents.variablesDesc")} className="mt-6">
         <TemplateVariablesGuide />
+      </ComponentCard>
+
+      <ComponentCard title={t("imports.flowTitle")} desc={t("imports.flowDesc")} className="mt-6">
+        <ImportFlowDiagram />
       </ComponentCard>
     </>
   );

@@ -137,3 +137,43 @@ class ParcoursResponse(BaseModel):
     steps: list[ParcoursStepResponse]
 
 
+class PackageTypeDefinitionCreate(BaseModel):
+    code: str = Field(min_length=2, max_length=32)
+    label: str = Field(min_length=1, max_length=64)
+    activity_kind: str = Field(min_length=2, max_length=32)
+    activity_label: str = Field(min_length=1, max_length=64)
+    title: str = Field(min_length=1, max_length=255)
+    description: str | None = None
+    preparation_theme: str = Field(default="operatory", max_length=32)
+    duration_days: int = Field(default=3, ge=1, le=30)
+    sort_order: int = Field(default=0, ge=0)
+
+
+class PackageTypeDefinitionUpdate(BaseModel):
+    label: str | None = Field(default=None, min_length=1, max_length=64)
+    activity_kind: str | None = Field(default=None, min_length=2, max_length=32)
+    activity_label: str | None = Field(default=None, min_length=1, max_length=64)
+    title: str | None = Field(default=None, min_length=1, max_length=255)
+    description: str | None = None
+    preparation_theme: str | None = Field(default=None, max_length=32)
+    duration_days: int | None = Field(default=None, ge=1, le=30)
+    sort_order: int | None = Field(default=None, ge=0)
+    is_active: bool | None = None
+
+
+class PackageTypeDefinitionResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    code: str
+    label: str
+    activity_kind: str
+    activity_label: str
+    title: str
+    description: str | None
+    preparation_theme: str
+    duration_days: int
+    sort_order: int
+    is_active: bool
+    created_at: datetime
+

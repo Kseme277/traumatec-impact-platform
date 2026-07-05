@@ -6,6 +6,33 @@ export function templateDisplayName(template: PackageTemplate): string {
   return template.name;
 }
 
+export interface PackageTypeDefinitionRecord {
+  id: string;
+  code: string;
+  label: string;
+  activity_kind: string;
+  activity_label: string;
+  title: string;
+  description: string | null;
+  preparation_theme: string;
+  duration_days: number;
+  sort_order: number;
+  is_active: boolean;
+  created_at: string;
+}
+
+export interface PackageTypeDefinitionPayload {
+  code: string;
+  label: string;
+  activity_kind: string;
+  activity_label: string;
+  title: string;
+  description?: string;
+  preparation_theme?: string;
+  duration_days?: number;
+  sort_order?: number;
+}
+
 export interface ParcoursStep {
   step: number;
   code: string;

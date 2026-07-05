@@ -65,6 +65,22 @@ export async function fetchImportJobProgress(jobId: string): Promise<ImportJobPr
   return response.json() as Promise<ImportJobProgress>;
 }
 
+export async function downloadAnnualPlanTemplate(token: string | null): Promise<void> {
+  const headers = new Headers();
+  if (token) headers.set("Authorization", `Bearer ${token}`);
+  const response = await fetch(`${API_BASE}/v1/imports/annual-plan/template`, { headers });
+  if (!response.ok) {
+    throw new ApiError(await parseApiError(response, "Téléchargement impossible"), response.status);
+  }
+  const blob = await response.blob();
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = "tip-import-evenements.xlsx";
+  anchor.click();
+  URL.revokeObjectURL(url);
+}
+
 function wait(ms: number): Promise<void> {
   return new Promise((resolve) => {
     window.setTimeout(resolve, ms);

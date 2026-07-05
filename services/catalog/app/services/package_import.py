@@ -18,6 +18,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import Settings
 from app.models.catalog import EventProfile, PackageBundle, PackageTemplate
 from tip_common.package_analyzer import analyze_package_zip
+from app.services.package_type_catalog import resolve_package_type_spec
 from tip_common.package_types import (
     PACKAGE_TYPE_SPECS,
     filter_templates_by_package_duration,
@@ -74,7 +75,7 @@ async def _sync_profile_for_bundle(
     bundle: PackageBundle,
     templates: list[PackageTemplate],
 ) -> EventProfile:
-    spec = PACKAGE_TYPE_SPECS[bundle.package_type]
+    spec = await resolve_package_type_spec(db, bundle.package_type)
     result = await db.execute(
         select(EventProfile).where(EventProfile.package_type == bundle.package_type)
     )
@@ -85,19 +86,19 @@ async def _sync_profile_for_bundle(
     )
     if profile is None:
         profile = EventProfile(
-            name=f"Paquet AO — {spec.label}",
-            preparation_theme=spec.preparation_theme,
+            name=f"Paquet AO — {spec['label']}",
+            preparation_theme=spec["preparation_theme"],
             package_type=bundle.package_type,
-            event_type_label=spec.label,
+            event_type_label=spec["label"],
             active_bundle_id=bundle.id,
             package_template_ids=[str(t.id) for t in sorted_templates],
             is_active=True,
         )
         db.add(profile)
     else:
-        profile.name = f"Paquet AO — {spec.label}"
-        profile.preparation_theme = spec.preparation_theme
-        profile.event_type_label = spec.label
+        profile.name = f"Paquet AO — {spec['label']}"
+        profile.preparation_theme = spec["preparation_theme"]
+        profile.event_type_label = spec["label"]
         profile.active_bundle_id = bundle.id
         profile.package_template_ids = [str(t.id) for t in sorted_templates]
         profile.is_active = True

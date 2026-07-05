@@ -3,7 +3,7 @@ import { useNavigate, useParams } from "react-router";
 import AdminBreadcrumb from "../components/common/AdminBreadcrumb";
 import ComponentCard from "../components/common/ComponentCard";
 import PageMeta from "../components/common/PageMeta";
-import AuthLoadingScreen from "../components/auth/AuthLoadingScreen";
+import SpinnerLoader from "../components/common/SpinnerLoader";
 import EvenementForm from "../features/events/EvenementForm";
 import { useEvents } from "../features/events/useEvents";
 import { useTranslation } from "../i18n/useTranslation";
@@ -35,7 +35,7 @@ export default function EvenementEditPage() {
   };
 
   if (isLoading) {
-    return <AuthLoadingScreen message={t("common.loading")} />;
+    return <SpinnerLoader message={t("common.loading")} className="min-h-[50vh]" />;
   }
 
   if (!event) {

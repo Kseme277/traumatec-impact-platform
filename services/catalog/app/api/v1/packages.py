@@ -9,12 +9,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
 from app.core.database import get_db
-from app.models.catalog import PackageBundle
+from app.models.catalog import PackageBundle, PackageTypeDefinition
 from app.core.database import AsyncSessionLocal
 from app.schemas.catalog import (
     PackageBundleResponse,
     PackageImportJobProgressResponse,
     PackageImportJobStartResponse,
+    PackageTypeDefinitionCreate,
+    PackageTypeDefinitionResponse,
+    PackageTypeDefinitionUpdate,
 )
 from app.services.package_import import (
     activate_package_bundle,
@@ -24,7 +27,8 @@ from app.services.package_import import (
     export_package_type_zip,
 )
 from app.services.package_import_jobs import package_import_job_store, run_package_import_job
-from tip_common.package_types import list_package_types_by_activity
+from app.services.package_type_catalog import ACTIVITY_KIND_LABELS, get_merged_package_types, list_custom_package_types
+from tip_common.package_types import PACKAGE_TYPE_SPECS
 from tip_common.security import AuthenticatedUser, get_current_user, require_admin
 
 router = APIRouter()
@@ -33,8 +37,111 @@ router = APIRouter()
 @router.get("/types")
 async def list_event_package_types(
     _: AuthenticatedUser = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
 ) -> dict:
-    return list_package_types_by_activity()
+    return await get_merged_package_types(db)
+
+
+@router.get("/types/custom", response_model=list[PackageTypeDefinitionResponse])
+async def list_custom_package_type_definitions(
+    _: AuthenticatedUser = Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
+) -> list[PackageTypeDefinition]:
+    return await list_custom_package_types(db)
+
+
+@router.post("/types", response_model=PackageTypeDefinitionResponse, status_code=status.HTTP_201_CREATED)
+async def create_package_type_definition(
+    payload: PackageTypeDefinitionCreate,
+    _: AuthenticatedUser = Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
+) -> PackageTypeDefinition:
+    code = payload.code.strip().upper().replace("-", "_").replace(" ", "_")
+    if code in PACKAGE_TYPE_SPECS:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"Le type {code} existe déjà dans le catalogue système.",
+        )
+
+    existing = await db.execute(select(PackageTypeDefinition).where(PackageTypeDefinition.code == code))
+    if existing.scalar_one_or_none():
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=f"Le type {code} existe déjà.")
+
+    activity_kind = payload.activity_kind.strip().lower()
+    if activity_kind not in ACTIVITY_KIND_LABELS:
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Catégorie invalide.")
+
+    defn = PackageTypeDefinition(
+        code=code,
+        label=payload.label.strip(),
+        activity_kind=activity_kind,
+        activity_label=payload.activity_label.strip() or ACTIVITY_KIND_LABELS[activity_kind],
+        title=payload.title.strip(),
+        description=(payload.description or "").strip() or None,
+        preparation_theme=payload.preparation_theme.strip().lower(),
+        duration_days=payload.duration_days,
+        sort_order=payload.sort_order,
+    )
+    db.add(defn)
+    await db.commit()
+    await db.refresh(defn)
+    return defn
+
+
+@router.put("/types/{code}", response_model=PackageTypeDefinitionResponse)
+async def update_package_type_definition(
+    code: str,
+    payload: PackageTypeDefinitionUpdate,
+    _: AuthenticatedUser = Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
+) -> PackageTypeDefinition:
+    normalized = code.strip().upper().replace("-", "_")
+    if normalized in PACKAGE_TYPE_SPECS:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Les types système ne peuvent pas être modifiés ici.",
+        )
+
+    result = await db.execute(select(PackageTypeDefinition).where(PackageTypeDefinition.code == normalized))
+    defn = result.scalar_one_or_none()
+    if not defn:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Type introuvable.")
+
+    data = payload.model_dump(exclude_unset=True)
+    if "activity_kind" in data:
+        kind = data["activity_kind"].strip().lower()
+        if kind not in ACTIVITY_KIND_LABELS:
+            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Catégorie invalide.")
+        data["activity_kind"] = kind
+    for key, value in data.items():
+        if isinstance(value, str):
+            value = value.strip()
+        setattr(defn, key, value)
+    await db.commit()
+    await db.refresh(defn)
+    return defn
+
+
+@router.delete("/types/{code}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_package_type_definition(
+    code: str,
+    _: AuthenticatedUser = Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
+) -> None:
+    normalized = code.strip().upper().replace("-", "_")
+    if normalized in PACKAGE_TYPE_SPECS:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Les types système ne peuvent pas être supprimés.",
+        )
+
+    result = await db.execute(select(PackageTypeDefinition).where(PackageTypeDefinition.code == normalized))
+    defn = result.scalar_one_or_none()
+    if not defn:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Type introuvable.")
+
+    await db.delete(defn)
+    await db.commit()
 
 
 @router.get("/bundles", response_model=list[PackageBundleResponse])

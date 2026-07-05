@@ -79,6 +79,27 @@ class PackageBundle(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
+class PackageTypeDefinition(Base):
+    __tablename__ = "package_type_definitions"
+    __table_args__ = {"schema": "catalog"}
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    code: Mapped[str] = mapped_column(String(32), unique=True, nullable=False)
+    label: Mapped[str] = mapped_column(String(64), nullable=False)
+    activity_kind: Mapped[str] = mapped_column(String(32), nullable=False)
+    activity_label: Mapped[str] = mapped_column(String(64), nullable=False)
+    title: Mapped[str] = mapped_column(String(255), nullable=False)
+    description: Mapped[str | None] = mapped_column(Text)
+    preparation_theme: Mapped[str] = mapped_column(String(32), nullable=False, default="operatory")
+    duration_days: Mapped[int] = mapped_column(Integer, nullable=False, default=3)
+    sort_order: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    is_active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+
 class EventProfile(Base):
     __tablename__ = "event_profiles"
     __table_args__ = {"schema": "catalog"}

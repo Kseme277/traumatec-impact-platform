@@ -458,3 +458,39 @@ def parse_projects_workbook(
         on_progress(total_data_rows, total_data_rows)
 
     return events, errors
+
+
+def build_annual_plan_template_xlsx() -> bytes:
+    from openpyxl import Workbook
+
+    wb = Workbook()
+    ws = wb.active
+    ws.title = "Projects"
+    ws.append(list(PROJECTS_XLSX_COLUMNS))
+    ws.append(
+        [
+            "Exemple — Cours opératoire Yaoundé",
+            "Course",
+            "702294",
+            "2026-03-10",
+            "2026-03-12",
+            "Open",
+            "Dr Responsable",
+            "Support Admin",
+            "support@example.org",
+            "Yaoundé",
+            "Cameroun",
+            "Centre",
+            "CC-001",
+            24,
+            0,
+            15000,
+            0,
+            0,
+            15000,
+        ]
+    )
+
+    buffer = BytesIO()
+    wb.save(buffer)
+    return buffer.getvalue()

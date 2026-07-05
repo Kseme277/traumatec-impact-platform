@@ -1,6 +1,6 @@
 import PageBreadcrumb from "../components/common/PageBreadCrumb";
 import PageMeta from "../components/common/PageMeta";
-import AuthLoadingScreen from "../components/auth/AuthLoadingScreen";
+import SpinnerLoader from "../components/common/SpinnerLoader";
 import { useTipAuth } from "../context/TipAuthContext";
 import { useTranslation } from "../i18n/useTranslation";
 import MonProfilForm from "../features/profile/MonProfilForm";
@@ -10,7 +10,7 @@ export default function UserProfiles() {
   const { tipUser, isLoading } = useTipAuth();
 
   if (isLoading || !tipUser) {
-    return <AuthLoadingScreen message={t("profile.loadingProfile")} />;
+    return <SpinnerLoader message={t("profile.loadingProfile")} className="min-h-[40vh]" />;
   }
 
   return (

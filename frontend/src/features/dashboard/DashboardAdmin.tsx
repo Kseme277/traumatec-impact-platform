@@ -31,15 +31,26 @@ export default function DashboardAdmin() {
 
   const { getToken } = useAuth();
   const [wfStats, setWfStats] = useState<Awaited<ReturnType<typeof fetchWorkflowStats>> | null>(null);
+  const [wfStatsLoading, setWfStatsLoading] = useState(true);
 
   useEffect(() => {
     void loadUsers();
     void loadStats();
     void (async () => {
-      const token = await getApiToken(getToken);
-      setWfStats(await fetchWorkflowStats(token, "admin"));
+      setWfStatsLoading(true);
+      try {
+        const token = await getApiToken(getToken);
+        setWfStats(await fetchWorkflowStats(token, "admin"));
+      } catch {
+        setWfStats(null);
+      } finally {
+        setWfStatsLoading(false);
+      }
     })();
   }, [getToken, loadUsers, loadStats]);
+
+  const wfValue = (key: keyof NonNullable<typeof wfStats>) =>
+    wfStatsLoading ? "—" : (wfStats?.[key] ?? "—");
 
   const activeUsers = users.filter((user) => user.est_actif).length;
 
@@ -88,10 +99,18 @@ export default function DashboardAdmin() {
         />
       </div>
 
-      <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4 md:gap-6">
+      <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-5 md:gap-6">
+        <EventStatCard
+          label={t("dashboard.wfGenerated")}
+          value={wfValue("generated")}
+          icon={<BoxIconLine className="size-6 text-brand-500" />}
+          iconBgClassName="bg-brand-50 dark:bg-brand-500/15"
+          to="/documents/generation"
+          hint={t("dashboard.metricHintGenerated")}
+        />
         <EventStatCard
           label={t("dashboard.wfSubmitted")}
-          value={wfStats?.submitted ?? "—"}
+          value={wfValue("submitted")}
           icon={<TaskIcon className="size-6 text-brand-500" />}
           iconBgClassName="bg-brand-50 dark:bg-brand-500/15"
           to="/workflow/controle"
@@ -99,7 +118,7 @@ export default function DashboardAdmin() {
         />
         <EventStatCard
           label={t("dashboard.wfInReview")}
-          value={wfStats?.under_procedure_review ?? "—"}
+          value={wfValue("under_procedure_review")}
           icon={<TaskIcon className="size-6 text-warning-600" />}
           iconBgClassName="bg-warning-50 dark:bg-warning-500/15"
           to="/workflow/controle"
@@ -107,7 +126,7 @@ export default function DashboardAdmin() {
         />
         <EventStatCard
           label={t("dashboard.wfInValidation")}
-          value={wfStats?.under_final_validation ?? "—"}
+          value={wfValue("under_final_validation")}
           icon={<TaskIcon className="size-6 text-info-600" />}
           iconBgClassName="bg-blue-light-50 dark:bg-blue-light-500/15"
           to="/workflow/validation"
@@ -115,7 +134,7 @@ export default function DashboardAdmin() {
         />
         <EventStatCard
           label={t("dashboard.wfApproved")}
-          value={wfStats?.approved ?? "—"}
+          value={wfValue("approved")}
           icon={<TaskIcon className="size-6 text-success-600" />}
           iconBgClassName="bg-success-50 dark:bg-success-500/15"
           to="/workflow/validation"

@@ -3,7 +3,7 @@ import { Navigate, useNavigate, useSearchParams } from "react-router";
 import AdminBreadcrumb from "../components/common/AdminBreadcrumb";
 import ComponentCard from "../components/common/ComponentCard";
 import PageMeta from "../components/common/PageMeta";
-import AuthLoadingScreen from "../components/auth/AuthLoadingScreen";
+import SpinnerLoader from "../components/common/SpinnerLoader";
 import Label from "../components/form/Label";
 import Input from "../components/form/input/InputField";
 import Select from "../components/form/Select";
@@ -75,7 +75,19 @@ export default function DocumentsGenerationPage() {
   }
 
   if (isLoading) {
-    return <AuthLoadingScreen message={t("documents.loadingReady")} />;
+    return (
+      <>
+        <PageMeta title={`${t("documents.generationTitle")} | TIP`} description={t("documents.generationMeta")} />
+        <AdminBreadcrumb
+          pageTitle={t("documents.generationTitle")}
+          crumbs={[
+            { label: t("nav.documents"), to: "/documents/templates" },
+            { label: t("nav.templates"), to: "/documents/templates" },
+          ]}
+        />
+        <SpinnerLoader message={t("documents.loadingReady")} />
+      </>
+    );
   }
 
   return (

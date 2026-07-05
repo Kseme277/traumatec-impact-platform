@@ -1,5 +1,9 @@
 import { Modal } from "../../components/ui/modal";
 import Button from "../../components/ui/button/Button";
+import { useAuth } from "@clerk/clerk-react";
+import { Download } from "lucide-react";
+import { downloadAnnualPlanTemplate } from "../../api/events";
+import { getApiToken } from "../../lib/clerkToken";
 import { useTranslation } from "../../i18n/useTranslation";
 import EventsImportDropzone from "./EventsImportDropzone";
 import type { ImportJobProgress } from "./types";
@@ -42,9 +46,15 @@ export default function EventsImportModal({
   onImport,
 }: EventsImportModalProps) {
   const { t } = useTranslation();
+  const { getToken } = useAuth();
 
   const handleClose = () => {
     if (!isSubmitting) onClose();
+  };
+
+  const handleDownloadTemplate = async () => {
+    const token = await getApiToken(getToken);
+    await downloadAnnualPlanTemplate(token);
   };
 
   return (
@@ -63,6 +73,18 @@ export default function EventsImportModal({
             {t("events.importModalDesc")}
           </p>
         </header>
+
+        <div className="mb-4">
+          <Button
+            size="sm"
+            variant="outline"
+            startIcon={<Download className="size-4" />}
+            disabled={isSubmitting}
+            onClick={() => void handleDownloadTemplate()}
+          >
+            {t("imports.downloadEventsTemplate")}
+          </Button>
+        </div>
 
         <EventsImportDropzone
           isSubmitting={isSubmitting}

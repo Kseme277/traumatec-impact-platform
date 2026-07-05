@@ -3,6 +3,7 @@ import { Link } from "react-router";
 import { useAuth } from "@clerk/clerk-react";
 import { ArrowRight, FileArchive } from "lucide-react";
 import Badge from "../../components/ui/badge/Badge";
+import SpinnerLoader from "../../components/common/SpinnerLoader";
 import { fetchRecentGenerationJobs, type GenerationNotification } from "../../api/docgen";
 import { getApiToken } from "../../lib/clerkToken";
 import { jobStatusColor, jobStatusLabel } from "../documents/types";
@@ -56,7 +57,7 @@ export default function RecentGenerationsPanel({ scope = "platform", limit = 8 }
       </div>
 
       {loading ? (
-        <p className="py-8 text-center text-sm text-gray-500 dark:text-gray-400">{t("common.loading")}</p>
+        <SpinnerLoader message={t("common.loading")} />
       ) : items.length === 0 ? (
         <div className="rounded-xl border border-dashed border-gray-200 px-4 py-10 text-center dark:border-gray-700">
           <FileArchive className="mx-auto size-9 text-gray-300 dark:text-gray-600" />
