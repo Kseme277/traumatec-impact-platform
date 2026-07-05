@@ -301,6 +301,8 @@ const fr = {
     filesTitle: "Fichiers générés",
     filesReviewed: "fichiers revus",
     selectFileHint: "Relisez chaque document, ajoutez une remarque si besoin, puis validez ou rejetez.",
+    controleReviewHint:
+      "Pour corriger le contenu des fichiers après un rejet, le support administratif utilise Documents → Génération (panneau « Corriger les fichiers »).",
     noRemarkYet: "Aucune remarque",
     filesTable: {
       document: "Document",
@@ -1884,6 +1886,8 @@ const en: typeof fr = {
     filesTitle: "Generated files",
     filesReviewed: "files reviewed",
     selectFileHint: "Review each document, add a remark if needed, then approve or reject.",
+    controleReviewHint:
+      "To edit file contents after a rejection, administrative support uses Documents → Generation (Correct package files panel).",
     noRemarkYet: "No remark",
     filesTable: {
       document: "Document",

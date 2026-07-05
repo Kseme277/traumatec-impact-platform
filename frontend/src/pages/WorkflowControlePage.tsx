@@ -321,6 +321,14 @@ export default function WorkflowControlePage() {
               ) : null}
 
               {["under_procedure_review", "submitted"].includes(selected.workflow_status) ? (
+                <HelpTipAlert
+                  variant="info"
+                  title={t("workflow.filesTitle")}
+                  message={t("workflow.controleReviewHint")}
+                />
+              ) : null}
+
+              {["under_procedure_review", "submitted"].includes(selected.workflow_status) ? (
                 <div className="space-y-3">
                   <WorkflowFileReviewProgress files={selected.files} />
                   <div>

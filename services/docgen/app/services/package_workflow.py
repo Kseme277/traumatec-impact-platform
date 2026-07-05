@@ -209,6 +209,9 @@ async def _ensure_file_reviews(db: AsyncSession, job: dict[str, Any]) -> list[di
             },
         )
 
+    if files:
+        await db.commit()
+
     result = await db.execute(
         text(
             """
