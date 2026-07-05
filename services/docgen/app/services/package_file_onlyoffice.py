@@ -102,6 +102,7 @@ def build_package_file_editor_config(
         )
     file_type, document_type, _ = meta
     file_token = create_access_token(settings, job_id, template_code, "file")
+    revision = file_revision(trace, template_code)
     base = settings.docgen_internal_url.rstrip("/")
     prefix = settings.api_v1_prefix.rstrip("/")
     encoded = quote(template_code, safe="")
@@ -109,8 +110,6 @@ def build_package_file_editor_config(
         f"{base}{prefix}/generations/{job_id}/files/{encoded}/onlyoffice-file"
         f"?token={file_token}&v={revision}"
     )
-
-    revision = file_revision(trace, template_code)
     editor_mode = "edit" if mode == "edit" else "view"
     editor_config: dict = {
         "mode": editor_mode,

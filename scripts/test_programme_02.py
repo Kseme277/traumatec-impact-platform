@@ -76,6 +76,15 @@ def test_programme_02() -> list[tuple[str, bool]]:
             "02 page-1 title complete",
             "Information, \xc9ducation et Communication (IEC)".encode("utf-16-le") in out,
         ),
+        (
+            "02 header zone not corrupted",
+            sum(
+                1
+                for i in range(1564000, min(1565400, len(doc), len(out)))
+                if doc[i] != out[i]
+            )
+            < 200,
+        ),
     ]
 
     idx = out.find("Bienvenue au séminaire ".encode("utf-16-le"))

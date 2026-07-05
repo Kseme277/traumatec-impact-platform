@@ -79,7 +79,7 @@ async def build_event_certificate_context(
         title_formal = custom_title.strip()
     elif persisted_title and not refresh_ai:
         title_formal = persisted_title
-    else:
+    elif refresh_ai:
         event_for_ai = dict(event)
         if source_title:
             event_for_ai["title"] = source_title
@@ -93,6 +93,18 @@ async def build_event_certificate_context(
             or enriched.get("title_formatted")
             or format_document_title(enriched)
             or ctx.get("title_formatted")
+            or source_title
+            or ""
+        )
+    else:
+        event_for_fmt = dict(event)
+        if source_title:
+            event_for_fmt["title"] = source_title
+        enriched = await enrich_event_context(event_for_fmt)
+        ctx = build_event_context(enriched)
+        title_formal = (
+            ctx.get("title_formatted")
+            or format_document_title(enriched)
             or source_title
             or ""
         )

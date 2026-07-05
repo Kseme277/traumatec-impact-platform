@@ -221,12 +221,13 @@ export default function CertificatesPage() {
       setCertificateTitle("");
       return;
     }
-    if (stats.certificate_title_formatted?.trim()) {
-      setCertificateTitle(stats.certificate_title_formatted.trim());
+    const formatted = stats.certificate_title_formatted?.trim();
+    if (formatted) {
+      setCertificateTitle(formatted);
       return;
     }
-    void loadCertificateTitle(false);
-  }, [stats?.source_event_title, stats?.certificate_title_formatted, loadCertificateTitle]);
+    setCertificateTitle(stats.source_event_title.trim());
+  }, [stats?.source_event_title, stats?.certificate_title_formatted]);
 
   useEffect(() => {
     const timer = window.setTimeout(() => setParticipantSearch(participantSearchInput), 300);

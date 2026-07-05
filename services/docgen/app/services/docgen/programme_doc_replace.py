@@ -31,6 +31,8 @@ _DOC_APOSTROPHE_CHARS = ("'", "\u2019", "\u2018", "`", _DOC_APOSTROPHE)
 # Ligne entête page 1 : {{Date}}       {{Ville}}, {{Pays}} (49 car. dans le modèle IEC)
 _COMBINED_HEADER_SPACING = "       "
 _COMBINED_HEADER_SUFFIX = "\r\r\x01\r"
+_MAX_COMBINED_HEADER_NULL_PREFIX = 4
+_MAX_COMBINED_HEADER_REGION_LEN = 120
 _COMBINED_HEADER_SKIP = frozenset(
     {
         "{{Pays}}",
@@ -209,9 +211,13 @@ def _combined_header_expandable_region(
         return None
     end += len(suffix_b)
     start = idx
+    null_prefix = 0
     while start >= 2:
         pair = doc_bytes[start - 2 : start]
         if pair == b"\x00\x00":
+            if null_prefix >= _MAX_COMBINED_HEADER_NULL_PREFIX:
+                break
+            null_prefix += 1
             start -= 2
             continue
         try:
@@ -225,6 +231,8 @@ def _combined_header_expandable_region(
     try:
         region = doc_bytes[start:end].decode("utf-16-le")
     except UnicodeDecodeError:
+        return None
+    if len(region) > _MAX_COMBINED_HEADER_REGION_LEN:
         return None
     if len(region) < len(template) + len(_COMBINED_HEADER_SUFFIX) + 8:
         return None
@@ -499,7 +507,7 @@ def _compress_welcome_middle(middle: str, budget: int) -> str:
             break
     if "communaut" in text and "communautaire" not in text:
         text = text.replace("communaut", "communautaire")
-    if text.endswith("comm") and "communautaire" in old_middle:
+    if text.endswith("comm"):
         text = text[:-4] + "communautaire"
     return text[:budget].ljust(budget)
 
@@ -533,9 +541,15 @@ def _build_welcome_paragraph_replacement(
     if len(ending) < len(marker):
         ending = ending.ljust(len(marker))
 
-    # Pays complet allonge la fin : réduire la zone titre pour préserver le corps du texte.
+    # Pays complet : réduire d'abord la zone titre pour garder le corps du modèle intact.
     ending_extra = max(0, len(ending) - len(marker))
-    title_width = max(28, old_title_width - ending_extra)
+    title_width = max(8, old_title_width - ending_extra)
+    middle_template = old_middle
+    while title_width >= 8:
+        middle_budget = len(old_para) - len(prefix) - title_width - 2 - len(ending)
+        if middle_budget >= len(middle_template):
+            break
+        title_width -= 1
 
     title_part = _welcome_title_fragment(title)
     if len(title_part) > title_width:
@@ -545,11 +559,14 @@ def _build_welcome_paragraph_replacement(
     middle_budget = len(old_para) - len(prefix) - title_width - 2 - len(ending)
     if middle_budget < 8:
         return None
-    prepared = old_middle.strip()
-    if len(prepared) <= middle_budget:
-        middle = prepared.ljust(middle_budget)[:middle_budget]
+    if len(middle_template) <= middle_budget:
+        middle = middle_template.ljust(middle_budget)[:middle_budget]
+    elif middle_budget >= len(middle_template.strip()):
+        middle = _compress_welcome_middle(middle_template, middle_budget).ljust(middle_budget)[
+            :middle_budget
+        ]
     else:
-        middle = _compress_welcome_middle(prepared, middle_budget).ljust(middle_budget)[:middle_budget]
+        middle = middle_template[:middle_budget]
     new_para = f"{prefix}{title_part}\xa0:{middle}{ending}"
     if len(new_para) != len(old_para):
         return None
