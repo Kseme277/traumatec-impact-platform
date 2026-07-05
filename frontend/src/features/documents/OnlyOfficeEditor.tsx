@@ -5,6 +5,7 @@ import { confirmAction } from "../../lib/swal";
 export interface OnlyOfficeEditorConfig {
   document_server_url: string;
   config: Record<string, unknown>;
+  file_revision?: number;
 }
 
 interface OnlyOfficeEditorProps {
@@ -16,6 +17,10 @@ interface OnlyOfficeEditorProps {
   onClose?: () => void;
   /** Enregistrement explicite via bouton (pas d'autosave / pas de rechargement intempestif). */
   manualSave?: boolean;
+  /** Révision courante du fichier (incrémentée côté serveur après enregistrement). */
+  fileRevision?: number;
+  /** Interroge le serveur jusqu'à détection d'une nouvelle révision (forcesave). */
+  pollFileRevision?: () => Promise<number>;
 }
 
 interface DocEditorInstance {
@@ -77,6 +82,8 @@ export default function OnlyOfficeEditor({
   autoFullscreen = false,
   onClose,
   manualSave = false,
+  fileRevision = 0,
+  pollFileRevision,
 }: OnlyOfficeEditorProps) {
   const { t } = useTranslation();
   const reactId = useId().replace(/:/g, "");
@@ -86,6 +93,9 @@ export default function OnlyOfficeEditor({
   const onDocumentSavedRef = useRef(onDocumentSaved);
   const savePendingRef = useRef(false);
   const saveTimeoutRef = useRef<number | null>(null);
+  const savePollRef = useRef<number | null>(null);
+  const fileRevisionRef = useRef(fileRevision);
+  const pollFileRevisionRef = useRef(pollFileRevision);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(autoFullscreen);
@@ -103,8 +113,23 @@ export default function OnlyOfficeEditor({
   }, [onDocumentSaved]);
 
   useEffect(() => {
+    fileRevisionRef.current = editorConfig?.file_revision ?? fileRevision;
+  }, [editorConfig, fileRevision]);
+
+  useEffect(() => {
+    pollFileRevisionRef.current = pollFileRevision;
+  }, [pollFileRevision]);
+
+  useEffect(() => {
     savePendingRef.current = savePending;
   }, [savePending]);
+
+  const clearSavePoll = useCallback(() => {
+    if (savePollRef.current !== null) {
+      window.clearInterval(savePollRef.current);
+      savePollRef.current = null;
+    }
+  }, []);
 
   const clearSaveTimeout = useCallback(() => {
     if (saveTimeoutRef.current !== null) {
@@ -117,17 +142,41 @@ export default function OnlyOfficeEditor({
     (success: boolean) => {
       if (!savePendingRef.current) return;
       clearSaveTimeout();
+      clearSavePoll();
       savePendingRef.current = false;
       setSavePending(false);
       if (success) {
         setIsDirty(false);
+        fileRevisionRef.current += 1;
         onDocumentSavedRef.current?.();
       } else {
         setError(t("documents.saveFailed"));
       }
     },
-    [clearSaveTimeout, t],
+    [clearSavePoll, clearSaveTimeout, t],
   );
+
+  const startSavePoll = useCallback(() => {
+    const poll = pollFileRevisionRef.current;
+    if (!poll) return;
+    clearSavePoll();
+    const baseline = fileRevisionRef.current;
+    savePollRef.current = window.setInterval(() => {
+      if (!savePendingRef.current) {
+        clearSavePoll();
+        return;
+      }
+      void poll()
+        .then((revision) => {
+          if (savePendingRef.current && revision > baseline) {
+            finishSave(true);
+          }
+        })
+        .catch(() => {
+          /* ignore transient poll errors */
+        });
+    }, 1500);
+  }, [clearSavePoll, finishSave]);
 
   const startSaveTimeout = useCallback(() => {
     clearSaveTimeout();
@@ -197,8 +246,9 @@ export default function OnlyOfficeEditor({
     savePendingRef.current = true;
     setSavePending(true);
     startSaveTimeout();
+    startSavePoll();
     editorRef.current.serviceCommand("forcesave", "");
-  }, [startSaveTimeout]);
+  }, [startSavePoll, startSaveTimeout]);
 
   const handleCancel = useCallback(async () => {
     if (isDirty) {
@@ -302,6 +352,7 @@ export default function OnlyOfficeEditor({
             onError: (event: { data?: { errorDescription?: string } }) => {
               const detail = event.data?.errorDescription ?? t("documents.onlyofficeError");
               clearSaveTimeout();
+              clearSavePoll();
               setError(detail);
               setLoading(false);
               savePendingRef.current = false;
@@ -331,6 +382,7 @@ export default function OnlyOfficeEditor({
     return () => {
       cancelled = true;
       clearSaveTimeout();
+      clearSavePoll();
       editorRef.current?.destroyEditor?.();
       editorRef.current = null;
       mountEl?.remove();
@@ -344,6 +396,7 @@ export default function OnlyOfficeEditor({
     mountId,
     t,
     containerReady,
+    clearSavePoll,
     clearSaveTimeout,
     finishSave,
   ]);

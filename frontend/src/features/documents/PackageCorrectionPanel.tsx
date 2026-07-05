@@ -4,7 +4,7 @@ import { Download, Pencil } from "lucide-react";
 import Badge from "../../components/ui/badge/Badge";
 import Button from "../../components/ui/button/Button";
 import OnlyOfficeEditor, { type OnlyOfficeEditorConfig } from "../documents/OnlyOfficeEditor";
-import { downloadPackageFile, fetchPackageFileEditorConfig } from "../../api/workflow";
+import { downloadPackageFile, fetchPackageFileEditorConfig, fetchPackageFileRevision } from "../../api/workflow";
 import type { WorkflowFileReview } from "../../api/workflow";
 import { getApiToken } from "../../lib/clerkToken";
 import { ApiError } from "../../api/client";
@@ -154,6 +154,13 @@ export default function PackageCorrectionPanel({ jobId, files }: PackageCorrecti
             <OnlyOfficeEditor
               editorConfig={editorConfig}
               manualSave
+              fileRevision={editorConfig.file_revision}
+              pollFileRevision={async () => {
+                if (!activeCode) return 0;
+                const token = await getApiToken(getToken);
+                const result = await fetchPackageFileRevision(token, jobId, activeCode);
+                return result.revision;
+              }}
               onDocumentSaved={() => void handleSaved()}
               autoFullscreen
               onClose={() => {

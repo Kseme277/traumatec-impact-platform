@@ -401,35 +401,34 @@ def _build_welcome_paragraph_replacement(
     if not old_para.startswith(prefix):
         return None
 
-    title_part = _welcome_title_fragment(title)
-    if len(title_part) > 57:
-        title_part = _truncate_at_word(title_part, 57)
-    title_part = title_part.ljust(57)[:57]
+    sep_idx = old_para.find("\xa0:")
+    if sep_idx < 0:
+        return None
+    old_title_width = sep_idx - len(prefix)
+    old_middle = old_para[sep_idx + 2 : old_para.index(marker)]
 
     country_full = _normalize_for_doc_text(_country_to_fr(country) or country.strip())
     ending = f" à {city.strip()}, {country_full}."
     if len(ending) < len(marker):
         ending = ending.ljust(len(marker))
 
-    sep_idx = old_para.find("\xa0:")
-    if sep_idx < 0:
-        return None
-    old_middle = old_para[sep_idx + 2 : old_para.index(marker)]
-    middle_budget = len(old_para) - len(prefix) - 57 - 2 - len(ending)
+    # Pays complet allonge la fin : réduire la zone titre pour préserver le corps du texte.
+    ending_extra = max(0, len(ending) - len(marker))
+    title_width = max(28, old_title_width - ending_extra)
+
+    title_part = _welcome_title_fragment(title)
+    if len(title_part) > title_width:
+        title_part = _truncate_at_word(title_part, title_width)
+    title_part = title_part.ljust(title_width)[:title_width]
+
+    middle_budget = len(old_para) - len(prefix) - title_width - 2 - len(ending)
     if middle_budget < 8:
         return None
     prepared = old_middle.strip()
-    if len(prepared) <= middle_budget + 1 and "communautaire" in prepared.lower():
-        middle = prepared[:middle_budget].ljust(middle_budget)[:middle_budget]
-    elif len(prepared) <= middle_budget:
+    if len(prepared) <= middle_budget:
         middle = prepared.ljust(middle_budget)[:middle_budget]
     else:
-        middle = _compress_welcome_middle(old_middle, middle_budget).rstrip()
-        if "communautaire" in old_middle.lower() and "communautaire" not in middle.lower():
-            compact = middle.replace(" santé comm", " santé communautaires")
-            if len(compact) <= middle_budget:
-                middle = compact
-        middle = middle.ljust(middle_budget)[:middle_budget]
+        middle = _compress_welcome_middle(prepared, middle_budget).ljust(middle_budget)[:middle_budget]
     new_para = f"{prefix}{title_part}\xa0:{middle}{ending}"
     if len(new_para) != len(old_para):
         return None

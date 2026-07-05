@@ -10,7 +10,7 @@ import {
   TableHeader,
   TableRow,
 } from "../../components/ui/table";
-import { downloadPackageFile, fetchPackageFileEditorConfig } from "../../api/workflow";
+import { downloadPackageFile, fetchPackageFileEditorConfig, fetchPackageFileRevision } from "../../api/workflow";
 import type { WorkflowFileReview } from "../../api/workflow";
 import { getApiToken } from "../../lib/clerkToken";
 import { ApiError } from "../../api/client";
@@ -263,6 +263,13 @@ export default function PackageFileRemarksPanel({
             <OnlyOfficeEditor
               editorConfig={editorConfig}
               manualSave
+              fileRevision={editorConfig.file_revision}
+              pollFileRevision={async () => {
+                if (!jobId || !activeCode) return 0;
+                const token = await getApiToken(getToken);
+                const result = await fetchPackageFileRevision(token, jobId, activeCode);
+                return result.revision;
+              }}
               onDocumentSaved={() => void handleSaved()}
               autoFullscreen
               onClose={() => {

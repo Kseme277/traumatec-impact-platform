@@ -150,6 +150,12 @@ async def handle_package_file_callback(
     body: dict,
 ) -> dict:
     status_code = body.get("status")
+    logger.info(
+        "ONLYOFFICE callback status=%s job=%s file=%s",
+        status_code,
+        job.get("id"),
+        template_code,
+    )
     if status_code in (1, 4):
         return {"error": 0}
     if status_code == 7:

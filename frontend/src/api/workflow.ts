@@ -174,6 +174,7 @@ export function fetchDeliveryMailto(token: string | null, jobId: string) {
 export interface PackageFileEditorConfig {
   document_server_url: string;
   config: Record<string, unknown>;
+  file_revision?: number;
 }
 
 export function fetchPackageFileEditorConfig(
@@ -185,6 +186,17 @@ export function fetchPackageFileEditorConfig(
   const query = mode === "edit" ? "?mode=edit" : "";
   return apiFetch<PackageFileEditorConfig>(
     `/v1/generations/${jobId}/files/${encodeURIComponent(templateCode)}/editor-config${query}`,
+    token,
+  );
+}
+
+export function fetchPackageFileRevision(
+  token: string | null,
+  jobId: string,
+  templateCode: string,
+) {
+  return apiFetch<{ revision: number }>(
+    `/v1/generations/${jobId}/files/${encodeURIComponent(templateCode)}/file-revision`,
     token,
   );
 }

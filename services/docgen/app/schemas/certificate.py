@@ -24,6 +24,7 @@ class CertificateGenerationListResponse(BaseModel):
 class CertificateEditorConfigResponse(BaseModel):
     document_server_url: str
     config: dict
+    file_revision: int | None = None
 
 
 class CertificateTitleSuggestionResponse(BaseModel):

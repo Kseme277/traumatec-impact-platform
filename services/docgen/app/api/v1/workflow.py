@@ -22,7 +22,7 @@ from app.schemas.workflow import (
     WorkflowStatsResponse,
 )
 from app.services import package_workflow as wf
-from app.services.package_file_storage import rebuild_job_zip_for_id
+from app.services.package_file_storage import file_revision, rebuild_job_zip_for_id
 from app.services.package_file_onlyoffice import (
     build_package_file_editor_config,
     content_type_for_filename,
@@ -225,10 +225,29 @@ async def package_file_editor_config(
         mode=mode,
         trace=job.get("template_versions_json"),
     )
+    revision = file_revision(job.get("template_versions_json"), resolved_code)
     return CertificateEditorConfigResponse(
         document_server_url=payload["document_server_url"],
         config=payload["config"],
+        file_revision=revision,
     )
+
+
+@router.get("/{job_id}/files/{template_code:path}/file-revision")
+async def package_file_revision(
+    job_id: UUID,
+    template_code: str,
+    user: AuthenticatedUser = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    job = await wf._get_job_row(db, job_id)
+    if job["status"] != "completed":
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Paquet non généré")
+    from tip_common.event_scope import assert_event_access
+
+    assert_event_access(user, job.get("organizer_responsible_user_id"))
+    resolved_code = await wf.resolve_template_code(db, job_id, template_code)
+    return {"revision": file_revision(job.get("template_versions_json"), resolved_code)}
 
 
 @router.get("/{job_id}/files/{template_code:path}/onlyoffice-file")
