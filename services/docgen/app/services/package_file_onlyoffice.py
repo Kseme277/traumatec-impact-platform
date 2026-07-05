@@ -73,6 +73,16 @@ def document_key(job_id: UUID, template_code: str, revision: int = 0) -> str:
     return f"pkg_{job_id}_{code_hash}_{revision}"
 
 
+def _callback_status_code(body: dict) -> int | None:
+    raw = body.get("status")
+    if raw is None:
+        return None
+    try:
+        return int(raw)
+    except (TypeError, ValueError):
+        return None
+
+
 def build_package_file_editor_config(
     settings: Settings,
     *,
@@ -97,7 +107,7 @@ def build_package_file_editor_config(
     encoded = quote(template_code, safe="")
     file_url = (
         f"{base}{prefix}/generations/{job_id}/files/{encoded}/onlyoffice-file"
-        f"?token={file_token}"
+        f"?token={file_token}&v={revision}"
     )
 
     revision = file_revision(trace, template_code)
@@ -155,6 +165,13 @@ def _normalize_onlyoffice_download_url(settings: Settings, url: str) -> str:
     idx = url.find(marker)
     if idx >= 0:
         return f"{internal}/{url[idx + len(marker) :]}"
+    if "/cache/files/" in url:
+        cache_idx = url.find("/cache/files/")
+        return f"{internal}{url[cache_idx:]}"
+    if url.startswith("http://onlyoffice") or url.startswith("https://onlyoffice"):
+        parsed = url.split("onlyoffice", 1)
+        if len(parsed) == 2:
+            return f"{internal}{parsed[1]}"
     return url
 
 
@@ -180,12 +197,13 @@ async def handle_package_file_callback(
     template_code: str,
     body: dict,
 ) -> dict:
-    status_code = body.get("status")
+    status_code = _callback_status_code(body)
     logger.info(
-        "ONLYOFFICE callback status=%s job=%s file=%s",
+        "ONLYOFFICE callback status=%s job=%s file=%s keys=%s",
         status_code,
         job.get("id"),
         template_code,
+        sorted(body.keys()),
     )
     if status_code in (1, 4):
         return {"error": 0}
@@ -211,11 +229,25 @@ async def handle_package_file_callback(
         return {"error": 1}
 
     download_url = _normalize_onlyoffice_download_url(settings, download_url.strip())
+    logger.info("ONLYOFFICE téléchargement job=%s file=%s url=%s", job.get("id"), template_code, download_url)
 
-    async with httpx.AsyncClient(timeout=120.0, follow_redirects=True) as client:
-        response = await client.get(download_url)
-        response.raise_for_status()
-        data = response.content
+    try:
+        async with httpx.AsyncClient(timeout=120.0, follow_redirects=True) as client:
+            response = await client.get(download_url)
+            response.raise_for_status()
+            data = response.content
+    except Exception as exc:
+        logger.exception(
+            "ONLYOFFICE téléchargement échoué job=%s file=%s url=%s",
+            job.get("id"),
+            template_code,
+            download_url,
+        )
+        raise ValueError(f"Téléchargement ONLYOFFICE impossible : {exc}") from exc
+
+    if not data:
+        logger.warning("ONLYOFFICE callback fichier vide job=%s file=%s", job.get("id"), template_code)
+        return {"error": 1}
 
     await replace_package_file_bytes(db, settings, job, template_code, data, rebuild_zip=True)
     logger.info(

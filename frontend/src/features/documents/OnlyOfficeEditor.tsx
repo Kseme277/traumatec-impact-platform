@@ -106,6 +106,7 @@ export default function OnlyOfficeEditor({
   const fileRevisionRef = useRef(fileRevision);
   const pollFileRevisionRef = useRef(pollFileRevision);
   const onBackendForceSaveRef = useRef(onBackendForceSave);
+  const isDirtyRef = useRef(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(autoFullscreen);
@@ -253,6 +254,10 @@ export default function OnlyOfficeEditor({
     isFullscreen ||
     (containerSize.width >= MIN_CONTAINER_PX && containerSize.height >= MIN_CONTAINER_PX);
 
+  useEffect(() => {
+    isDirtyRef.current = isDirty;
+  }, [isDirty]);
+
   const handleManualSave = useCallback(() => {
     if (savePendingRef.current) return;
     if (!onBackendForceSaveRef.current && !editorRef.current?.serviceCommand) return;
@@ -261,37 +266,34 @@ export default function OnlyOfficeEditor({
     setSavePending(true);
     startSaveTimeout();
     startSavePoll();
+    editorRef.current?.serviceCommand("forcesave", "");
 
     void (async () => {
       const backendSave = onBackendForceSaveRef.current;
-      if (backendSave) {
-        try {
-          const result = await backendSave();
-          if (result.no_changes || result.error === 4) {
-            finishSave(true);
-            return;
+      if (!backendSave) return;
+      try {
+        const result = await backendSave();
+        if (result.no_changes || result.error === 4) {
+          finishSave(!isDirtyRef.current);
+          return;
+        }
+        if (result.saved) {
+          if (typeof result.revision === "number") {
+            fileRevisionRef.current = result.revision;
           }
-          if (result.saved) {
-            if (typeof result.revision === "number") {
-              fileRevisionRef.current = result.revision;
-            }
-            finishSave(true);
-            return;
-          }
-          if (result.timeout) {
-            finishSave(false);
-            return;
-          }
-          if (result.error !== undefined && result.error !== 0) {
-            finishSave(false);
-            return;
-          }
-        } catch {
+          finishSave(true);
+          return;
+        }
+        if (result.timeout) {
           finishSave(false);
           return;
         }
-      } else {
-        editorRef.current?.serviceCommand("forcesave", "");
+        if (result.error !== undefined && result.error !== 0) {
+          finishSave(false);
+          return;
+        }
+      } catch {
+        finishSave(false);
       }
     })();
   }, [finishSave, startSavePoll, startSaveTimeout]);
@@ -390,7 +392,9 @@ export default function OnlyOfficeEditor({
             },
             onRequestSaveResult: (event: { data?: boolean }) => {
               if (cancelled || !manualSave || !savePendingRef.current) return;
-              finishSave(event.data === true);
+              if (event.data === true) {
+                finishSave(true);
+              }
             },
             onError: (event: { data?: { errorDescription?: string } }) => {
               const detail = event.data?.errorDescription ?? t("documents.onlyofficeError");

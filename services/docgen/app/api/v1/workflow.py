@@ -3,8 +3,8 @@ from uuid import UUID
 import asyncio
 
 from botocore.exceptions import ClientError
-from fastapi import APIRouter, Depends, HTTPException, Query, status
-from fastapi.responses import Response
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
+from fastapi.responses import JSONResponse, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
@@ -282,7 +282,7 @@ async def package_file_onlyoffice_forcesave(
             "error": error_code,
             "revision": revision_before,
             "no_changes": True,
-            "saved": True,
+            "saved": False,
         }
     if error_code != 0:
         return {"error": error_code, "revision": revision_before, "saved": False}
@@ -310,11 +310,11 @@ async def package_file_onlyoffice(
     db: AsyncSession = Depends(get_db),
 ) -> Response:
     settings = get_settings()
-    if not verify_access_token(settings, job_id, template_code, "file", token):
+    resolved_code = await wf.resolve_template_code(db, job_id, template_code)
+    if not verify_access_token(settings, job_id, resolved_code, "file", token):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Jeton ONLYOFFICE invalide")
 
     job = await wf._get_job_row(db, job_id)
-    resolved_code = await wf.resolve_template_code(db, job_id, template_code)
     storage_key, filename = resolve_package_file(job, resolved_code)
     try:
         data = download_package_file_bytes(settings, storage_key)
@@ -368,28 +368,34 @@ async def package_file_download(
 async def package_file_onlyoffice_callback(
     job_id: UUID,
     template_code: str,
-    body: dict,
+    request: Request,
     token: str | None = Query(default=None),
     db: AsyncSession = Depends(get_db),
-) -> dict:
+) -> JSONResponse:
     settings = get_settings()
-    if not verify_access_token(settings, job_id, template_code, "callback", token):
-        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Jeton ONLYOFFICE invalide")
+    resolved_code = await wf.resolve_template_code(db, job_id, template_code)
+    if not verify_access_token(settings, job_id, resolved_code, "callback", token):
+        return JSONResponse({"error": 1}, status_code=status.HTTP_403_FORBIDDEN)
+
+    try:
+        body = await request.json()
+    except Exception:
+        return JSONResponse({"error": 1})
+
+    if not isinstance(body, dict):
+        return JSONResponse({"error": 1})
 
     job = await wf._get_job_row(db, job_id)
     if job["status"] != "completed":
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Paquet non généré")
+        return JSONResponse({"error": 1}, status_code=status.HTTP_422_UNPROCESSABLE_ENTITY)
     wf_status = job.get("workflow_status") or "generated"
     if wf_status not in wf.EDITABLE_PACKAGE:
-        return {"error": 1}
+        return JSONResponse({"error": 1})
 
-    resolved_code = await wf.resolve_template_code(db, job_id, template_code)
     try:
         result = await handle_package_file_callback(db, settings, job, resolved_code, body)
-        return result
+        return JSONResponse(result)
     except Exception as exc:
-        from fastapi import HTTPException, status
-
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail=f"Enregistrement ONLYOFFICE impossible : {exc}",
