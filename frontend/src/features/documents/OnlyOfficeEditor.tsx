@@ -154,7 +154,7 @@ export default function OnlyOfficeEditor({
   }, []);
 
   const finishSave = useCallback(
-    (success: boolean) => {
+    (success: boolean, failure: "failed" | "timeout" = "failed") => {
       if (!savePendingRef.current) return;
       clearSaveTimeout();
       clearSavePoll();
@@ -164,7 +164,9 @@ export default function OnlyOfficeEditor({
         setIsDirty(false);
         onDocumentSavedRef.current?.();
       } else {
-        setError(t("documents.saveFailed"));
+        setError(
+          failure === "timeout" ? t("documents.saveTimeout") : t("documents.saveFailed"),
+        );
       }
     },
     [clearSavePoll, clearSaveTimeout, t],
@@ -196,12 +198,9 @@ export default function OnlyOfficeEditor({
     clearSaveTimeout();
     saveTimeoutRef.current = window.setTimeout(() => {
       if (!savePendingRef.current) return;
-      clearSaveTimeout();
-      savePendingRef.current = false;
-      setSavePending(false);
-      setError(t("documents.saveTimeout"));
-    }, 60000);
-  }, [clearSaveTimeout, t]);
+      finishSave(false, "timeout");
+    }, 50000);
+  }, [clearSaveTimeout, finishSave]);
 
   useLayoutEffect(() => {
     if (editorConfig && autoFullscreen) {
@@ -266,37 +265,39 @@ export default function OnlyOfficeEditor({
     setSavePending(true);
     startSaveTimeout();
     startSavePoll();
-    editorRef.current?.serviceCommand("forcesave", "");
 
     void (async () => {
       const backendSave = onBackendForceSaveRef.current;
-      if (!backendSave) return;
-      try {
-        const result = await backendSave();
-        if (result.saved) {
-          if (typeof result.revision === "number") {
-            fileRevisionRef.current = result.revision;
-          }
-          finishSave(true);
-          return;
-        }
-        if (result.no_changes || result.error === 4) {
-          if (!isDirtyRef.current) {
+      if (backendSave) {
+        try {
+          const result = await backendSave();
+          if (result.saved) {
+            if (typeof result.revision === "number") {
+              fileRevisionRef.current = result.revision;
+            }
             finishSave(true);
+            return;
           }
-          return;
-        }
-        if (result.timeout) {
+          if (result.no_changes || result.error === 4) {
+            finishSave(!isDirtyRef.current);
+            return;
+          }
+          if (result.timeout) {
+            finishSave(false, "timeout");
+            return;
+          }
+          if (result.error !== undefined && result.error !== 0) {
+            finishSave(false);
+            return;
+          }
+        } catch {
           finishSave(false);
           return;
         }
-        if (result.error !== undefined && result.error !== 0) {
-          finishSave(false);
-          return;
-        }
-      } catch {
-        finishSave(false);
+        return;
       }
+
+      editorRef.current?.serviceCommand("forcesave", "");
     })();
   }, [finishSave, startSavePoll, startSaveTimeout]);
 

@@ -24,7 +24,7 @@ from app.schemas.workflow import (
     WorkflowStatsResponse,
 )
 from app.services import package_workflow as wf
-from app.services.package_file_storage import file_revision
+from app.services.package_file_storage import file_revision, rebuild_job_zip_for_id
 from app.services.package_file_onlyoffice import (
     build_package_file_editor_config,
     content_type_for_filename,
@@ -280,23 +280,15 @@ async def package_file_onlyoffice_forcesave(
     if error_code not in (0, 4):
         return {"error": error_code, "revision": revision_before, "saved": False}
 
-    for _ in range(60):
+    for _ in range(45):
         await asyncio.sleep(1)
         fresh = await wf._get_job_row(db, job_id)
         revision_after = file_revision(fresh.get("template_versions_json"), resolved_code)
         if revision_after > revision_before:
             return {"error": 0, "revision": revision_after, "saved": True}
 
-    if error_code == 4:
-        return {
-            "error": error_code,
-            "revision": revision_before,
-            "no_changes": True,
-            "saved": False,
-        }
-
     return {
-        "error": 0,
+        "error": error_code,
         "revision": revision_before,
         "saved": False,
         "timeout": True,
@@ -394,7 +386,15 @@ async def package_file_onlyoffice_callback(
         return JSONResponse({"error": 1})
 
     try:
-        result = await handle_package_file_callback(db, settings, job, resolved_code, body)
+        result = await handle_package_file_callback(
+            db,
+            settings,
+            job,
+            resolved_code,
+            body,
+            rebuild_zip=False,
+        )
+        asyncio.create_task(rebuild_job_zip_for_id(job_id))
         return JSONResponse(result)
     except Exception as exc:
         raise HTTPException(

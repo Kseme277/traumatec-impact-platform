@@ -195,6 +195,8 @@ async def handle_package_file_callback(
     job: dict,
     template_code: str,
     body: dict,
+    *,
+    rebuild_zip: bool = True,
 ) -> dict:
     status_code = _callback_status_code(body)
     logger.info(
@@ -248,7 +250,14 @@ async def handle_package_file_callback(
         logger.warning("ONLYOFFICE callback fichier vide job=%s file=%s", job.get("id"), template_code)
         return {"error": 1}
 
-    await replace_package_file_bytes(db, settings, job, template_code, data, rebuild_zip=True)
+    await replace_package_file_bytes(
+        db,
+        settings,
+        job,
+        template_code,
+        data,
+        rebuild_zip=rebuild_zip,
+    )
     logger.info(
         "ONLYOFFICE fichier enregistré job=%s file=%s bytes=%s",
         job.get("id"),
