@@ -17,6 +17,9 @@ from app.services.template_files import download_template_bytes, replace_templat
 
 logger = logging.getLogger(__name__)
 
+# Status 2 = save on close/autosave; status 6 = forcesave.
+ONLYOFFICE_SAVE_READY_STATUSES = frozenset({2, 6})
+
 WORD_EXTENSIONS = {".doc", ".docx", ".odt", ".rtf", ".txt", ".docm", ".dotx", ".dot"}
 SPREADSHEET_EXTENSIONS = {".xlsx", ".xls", ".ods", ".csv"}
 SUPPORTED_EXTENSIONS = WORD_EXTENSIONS | SPREADSHEET_EXTENSIONS
@@ -142,7 +145,10 @@ async def handle_onlyoffice_callback(
     status_code = body.get("status")
     if status_code in (1, 4):
         return {"error": 0}
-    if status_code != 2:
+    if status_code == 7:
+        logger.warning("ONLYOFFICE forcesave échoué template=%s", template.id)
+        return {"error": 1}
+    if status_code not in ONLYOFFICE_SAVE_READY_STATUSES:
         logger.info("ONLYOFFICE callback ignoré status=%s template=%s", status_code, template.id)
         return {"error": 0}
 

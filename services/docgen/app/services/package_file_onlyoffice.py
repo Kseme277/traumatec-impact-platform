@@ -21,6 +21,9 @@ from tip_common.storage import get_object_storage
 
 logger = logging.getLogger(__name__)
 
+# Status 2 = save on close/autosave; status 6 = forcesave (bouton Enregistrer).
+ONLYOFFICE_SAVE_READY_STATUSES = frozenset({2, 6})
+
 DOCX_FALLBACK = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
 XLSX_FALLBACK = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
 
@@ -104,7 +107,7 @@ def build_package_file_editor_config(
         "lang": "fr",
         "user": {"id": user_id, "name": user_name},
         "customization": {
-            "forcesave": False,
+            "forcesave": mode == "edit",
             "autosave": False,
             "compactToolbar": mode != "edit",
         },
@@ -149,7 +152,14 @@ async def handle_package_file_callback(
     status_code = body.get("status")
     if status_code in (1, 4):
         return {"error": 0}
-    if status_code != 2:
+    if status_code == 7:
+        logger.warning(
+            "ONLYOFFICE forcesave échoué job=%s file=%s",
+            job.get("id"),
+            template_code,
+        )
+        return {"error": 1}
+    if status_code not in ONLYOFFICE_SAVE_READY_STATUSES:
         logger.info(
             "ONLYOFFICE callback ignoré status=%s job=%s file=%s",
             status_code,

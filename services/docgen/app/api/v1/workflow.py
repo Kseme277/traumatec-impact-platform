@@ -310,7 +310,7 @@ async def package_file_onlyoffice_callback(
     resolved_code = await wf.resolve_template_code(db, job_id, template_code)
     try:
         result = await handle_package_file_callback(db, settings, job, resolved_code, body)
-        if result.get("error") == 0 and body.get("status") == 2:
+        if result.get("error") == 0 and body.get("status") in (2, 6):
             background_tasks.add_task(rebuild_job_zip_for_id, job_id)
         return result
     except Exception as exc:

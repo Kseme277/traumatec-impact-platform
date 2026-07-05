@@ -418,15 +418,7 @@ def _build_welcome_paragraph_replacement(
     middle_budget = len(old_para) - len(prefix) - 57 - 2 - len(ending)
     if middle_budget < 8:
         return None
-    prepared = old_middle
-    if "communautaire" in old_middle.lower():
-        prepared = prepared.replace(
-            "Problématique de Prise en Charge des Fractures",
-            "Prob. prise en charge fractures",
-        )
-        prepared = prepared.replace(" des agents de santé communautaire", " agents santé communautaires")
-        prepared = prepared.replace(" à l´intention ", " à l'intention ")
-    prepared = prepared.strip()
+    prepared = old_middle.strip()
     if len(prepared) <= middle_budget + 1 and "communautaire" in prepared.lower():
         middle = prepared[:middle_budget].ljust(middle_budget)[:middle_budget]
     elif len(prepared) <= middle_budget:
