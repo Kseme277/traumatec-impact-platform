@@ -753,12 +753,12 @@ async def list_workflow_queue(
 ) -> list[dict[str, Any]]:
     if role_filter == "controle":
         if queue_scope == "history":
+            # Dernier job par événement uniquement ; paquets validés exclus de l'historique contrôle.
             statuses = (
                 "procedure_rejected",
                 "procedure_approved",
                 "under_final_validation",
                 "validator_rejected",
-                "approved",
             )
         else:
             statuses = ("submitted", "under_procedure_review")
@@ -794,26 +794,54 @@ async def list_workflow_queue(
         scope_params["validator_uid"] = user_id
     params: dict[str, Any] = {"statuses": list(statuses), "limit": limit, **scope_params}
 
-    result = await db.execute(
-        text(
-            f"""
-            SELECT j.id, j.event_id, j.workflow_status, j.status, j.zip_filename,
-                   j.created_at, j.completed_at, j.requested_by_id,
-                   j.assigned_reviewer_id, j.phase_started_at, j.phase_due_at,
-                   e.title AS event_title, e.project_number,
-                   e.organizer_responsible_user_id,
-                   CASE WHEN j.phase_due_at IS NOT NULL AND j.phase_due_at < now() THEN TRUE ELSE FALSE END AS is_overdue
-            FROM docgen.generation_jobs j
-            JOIN events.events e ON e.id = j.event_id
-            WHERE j.status = 'completed'
-              AND j.workflow_status = ANY(:statuses)
-              {scope_sql}
-            ORDER BY j.phase_due_at ASC NULLS LAST, j.completed_at DESC NULLS LAST
-            LIMIT :limit
-            """
-        ),
-        params,
-    )
+    if queue_scope == "history":
+        result = await db.execute(
+            text(
+                f"""
+                WITH latest AS (
+                    SELECT DISTINCT ON (j.event_id)
+                           j.id, j.event_id, j.workflow_status, j.status, j.zip_filename,
+                           j.created_at, j.completed_at, j.requested_by_id,
+                           j.assigned_reviewer_id, j.phase_started_at, j.phase_due_at,
+                           e.title AS event_title, e.project_number,
+                           e.organizer_responsible_user_id,
+                           CASE WHEN j.phase_due_at IS NOT NULL AND j.phase_due_at < now()
+                                THEN TRUE ELSE FALSE END AS is_overdue
+                    FROM docgen.generation_jobs j
+                    JOIN events.events e ON e.id = j.event_id
+                    WHERE j.status = 'completed'
+                      {scope_sql}
+                    ORDER BY j.event_id, j.completed_at DESC NULLS LAST, j.created_at DESC
+                )
+                SELECT * FROM latest
+                WHERE workflow_status = ANY(:statuses)
+                ORDER BY phase_due_at ASC NULLS LAST, completed_at DESC NULLS LAST
+                LIMIT :limit
+                """
+            ),
+            params,
+        )
+    else:
+        result = await db.execute(
+            text(
+                f"""
+                SELECT j.id, j.event_id, j.workflow_status, j.status, j.zip_filename,
+                       j.created_at, j.completed_at, j.requested_by_id,
+                       j.assigned_reviewer_id, j.phase_started_at, j.phase_due_at,
+                       e.title AS event_title, e.project_number,
+                       e.organizer_responsible_user_id,
+                       CASE WHEN j.phase_due_at IS NOT NULL AND j.phase_due_at < now() THEN TRUE ELSE FALSE END AS is_overdue
+                FROM docgen.generation_jobs j
+                JOIN events.events e ON e.id = j.event_id
+                WHERE j.status = 'completed'
+                  AND j.workflow_status = ANY(:statuses)
+                  {scope_sql}
+                ORDER BY j.phase_due_at ASC NULLS LAST, j.completed_at DESC NULLS LAST
+                LIMIT :limit
+                """
+            ),
+            params,
+        )
     return [dict(row) for row in result.mappings().all()]
 
 

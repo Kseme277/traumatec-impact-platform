@@ -355,13 +355,13 @@ export default function WorkflowFileReviewList({
         </div>
       </div>
 
-      {activeCode && editorLoading ? (
+      {activeCode && editorLoading && !editorConfig ? (
         <div className="fixed inset-0 z-[100000] flex items-center justify-center bg-white/95 dark:bg-gray-900/95">
           <p className="text-sm text-gray-500 dark:text-gray-400">{t("documents.onlyofficeLoading")}</p>
         </div>
       ) : null}
 
-      {activeCode && !editorLoading && editorConfig ? (
+      {activeCode && editorConfig ? (
         <OnlyOfficeEditor
           editorConfig={editorConfig}
           autoFullscreen

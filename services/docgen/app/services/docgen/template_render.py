@@ -148,6 +148,19 @@ def build_event_context(event: dict[str, Any]) -> dict[str, Any]:
         "today": _format_date_fr(datetime.now().date()),
         "organizer_responsible_name": (event.get("organizer_responsible_name") or "").strip(),
     }
+    teacher_names: list[str] = list(event.get("teacher_names") or [])
+    if not teacher_names:
+        for teacher in event.get("teachers") or []:
+            if not isinstance(teacher, dict):
+                continue
+            name = f"{teacher.get('first_name', '')} {teacher.get('last_name', '')}".strip()
+            if name:
+                teacher_names.append(name)
+    ctx["teacher_names"] = teacher_names
+    ctx["teachers"] = event.get("teachers") or []
+    for index, name in enumerate(teacher_names[:6], start=1):
+        ctx[f"teacher_{index}"] = name
+        ctx[f"enseignant_{index}"] = name
     return ctx
 
 

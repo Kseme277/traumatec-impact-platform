@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useId, useRef, useState } from "react";
+import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import { useTranslation } from "../../i18n/useTranslation";
 import { confirmAction } from "../../lib/swal";
 
@@ -88,8 +88,8 @@ export default function OnlyOfficeEditor({
   const saveTimeoutRef = useRef<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
-  const [isFullscreen, setIsFullscreen] = useState(false);
-  const [editorHeight, setEditorHeight] = useState(() => computeEditorHeight(false));
+  const [isFullscreen, setIsFullscreen] = useState(autoFullscreen);
+  const [editorHeight, setEditorHeight] = useState(() => computeEditorHeight(autoFullscreen));
   const [containerSize, setContainerSize] = useState({ width: 0, height: 0 });
   const [isDirty, setIsDirty] = useState(false);
   const [savePending, setSavePending] = useState(false);
@@ -140,9 +140,10 @@ export default function OnlyOfficeEditor({
     }, 60000);
   }, [clearSaveTimeout, t]);
 
-  useEffect(() => {
+  useLayoutEffect(() => {
     if (editorConfig && autoFullscreen) {
       setIsFullscreen(true);
+      setEditorHeight(computeEditorHeight(true));
     }
   }, [editorConfig, autoFullscreen]);
 
@@ -258,10 +259,14 @@ export default function OnlyOfficeEditor({
         mountEl.dataset.onlyofficeKey = mountKey;
         mountEl.style.height = heightPx;
         mountEl.style.minHeight = heightPx;
-        mountEl.style.width = "100%";
+        mountEl.style.width = isFullscreen ? `${window.innerWidth}px` : "100%";
         mountEl.className =
           "w-full rounded-lg border border-gray-200 dark:border-gray-700";
         shellRef.current.appendChild(mountEl);
+
+        if (isFullscreen) {
+          window.dispatchEvent(new Event("resize"));
+        }
 
         const config = {
           ...editorConfig.config,
@@ -306,6 +311,15 @@ export default function OnlyOfficeEditor({
         };
 
         editorRef.current = new window.DocsAPI.DocEditor(mountId, config);
+
+        if (isFullscreen) {
+          window.setTimeout(() => {
+            if (!cancelled) {
+              window.dispatchEvent(new Event("resize"));
+              setLoading(false);
+            }
+          }, 120);
+        }
       } catch (err) {
         if (!cancelled) {
           setError(err instanceof Error ? err.message : t("documents.onlyofficeUnavailable"));
@@ -322,7 +336,17 @@ export default function OnlyOfficeEditor({
       mountEl?.remove();
       shell.replaceChildren();
     };
-  }, [editorConfig, editorHeight, manualSave, mountId, t, containerReady, containerSize.width, clearSaveTimeout, finishSave]);
+  }, [
+    editorConfig,
+    editorHeight,
+    isFullscreen,
+    manualSave,
+    mountId,
+    t,
+    containerReady,
+    clearSaveTimeout,
+    finishSave,
+  ]);
 
   if (!editorConfig) {
     return (

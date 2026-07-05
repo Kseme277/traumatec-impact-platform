@@ -1070,7 +1070,7 @@ const fr = {
       "Un paquet validé existe pour cet événement. Une nouvelle génération n'est plus autorisée.",
     packageRejectedTitle: "Paquet rejeté",
     packageRejectedDesc:
-      "Regénérez le paquet ZIP ou corrigez les fichiers (OpenOffice), puis resoumettez au contrôle via le panneau ci-dessous.",
+      "Regénérez le paquet ZIP ou corrigez les fichiers via ONLYOFFICE (panneau ci-dessous), puis resoumettez au contrôle.",
     packageInReviewTitle: "Paquet en validation",
     packageInReviewDesc:
       "Le paquet est en cours de contrôle ou de validation finale. La génération est verrouillée.",
@@ -2671,7 +2671,7 @@ const en: typeof fr = {
       "An approved package already exists for this event. A new generation is not allowed.",
     packageRejectedTitle: "Package rejected",
     packageRejectedDesc:
-      "Regenerate the ZIP or fix files (OpenOffice), then resubmit for review using the panel below.",
+      "Regenerate the ZIP or edit files in ONLYOFFICE (panel below), then resubmit for review.",
     packageInReviewTitle: "Package under review",
     packageInReviewDesc:
       "The package is in procedure or final validation. Generation is locked.",
