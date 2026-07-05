@@ -273,15 +273,17 @@ export default function OnlyOfficeEditor({
       if (!backendSave) return;
       try {
         const result = await backendSave();
-        if (result.no_changes || result.error === 4) {
-          finishSave(!isDirtyRef.current);
-          return;
-        }
         if (result.saved) {
           if (typeof result.revision === "number") {
             fileRevisionRef.current = result.revision;
           }
           finishSave(true);
+          return;
+        }
+        if (result.no_changes || result.error === 4) {
+          if (!isDirtyRef.current) {
+            finishSave(true);
+          }
           return;
         }
         if (result.timeout) {
@@ -394,6 +396,8 @@ export default function OnlyOfficeEditor({
               if (cancelled || !manualSave || !savePendingRef.current) return;
               if (event.data === true) {
                 finishSave(true);
+              } else if (event.data === false && !onBackendForceSaveRef.current) {
+                finishSave(false);
               }
             },
             onError: (event: { data?: { errorDescription?: string } }) => {

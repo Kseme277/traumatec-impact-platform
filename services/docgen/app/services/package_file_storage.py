@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import io
 import json
+import logging
 import zipfile
 from typing import Any
 
@@ -14,6 +15,8 @@ from app.core.config import Settings
 from app.services.package_file_utils import content_type_for_filename, resolve_package_file
 from app.services.package_workflow import trace_package_files
 from tip_common.storage import get_object_storage
+
+logger = logging.getLogger(__name__)
 
 _SKIP_ZIP_ARC = frozenset({"00_README.txt", "_manifest.json"})
 
@@ -91,7 +94,14 @@ async def replace_package_file_bytes(
     await db.commit()
 
     if rebuild_zip:
-        await rebuild_job_zip(settings, job_for_zip)
+        try:
+            await rebuild_job_zip(settings, job_for_zip)
+        except Exception:
+            logger.exception(
+                "Reconstruction ZIP échouée après enregistrement job=%s file=%s",
+                job.get("id"),
+                template_code,
+            )
 
     return trace
 

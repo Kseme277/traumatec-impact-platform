@@ -277,14 +277,7 @@ async def package_file_onlyoffice_forcesave(
             detail=f"Enregistrement ONLYOFFICE impossible : {exc}",
         ) from exc
     error_code = int(result.get("error", 3))
-    if error_code == 4:
-        return {
-            "error": error_code,
-            "revision": revision_before,
-            "no_changes": True,
-            "saved": False,
-        }
-    if error_code != 0:
+    if error_code not in (0, 4):
         return {"error": error_code, "revision": revision_before, "saved": False}
 
     for _ in range(60):
@@ -293,6 +286,14 @@ async def package_file_onlyoffice_forcesave(
         revision_after = file_revision(fresh.get("template_versions_json"), resolved_code)
         if revision_after > revision_before:
             return {"error": 0, "revision": revision_after, "saved": True}
+
+    if error_code == 4:
+        return {
+            "error": error_code,
+            "revision": revision_before,
+            "no_changes": True,
+            "saved": False,
+        }
 
     return {
         "error": 0,
