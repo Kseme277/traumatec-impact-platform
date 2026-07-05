@@ -168,4 +168,21 @@ def build_french_placeholder_pairs(context: dict[str, Any]) -> list[tuple[str, s
             seen=seen,
         )
 
+    teacher_names = context.get("teacher_names") or []
+    if not teacher_names:
+        for teacher in context.get("teachers") or []:
+            if isinstance(teacher, dict):
+                name = f"{teacher.get('first_name', '')} {teacher.get('last_name', '')}".strip()
+                if name:
+                    teacher_names.append(name)
+    for index, name in enumerate(teacher_names[:6], start=1):
+        slot = ".." if index == 6 else str(index)
+        for ap in _APOSTROPHES:
+            _append_pairs(
+                pairs,
+                [_brace(f"Nom de L{ap}Ens. {slot}")],
+                name,
+                seen=seen,
+            )
+
     return pairs

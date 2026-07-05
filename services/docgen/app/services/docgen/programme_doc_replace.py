@@ -237,6 +237,139 @@ def _combined_header_pairs(
     return pairs
 
 
+def _fit_line_blob(blob: str, value: str) -> str | None:
+    """Remplit une ligne modèle (placeholder + tabulations) à largeur fixe."""
+    if not blob or not value:
+        return None
+    value = _normalize_for_doc_text(value.strip())
+    if not value:
+        return None
+    if len(value) > len(blob):
+        value = _safe_truncate(value, len(blob))
+    return value.ljust(len(blob))[:len(blob)]
+
+
+def _placeholder_line_blob(doc_bytes: bytes, placeholder: str) -> str | None:
+    """Placeholder enseignant + tabulations/espaces jusqu'au retour chariot."""
+    needle = placeholder.encode("utf-16-le")
+    idx = doc_bytes.find(needle)
+    if idx < 0:
+        return None
+    end = idx + len(needle)
+    while end + 1 < len(doc_bytes):
+        chunk = doc_bytes[end : end + 2]
+        if chunk in (b"\t\x00", b" \x00"):
+            end += 2
+            continue
+        if chunk == b"\r\x00":
+            end += 2
+            break
+        break
+    try:
+        return doc_bytes[idx:end].decode("utf-16-le")
+    except UnicodeDecodeError:
+        return None
+
+
+def _teacher_placeholder_labels(index: int | str) -> list[str]:
+    labels: list[str] = []
+    for ap in _DOC_APOSTROPHE_CHARS:
+        labels.append(f"Nom de L{ap}Ens. {index}")
+    return labels
+
+
+def _teacher_line_pairs(
+    context: dict[str, Any],
+    *,
+    doc_bytes: bytes | None = None,
+) -> list[tuple[str, str]]:
+    if not doc_bytes:
+        return []
+    names = list(context.get("teacher_names") or [])
+    if not names:
+        for teacher in context.get("teachers") or []:
+            if isinstance(teacher, dict):
+                name = f"{teacher.get('first_name', '')} {teacher.get('last_name', '')}".strip()
+                if name:
+                    names.append(name)
+    if not names:
+        return []
+
+    pairs: list[tuple[str, str]] = []
+    seen: set[str] = set()
+    slots: list[int | str] = [1, 2, 3, 4, 5, ".."]
+    for slot_index, slot in enumerate(slots):
+        name = names[slot_index] if slot_index < len(names) else ""
+        for label in _teacher_placeholder_labels(slot):
+            placeholder = f"{{{{{label}}}}}"
+            blob = _placeholder_line_blob(doc_bytes, placeholder)
+            if not blob or blob in seen:
+                continue
+            fitted = _fit_line_blob(blob, name) if name else _fit_line_blob(blob, " ")
+            if fitted and fitted != blob:
+                seen.add(blob)
+                pairs.append((blob, fitted))
+    return pairs
+
+
+def _welcome_title_fragment(title: str) -> str:
+    """Extrait la portion titre après « Séminaire » pour le paragraphe d'accueil."""
+    text = _normalize_for_doc_text(title.strip())
+    for prefix in ("Séminaire ", "Cours ", "Seminaire ", "Course "):
+        if text.lower().startswith(prefix.lower()):
+            return text[len(prefix) :].strip()
+    return text
+
+
+def _welcome_seminar_title_pairs(
+    context: dict[str, Any],
+    *,
+    doc_bytes: bytes | None = None,
+) -> list[tuple[str, str]]:
+    """Remplace le titre séminaire hardcodé dans « Bienvenue au séminaire … »."""
+    if not doc_bytes:
+        return []
+    title = _welcome_title_fragment(
+        (context.get("title_formatted") or context.get("title") or "").strip()
+    )
+    if not title:
+        return []
+
+    marker = "Bienvenue au séminaire ".encode("utf-16-le")
+    pairs: list[tuple[str, str]] = []
+    seen: set[str] = set()
+    cursor = 0
+    while True:
+        idx = doc_bytes.find(marker, cursor)
+        if idx < 0:
+            break
+        start = idx + len(marker)
+        try:
+            chunk = doc_bytes[start : start + 600].decode("utf-16-le")
+        except UnicodeDecodeError:
+            cursor = start + 2
+            continue
+        sep = chunk.find("\xa0:")
+        if sep < 0:
+            sep = chunk.find(": Probl")
+        if sep < 0:
+            cursor = start + 2
+            continue
+        old_title = chunk[:sep]
+        if len(old_title) < 12 or old_title in seen:
+            cursor = start + sep * 2
+            continue
+        new_title = _normalize_for_doc_text(title)
+        if len(new_title) > len(old_title):
+            new_title = _safe_truncate(new_title, len(old_title))
+        new_title = new_title.ljust(len(old_title))[: len(old_title)]
+        if new_title != old_title:
+            seen.add(old_title)
+            pairs.append((old_title, new_title))
+        cursor = start + sep * 2
+    return pairs
+
+
 def _nom_event_templates() -> list[str]:
     templates: list[str] = []
     seen: set[str] = set()
@@ -285,8 +418,7 @@ def _nom_event_pairs(
         old_blob = _nom_event_blob(doc_bytes, placeholder)
         if not old_blob or old_blob == placeholder:
             continue
-        short = _short_title_for_nom_event(title, len(old_blob))
-        fitted = _fit_to_sample_width(old_blob, short)
+        fitted = _fit_line_blob(old_blob, title)
         if fitted and fitted != old_blob:
             pairs.append((old_blob, fitted))
     return pairs
@@ -575,6 +707,8 @@ def _build_safe_pairs(
     pairs.extend(combined_pairs)
     pairs.extend(ville_pays_pairs)
     pairs.extend(_nom_event_pairs(context, doc_bytes=doc_bytes))
+    pairs.extend(_teacher_line_pairs(context, doc_bytes=doc_bytes))
+    pairs.extend(_welcome_seminar_title_pairs(context, doc_bytes=doc_bytes))
     pairs.extend(build_replacement_pairs(fields, context))
 
     combined_date_keys = {

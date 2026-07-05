@@ -133,6 +133,29 @@ async def _load_event(session: AsyncSession, event_id: UUID) -> dict:
     row = result.one_or_none()
     if row is None:
         raise ValueError("Événement introuvable")
+
+    teachers_result = await session.execute(
+        text(
+            """
+            SELECT t.first_name, t.last_name, t.email, t.phone
+            FROM events.event_teachers et
+            JOIN events.teachers t ON t.id = et.teacher_id
+            WHERE et.event_id = :id AND t.is_active = TRUE
+            ORDER BY t.last_name, t.first_name, t.id
+            """
+        ),
+        {"id": str(event_id)},
+    )
+    teachers = [
+        {
+            "first_name": (r.first_name or "").strip(),
+            "last_name": (r.last_name or "").strip(),
+            "email": r.email,
+            "phone": r.phone,
+        }
+        for r in teachers_result.all()
+    ]
+
     return {
         "project_number": row.project_number,
         "title": row.title,
@@ -151,6 +174,7 @@ async def _load_event(session: AsyncSession, event_id: UUID) -> dict:
         "metadata_json": row.metadata_json,
         "project_status": row.project_status,
         "cost_center": row.cost_center,
+        "teachers": teachers,
     }
 
 
