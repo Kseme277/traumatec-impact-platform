@@ -519,7 +519,7 @@ def _build_welcome_paragraph_replacement(
     city: str,
     country: str,
 ) -> str | None:
-    """Paragraphe d'accueil : titre + pays complets (largeur fixe du modèle)."""
+    """Paragraphe d'accueil : corps du modèle intact, ville et pays les plus complets possibles."""
     from tip_common.title_formatter import _country_to_fr
 
     marker = "à {{Ville}}, {{Pays}}."
@@ -533,44 +533,37 @@ def _build_welcome_paragraph_replacement(
     sep_idx = old_para.find("\xa0:")
     if sep_idx < 0:
         return None
-    old_title_width = sep_idx - len(prefix)
     old_middle = old_para[sep_idx + 2 : old_para.index(marker)]
 
     country_full = _normalize_for_doc_text(_country_to_fr(country) or country.strip())
-    ending = f" à {city.strip()}, {country_full}."
-    if len(ending) < len(marker):
-        ending = ending.ljust(len(marker))
-
-    # Pays complet : réduire d'abord la zone titre pour garder le corps du modèle intact.
-    ending_extra = max(0, len(ending) - len(marker))
-    title_width = max(8, old_title_width - ending_extra)
-    middle_template = old_middle
-    while title_width >= 8:
-        middle_budget = len(old_para) - len(prefix) - title_width - 2 - len(ending)
-        if middle_budget >= len(middle_template):
-            break
-        title_width -= 1
-
+    city = city.strip()
     title_part = _welcome_title_fragment(title)
-    if len(title_part) > title_width:
-        title_part = _truncate_at_word(title_part, title_width)
-    title_part = title_part.ljust(title_width)[:title_width]
+    ending = f"à {city}, {country_full}."
+    middle = old_middle
 
-    middle_budget = len(old_para) - len(prefix) - title_width - 2 - len(ending)
-    if middle_budget < 8:
+    def _total_len() -> int:
+        return len(prefix) + len(title_part) + 2 + len(middle) + len(ending)
+
+    while _total_len() > len(old_para) and len(title_part) > 8:
+        title_part = _truncate_at_word(title_part, max(8, len(title_part) - 1))
+
+    while _total_len() > len(old_para) and len(middle) > len(old_middle.strip()):
+        middle = middle[:-1]
+
+    while _total_len() > len(old_para) and len(ending) > len(marker):
+        inner = ending[len(f"à {city}, ") : -1]
+        inner = _truncate_at_word(inner, max(4, len(inner) - 1))
+        ending = f"à {city}, {inner}."
+
+    if _total_len() > len(old_para):
         return None
-    if len(middle_template) <= middle_budget:
-        middle = middle_template.ljust(middle_budget)[:middle_budget]
-    elif middle_budget >= len(middle_template.strip()):
-        middle = _compress_welcome_middle(middle_template, middle_budget).ljust(middle_budget)[
-            :middle_budget
-        ]
-    else:
-        middle = middle_template[:middle_budget]
+
+    pad = len(old_para) - _total_len()
+    if pad > 0:
+        middle = middle + (" " * pad)
+
     new_para = f"{prefix}{title_part}\xa0:{middle}{ending}"
-    if len(new_para) != len(old_para):
-        return None
-    return new_para
+    return new_para if len(new_para) == len(old_para) else None
 
 
 def _welcome_paragraph_pairs(
@@ -1297,10 +1290,7 @@ def _build_expandable_pairs(
 ) -> list[tuple[str, str]]:
     if not doc_bytes:
         return []
-    pairs: list[tuple[str, str]] = []
-    pairs.extend(_combined_header_expandable_pairs(context, doc_bytes=doc_bytes))
-    pairs.extend(_nom_event_expandable_pairs(context, doc_bytes=doc_bytes))
-    return pairs
+    return _nom_event_expandable_pairs(context, doc_bytes=doc_bytes)
 
 
 def _build_safe_pairs(
@@ -1314,12 +1304,9 @@ def _build_safe_pairs(
     from tip_common.template_field_analyzer import build_replacement_pairs
 
     fields = _programme_fields_for_role(replacement_fields)
-    pairs: list[tuple[str, str]] = _legacy_template_pairs(context, doc_bytes=doc_bytes)
-    combined_expandable = _combined_header_expandable_pairs(context, doc_bytes=doc_bytes)
+    pairs: list[tuple[str, str]] = []
     nom_expandable = _nom_event_expandable_pairs(context, doc_bytes=doc_bytes)
-    combined_pairs = (
-        [] if combined_expandable else _combined_header_pairs(context, doc_bytes=doc_bytes)
-    )
+    combined_pairs = _combined_header_pairs(context, doc_bytes=doc_bytes)
     ville_pays_pairs = _ville_pays_pairs(context, doc_bytes=doc_bytes)
     welcome_ville_pays_pairs = _welcome_ville_pays_pairs(context, doc_bytes=doc_bytes)
     welcome_paragraph_pairs = _welcome_paragraph_pairs(context, doc_bytes=doc_bytes)
@@ -1330,8 +1317,6 @@ def _build_safe_pairs(
     if not nom_expandable:
         pairs.extend(_nom_event_pairs(context, doc_bytes=doc_bytes))
     pairs.extend(welcome_paragraph_pairs)
-    if not welcome_paragraph_pairs:
-        pairs.extend(_welcome_seminar_title_pairs(context, doc_bytes=doc_bytes))
     pairs.extend(_contact_section_pairs(context, doc_bytes=doc_bytes))
     pairs.extend(_teacher_line_pairs(context, doc_bytes=doc_bytes))
     pairs.extend(build_replacement_pairs(fields, context))
@@ -1348,10 +1333,12 @@ def _build_safe_pairs(
         else set()
     )
 
-    from tip_common.french_placeholders import build_french_placeholder_pairs
+    from tip_common.french_placeholders import build_french_placeholder_pairs, is_french_brace_placeholder
 
     for old, new in build_french_placeholder_pairs(context):
         if old in skip_placeholder_keys:
+            continue
+        if nom_expandable and is_french_brace_placeholder(old) and "nom de" in old.lower():
             continue
         fitted = _fit_to_sample_width(old, new)
         if fitted and old != fitted and (old, fitted) not in pairs:
@@ -1405,14 +1392,6 @@ def _build_safe_pairs(
                 safe.append((old, new, limits.get(old)))
             continue
         if any(old.startswith(prefix) for prefix in _STATIC_PREFIXES):
-            continue
-        if old in _LEGACY_LIEUX or old in _LEGACY_SEMINAR_TITLES:
-            if old not in {p[0] for p in safe}:
-                safe.append((old, new, limits.get(old)))
-            continue
-        if old in _LEGACY_COMBINED_HEADERS:
-            if old not in {p[0] for p in safe}:
-                safe.append((old, new, limits.get(old)))
             continue
         if any(old == combined for combined, _ in combined_pairs):
             if old not in {p[0] for p in safe}:

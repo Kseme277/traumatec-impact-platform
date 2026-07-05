@@ -265,39 +265,41 @@ export default function OnlyOfficeEditor({
     setSavePending(true);
     startSaveTimeout();
     startSavePoll();
+    editorRef.current?.serviceCommand("forcesave", "");
 
     void (async () => {
       const backendSave = onBackendForceSaveRef.current;
-      if (backendSave) {
-        try {
-          const result = await backendSave();
-          if (result.saved) {
-            if (typeof result.revision === "number") {
-              fileRevisionRef.current = result.revision;
-            }
-            finishSave(true);
-            return;
+      if (!backendSave) return;
+
+      await new Promise((resolve) => window.setTimeout(resolve, 8000));
+      if (!savePendingRef.current) return;
+
+      try {
+        const result = await backendSave();
+        if (!savePendingRef.current) return;
+        if (result.saved) {
+          if (typeof result.revision === "number") {
+            fileRevisionRef.current = result.revision;
           }
-          if (result.no_changes || result.error === 4) {
-            finishSave(!isDirtyRef.current);
-            return;
-          }
-          if (result.timeout) {
-            finishSave(false, "timeout");
-            return;
-          }
-          if (result.error !== undefined && result.error !== 0) {
-            finishSave(false);
-            return;
-          }
-        } catch {
-          finishSave(false);
+          finishSave(true);
           return;
         }
-        return;
+        if ((result.no_changes || result.error === 4) && !isDirtyRef.current) {
+          finishSave(true);
+          return;
+        }
+        if (result.timeout || result.no_changes || result.error === 4) {
+          finishSave(false, "timeout");
+          return;
+        }
+        if (result.error !== undefined && result.error !== 0) {
+          finishSave(false);
+        }
+      } catch {
+        if (savePendingRef.current) {
+          finishSave(false);
+        }
       }
-
-      editorRef.current?.serviceCommand("forcesave", "");
     })();
   }, [finishSave, startSavePoll, startSaveTimeout]);
 

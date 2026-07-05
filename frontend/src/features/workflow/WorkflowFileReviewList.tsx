@@ -15,6 +15,7 @@ import OnlyOfficeEditor, { type OnlyOfficeEditorConfig } from "../documents/Only
 import {
   downloadPackageFile,
   fetchPackageFileEditorConfig,
+  fetchPackageFileRevision,
   reviewFile,
   saveFileComment,
 } from "../../api/workflow";
@@ -81,8 +82,11 @@ export default function WorkflowFileReviewList({
       setEditorLoading(true);
       try {
         const token = await getApiToken(getToken);
+        const file = localFiles.find((item) => item.id === fileReviewId);
+        const code = file?.template_code ?? fileReviewId;
         const config = await fetchPackageFileEditorConfig(token, jobId, fileReviewId);
-        setEditorConfig(config);
+        const revision = await fetchPackageFileRevision(token, jobId, code);
+        setEditorConfig({ ...config, file_revision: revision.revision });
       } catch (err) {
         setEditorConfig(null);
         if (err instanceof ApiError && err.status === 422) {

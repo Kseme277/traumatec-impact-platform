@@ -227,9 +227,18 @@ export async function downloadPackageFile(
   const API_BASE = import.meta.env.VITE_API_BASE_URL ?? "/api";
   const headers = new Headers();
   if (token) headers.set("Authorization", `Bearer ${token}`);
+
+  let revision = 0;
+  try {
+    const revisionResult = await fetchPackageFileRevision(token, jobId, templateCode);
+    revision = revisionResult.revision;
+  } catch {
+    /* optional cache bust */
+  }
+
   const response = await fetch(
-    `${API_BASE}/v1/generations/${jobId}/files/${encodeURIComponent(templateCode)}/download`,
-    { headers },
+    `${API_BASE}/v1/generations/${jobId}/files/${encodeURIComponent(templateCode)}/download?v=${revision}`,
+    { headers, cache: "no-store" },
   );
   if (!response.ok) {
     let detail = "Téléchargement impossible";
