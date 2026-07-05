@@ -417,10 +417,11 @@ def _build_welcome_paragraph_replacement(
         return None
     middle = _compress_welcome_middle(old_middle, middle_budget).rstrip()
     middle = middle.replace(" santé comm ", " santé comm. ")
-    middle = middle.replace(" santé comm.", " santé comm.")
     if middle.endswith(" comm"):
         middle = f"{middle}."
-    middle = f"{middle.rstrip()} ".ljust(middle_budget)[:middle_budget]
+    if not middle.endswith(" "):
+        middle = f"{middle} "
+    middle = middle.ljust(middle_budget)[:middle_budget]
     new_para = f"{prefix}{title_part}\xa0:{middle}{ending}"
     if len(new_para) != len(old_para):
         return None
