@@ -289,7 +289,8 @@ def render_package_document(
             replacement_fields=fields,
             document_role=document_role,
         )
-        if document_role in {"budget", "accord_collaboration", "rapport_depenses"}:
+        # Budget : remplacements dédiés uniquement. Autres xlsx : placeholders {{…}} restants.
+        if document_role == "budget":
             return rendered
         return apply_exhaustive_pairs_xlsx(rendered, exhaustive)
     if ext == ".doc":
@@ -350,6 +351,8 @@ def render_package_document(
     rendered = apply_highlight_replacements_docx(
         rendered, context, replacement_fields=highlight_fields
     )
+    if is_programme_like:
+        rendered = apply_exhaustive_pairs_docx(rendered, exhaustive)
     if document_role in strict_roles or is_programme_like:
         if document_role == "programme" and context.get("responsible_photo_bytes"):
             from app.services.docgen.docx_photo_replace import apply_responsible_photo_docx

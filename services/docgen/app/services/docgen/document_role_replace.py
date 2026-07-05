@@ -328,6 +328,20 @@ def _repl_date_only(line: str, ctx: dict[str, Any], day_index: int | None) -> st
     return None
 
 
+def _repl_french_brace_line(line: str, ctx: dict[str, Any], _day: int | None) -> str | None:
+    """Remplace les tags {{…}} présents dans une ligne (listes de présence, en-têtes)."""
+    stripped = line.strip()
+    if not stripped or "{{" not in stripped or "}}" not in stripped:
+        return None
+    from tip_common.french_placeholders import build_french_placeholder_pairs
+
+    updated = stripped
+    for old, new in sorted(build_french_placeholder_pairs(ctx), key=lambda item: -len(item[0])):
+        if old in updated:
+            updated = updated.replace(old, new)
+    return updated if updated != stripped else None
+
+
 ROLE_REPLACERS: dict[str, list[Replacer]] = {
     "rapport_national": [_repl_rapport_titre, _repl_rapport_date_lieu, _repl_responsable],
     "coordonnees_bancaires": [
@@ -335,8 +349,8 @@ ROLE_REPLACERS: dict[str, list[Replacer]] = {
         _repl_coordonnees_lieu,
         _repl_coordonnees_date,
     ],
-    "presence_enseignants": [_repl_event_title_header, _repl_lieu_date, _repl_liste_jour],
-    "presence_participants": [_repl_event_title_header, _repl_lieu_date, _repl_liste_jour],
+    "presence_enseignants": [_repl_french_brace_line, _repl_event_title_header, _repl_lieu_date, _repl_liste_jour],
+    "presence_participants": [_repl_french_brace_line, _repl_event_title_header, _repl_lieu_date, _repl_liste_jour],
     "programme": [
         _repl_event_title_header,
         _repl_lieu_date,
@@ -346,7 +360,7 @@ ROLE_REPLACERS: dict[str, list[Replacer]] = {
     "accuse_paiement": [_repl_date_only, _repl_lieu_date],
     "accord_collaboration": [_repl_date_only, _repl_responsable, _repl_accord_contact],
     "budget": [],
-    "rapport_depenses": [_repl_date_only],
+    "rapport_depenses": [_repl_french_brace_line, _repl_date_only],
     "liste_definitive": [_repl_date_only, _repl_event_title_header],
     "badge": [_repl_lieu_date],
 }
