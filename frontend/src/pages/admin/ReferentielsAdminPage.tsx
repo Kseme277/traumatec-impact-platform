@@ -1,5 +1,6 @@
 import { useAuth } from "@clerk/clerk-react";
 import { FormEvent, useCallback, useEffect, useState } from "react";
+import { Link } from "react-router";
 import AdminBreadcrumb from "../../components/common/AdminBreadcrumb";
 import ComponentCard from "../../components/common/ComponentCard";
 import DataTablePagination from "../../components/common/DataTablePagination";
@@ -215,6 +216,16 @@ export default function ReferentielsAdminPage() {
         pageTitle="Référentiels"
         crumbs={[{ label: t("nav.admin"), to: "/admin/utilisateurs" }]}
       />
+
+      <div className="mb-6 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-gray-100 bg-white p-4 dark:border-gray-800 dark:bg-white/[0.03]">
+        <div>
+          <p className="text-sm font-medium text-gray-800 dark:text-white/90">{t("documents.catalogAdminTitle")}</p>
+          <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">{t("documents.catalogAdminDesc")}</p>
+        </div>
+        <Link to="/admin/referentiels/types-paquets">
+          <Button size="sm" variant="outline">{t("documents.manageCatalog")}</Button>
+        </Link>
+      </div>
 
       <div className="mb-6 flex gap-2">
         <button

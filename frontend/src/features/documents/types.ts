@@ -33,6 +33,17 @@ export interface PackageTypeDefinitionPayload {
   sort_order?: number;
 }
 
+export interface PackageActivityCategoryRecord {
+  id?: string;
+  code: string;
+  label: string;
+  sort_order: number;
+  is_custom?: boolean;
+  is_builtin?: boolean;
+  is_active?: boolean;
+  created_at?: string;
+}
+
 export interface ParcoursStep {
   step: number;
   code: string;

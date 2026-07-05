@@ -47,6 +47,7 @@ import WorkflowValidationPage from "./pages/WorkflowValidationPage";
 import WorkflowValidationDetailPage from "./pages/WorkflowValidationDetailPage";
 import UtilisateursRoutePage from "./pages/UtilisateursRoutePage";
 import ReferentielsAdminPage from "./pages/admin/ReferentielsAdminPage";
+import PackageCatalogAdminPage from "./pages/admin/PackageCatalogAdminPage";
 import PredictionsPage from "./pages/PredictionsPage";
 
 function GuideHubProxyRedirect({ target }: { target: string }) {
@@ -126,6 +127,7 @@ export default function App() {
               <Route path="/admin/utilisateurs/nouveau" element={<UtilisateurCreatePage />} />
               <Route path="/admin/utilisateurs/:id" element={<UtilisateurDetailPage />} />
               <Route path="/admin/referentiels" element={<ReferentielsAdminPage />} />
+              <Route path="/admin/referentiels/types-paquets" element={<PackageCatalogAdminPage />} />
               <Route path="/admin/audit" element={<AuditPage />} />
               <Route path="/admin/stockage" element={<ParametresStockagePage />} />
               <Route path="/admin/guidehub" element={<ParametresGuideHubPage />} />

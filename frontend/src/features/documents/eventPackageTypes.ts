@@ -1,6 +1,19 @@
 /** Types d'événement — cours, séminaire, faculty (format paquet). */
 
-export type ActivityKind = "cours" | "seminaire" | "faculty";
+export type ActivityKind = string;
+
+export const DEFAULT_ACTIVITY_KINDS: ActivityKind[] = ["cours", "seminaire", "faculty"];
+
+/** @deprecated use DEFAULT_ACTIVITY_KINDS */
+export const ACTIVITY_KINDS = DEFAULT_ACTIVITY_KINDS;
+
+export interface PackageActivityCategory {
+  code: string;
+  label: string;
+  sort_order: number;
+  is_custom: boolean;
+  is_builtin: boolean;
+}
 
 export interface EventPackageType {
   code: string;
@@ -11,11 +24,16 @@ export interface EventPackageType {
   description: string;
   preparation_theme: string;
   duration_days: number;
+  is_custom?: boolean;
+  sort_order?: number;
 }
 
-export type EventPackageTypeCatalog = Record<ActivityKind, EventPackageType[]>;
+export type EventPackageTypeCatalog = Record<string, EventPackageType[]>;
 
-export const ACTIVITY_KINDS: ActivityKind[] = ["cours", "seminaire", "faculty"];
+export interface PackageCatalogApiResponse {
+  categories: PackageActivityCategory[];
+  types: Partial<EventPackageTypeCatalog>;
+}
 
 export const FALLBACK_PACKAGE_TYPES: EventPackageTypeCatalog = {
   cours: [
@@ -97,11 +115,23 @@ export const FALLBACK_PACKAGE_TYPES: EventPackageTypeCatalog = {
 };
 
 /** Fusionne le catalogue API avec le fallback (types récents toujours visibles). */
-export function mergePackageCatalog(api: Partial<EventPackageTypeCatalog>): EventPackageTypeCatalog {
+export function mergePackageCatalog(
+  api: Partial<EventPackageTypeCatalog> | PackageCatalogApiResponse,
+): EventPackageTypeCatalog {
+  const types =
+    "types" in api && api.types ? api.types : (api as Partial<EventPackageTypeCatalog>);
+  const apiCategoryCodes =
+    "categories" in api && api.categories ? api.categories.map((item) => item.code) : [];
+  const kindSet = new Set<string>([
+    ...DEFAULT_ACTIVITY_KINDS,
+    ...apiCategoryCodes,
+    ...Object.keys(types ?? {}),
+  ]);
+
   const result = {} as EventPackageTypeCatalog;
-  for (const kind of ACTIVITY_KINDS) {
-    const apiItems = api[kind] ?? [];
-    const fallbackItems = FALLBACK_PACKAGE_TYPES[kind] ?? [];
+  for (const kind of kindSet) {
+    const apiItems = types?.[kind] ?? [];
+    const fallbackItems = FALLBACK_PACKAGE_TYPES[kind as keyof typeof FALLBACK_PACKAGE_TYPES] ?? [];
     const seen = new Set(apiItems.map((item) => item.code));
     const legacyHidden = new Set(["ORP_S"]);
     result[kind] = [
@@ -110,6 +140,36 @@ export function mergePackageCatalog(api: Partial<EventPackageTypeCatalog>): Even
     ];
   }
   return result;
+}
+
+export function activityKindsFromCatalog(
+  catalog: EventPackageTypeCatalog | PackageCatalogApiResponse,
+): ActivityKind[] {
+  if ("categories" in catalog && catalog.categories?.length) {
+    return [...catalog.categories]
+      .sort((a, b) => a.sort_order - b.sort_order || a.label.localeCompare(b.label))
+      .map((item) => item.code);
+  }
+  return activityKindsFromTypes(catalog as EventPackageTypeCatalog);
+}
+
+export function activityKindsFromTypes(catalog: EventPackageTypeCatalog): ActivityKind[] {
+  const ordered = DEFAULT_ACTIVITY_KINDS.filter((kind) => (catalog[kind]?.length ?? 0) > 0);
+  const extra = Object.keys(catalog).filter((kind) => !DEFAULT_ACTIVITY_KINDS.includes(kind));
+  return [...ordered, ...extra.sort()];
+}
+
+export function categoryLabelForKind(
+  categories: Array<{ code: string; label: string }>,
+  kind: string,
+  t: (key: string) => string,
+): string {
+  const match = categories.find((item) => item.code === kind);
+  if (match) return match.label;
+  if (kind === "cours") return t("documents.activityCours");
+  if (kind === "seminaire") return t("documents.activitySeminaire");
+  if (kind === "faculty") return t("documents.activityFaculty");
+  return kind;
 }
 
 /** Mappe les codes legacy (ORP_S) vers le type canonique affiché (PBO_S). */
@@ -136,7 +196,7 @@ export function activityTabForKind(kind: string): ActivityKind {
 
 /** Tous les types de paquet du catalogue (API + fallback). */
 export function allPackageTypesFromCatalog(catalog: EventPackageTypeCatalog): EventPackageType[] {
-  return ACTIVITY_KINDS.flatMap((kind) => catalog[kind] ?? []);
+  return Object.values(catalog).flatMap((items) => items ?? []);
 }
 
 /** Code paquet canonique pour filtrage (ORP_S → PBO_S). */

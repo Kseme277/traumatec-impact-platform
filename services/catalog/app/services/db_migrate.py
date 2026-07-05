@@ -60,6 +60,19 @@ _MIGRATIONS = (
     CREATE INDEX IF NOT EXISTS idx_package_type_definitions_kind
         ON catalog.package_type_definitions(activity_kind);
     """,
+    """
+    CREATE TABLE IF NOT EXISTS catalog.package_activity_categories (
+        id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+        code                VARCHAR(32) NOT NULL UNIQUE,
+        label               VARCHAR(64) NOT NULL,
+        sort_order          INTEGER NOT NULL DEFAULT 0,
+        is_active           BOOLEAN NOT NULL DEFAULT TRUE,
+        created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
+        updated_at          TIMESTAMPTZ NOT NULL DEFAULT now()
+    );
+    CREATE INDEX IF NOT EXISTS idx_package_activity_categories_sort
+        ON catalog.package_activity_categories(sort_order);
+    """,
 )
 
 

@@ -7,6 +7,7 @@ import type {
   PackageUploadResult,
   Parcours,
   PackageTemplate,
+  PackageActivityCategoryRecord,
   TemplateEditorConfig,
   TemplateUploadResult,
 } from "../features/documents/types";
@@ -41,11 +42,49 @@ export function fetchParcours(token: string | null) {
   return fetchJson<Parcours[]>("/v1/parcours/", token);
 }
 
-export function fetchPackageTypes(token: string | null) {
-  return fetchJson<import("../features/documents/eventPackageTypes").EventPackageTypeCatalog>(
+export function fetchPackageCatalog(token: string | null) {
+  return fetchJson<import("../features/documents/eventPackageTypes").PackageCatalogApiResponse>(
     "/v1/packages/types",
     token,
   );
+}
+
+/** Alias historique — retourne categories + types. */
+export function fetchPackageTypes(token: string | null) {
+  return fetchPackageCatalog(token);
+}
+
+export function fetchCustomPackageCategories(token: string | null) {
+  return fetchJson<PackageActivityCategoryRecord[]>("/v1/packages/categories", token);
+}
+
+export function createPackageActivityCategory(
+  token: string | null,
+  payload: { code: string; label: string; sort_order?: number },
+) {
+  return fetchJson<PackageActivityCategoryRecord>("/v1/packages/categories", token, {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function deletePackageActivityCategory(token: string | null, code: string): Promise<void> {
+  const headers = new Headers();
+  headers.set("Content-Type", "application/json");
+  if (token) headers.set("Authorization", `Bearer ${token}`);
+  const response = await fetch(`${API_BASE}/v1/packages/categories/${encodeURIComponent(code)}`, {
+    method: "DELETE",
+    headers,
+  });
+  if (!response.ok) {
+    let detail = "Suppression impossible";
+    try {
+      detail = parseApiDetail(await response.json(), detail);
+    } catch {
+      /* ignore */
+    }
+    throw new ApiError(detail, response.status);
+  }
 }
 
 export function fetchCustomPackageTypes(token: string | null) {

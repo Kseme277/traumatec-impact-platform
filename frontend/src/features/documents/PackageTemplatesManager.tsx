@@ -21,7 +21,7 @@ import {
   downloadPackageTypeZip,
   downloadTemplate,
   fetchPackageBundles,
-  fetchPackageTypes,
+  fetchPackageCatalog,
   fetchTemplateEditorConfig,
   fetchTemplates,
   replaceTemplateFile,
@@ -34,15 +34,18 @@ import type { PackageBundle, PackageImportProgress, PackageTemplate, TemplateEdi
 import { templateDisplayName } from "./types";
 import PackageImportProgressBar from "./PackageImportProgressBar";
 import {
-  ACTIVITY_KINDS,
   FALLBACK_PACKAGE_TYPES,
+  activityKindsFromCatalog,
   activityTabForKind,
+  allPackageTypesFromCatalog,
   canonicalPackageType,
+  categoryLabelForKind,
   findPackageType,
   mergePackageCatalog,
   type ActivityKind,
   type EventPackageTypeCatalog,
 } from "./eventPackageTypes";
+import type { PackageActivityCategoryRecord } from "./types";
 import { documentRoleLabel } from "./documentRoleLabel";
 import { themeLabel, type PreparationTheme } from "../events/types";
 import { confirmAction, showError, showSuccess } from "../../lib/swal";
@@ -52,7 +55,6 @@ import { isOnlyofficeEditable, templateFileExtension } from "./templateFileExten
 import { Download, Eye, Trash2 } from "lucide-react";
 import TableIconButton from "../../components/common/TableIconButton";
 import DocumentFileManagerTable from "./DocumentFileManagerTable";
-import PackageTypeAdminPanel from "./PackageTypeAdminPanel";
 import { filterTemplatesByPackageDuration } from "./templateDurationFilter";
 
 interface PackageTemplatesManagerProps {
@@ -67,6 +69,7 @@ export default function PackageTemplatesManager({ isAdmin }: PackageTemplatesMan
   const replaceInputRef = useRef<HTMLInputElement>(null);
 
   const [catalog, setCatalog] = useState<EventPackageTypeCatalog>(FALLBACK_PACKAGE_TYPES);
+  const [categories, setCategories] = useState<PackageActivityCategoryRecord[]>([]);
   const [activityTab, setActivityTab] = useState<ActivityKind>("cours");
   const [selectedType, setSelectedType] = useState("OP_C");
   const [bundles, setBundles] = useState<PackageBundle[]>([]);
@@ -86,17 +89,27 @@ export default function PackageTemplatesManager({ isAdmin }: PackageTemplatesMan
   const [importUseAi, setImportUseAi] = useState(false);
 
   const typesInTab = catalog[activityTab] ?? [];
+  const activityKinds = useMemo(
+    () => (categories.length ? categories.map((item) => item.code) : activityKindsFromCatalog(catalog)),
+    [categories, catalog],
+  );
 
   useEffect(() => {
     const rawType = searchParams.get("type") ?? searchParams.get("package_type");
     if (!rawType) return;
     const code = rawType.toUpperCase().replace(/-/g, "_");
-    const allTypes = ACTIVITY_KINDS.flatMap((kind) => catalog[kind] ?? []);
+    const allTypes = allPackageTypesFromCatalog(catalog);
     const match = allTypes.find((item) => item.code === code);
     if (!match) return;
     setActivityTab(activityTabForKind(match.activity_kind));
     setSelectedType(match.code);
   }, [searchParams, catalog]);
+
+  useEffect(() => {
+    if (activityKinds.length && !activityKinds.includes(activityTab)) {
+      setActivityTab(activityKinds[0] ?? "cours");
+    }
+  }, [activityKinds, activityTab]);
 
   useEffect(() => {
     if (!typesInTab.some((item) => item.code === selectedType)) {
@@ -188,8 +201,12 @@ export default function PackageTemplatesManager({ isAdmin }: PackageTemplatesMan
     setLoadError(null);
     try {
       const token = await getApiToken(getToken);
-      const typesData = await fetchPackageTypes(token).catch(() => ({} as Partial<EventPackageTypeCatalog>));
-      setCatalog(mergePackageCatalog(typesData));
+      const catalogData = await fetchPackageCatalog(token).catch(() => ({
+        categories: [],
+        types: {} as Partial<EventPackageTypeCatalog>,
+      }));
+      setCategories(catalogData.categories ?? []);
+      setCatalog(mergePackageCatalog(catalogData.types ?? {}));
 
       const bundlesData = await loadBundles(token).catch(() => [] as PackageBundle[]);
       await syncTypeData(token, selectedType, bundlesData);
@@ -444,10 +461,17 @@ export default function PackageTemplatesManager({ isAdmin }: PackageTemplatesMan
         <p className="mt-2 text-xs text-gray-500 dark:text-gray-400">{t("documents.eventVsPackageHelp")}</p>
       </div>
 
-      {isAdmin ? <PackageTypeAdminPanel onChanged={() => void refreshAll()} /> : null}
+      {isAdmin ? (
+        <div className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-gray-100 bg-white p-4 dark:border-gray-800 dark:bg-white/[0.03]">
+          <p className="text-sm text-gray-600 dark:text-gray-400">{t("documents.catalogAdminHint")}</p>
+          <Link to="/admin/referentiels/types-paquets">
+            <Button size="sm" variant="outline">{t("documents.manageCatalog")}</Button>
+          </Link>
+        </div>
+      ) : null}
 
       <div className="flex flex-wrap gap-2">
-        {ACTIVITY_KINDS.map((kind) => (
+        {activityKinds.map((kind) => (
           <button
             key={kind}
             type="button"
@@ -458,11 +482,7 @@ export default function PackageTemplatesManager({ isAdmin }: PackageTemplatesMan
                 : "bg-gray-100 text-gray-600 hover:bg-gray-200 dark:bg-gray-800 dark:text-gray-300"
             }`}
           >
-            {kind === "cours"
-              ? t("documents.activityCours")
-              : kind === "seminaire"
-                ? t("documents.activitySeminaire")
-                : t("documents.activityFaculty")}
+            {categoryLabelForKind(categories, kind, t)}
           </button>
         ))}
       </div>

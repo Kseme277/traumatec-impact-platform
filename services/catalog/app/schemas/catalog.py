@@ -177,3 +177,25 @@ class PackageTypeDefinitionResponse(BaseModel):
     is_active: bool
     created_at: datetime
 
+
+class PackageActivityCategoryCreate(BaseModel):
+    code: str = Field(min_length=2, max_length=32)
+    label: str = Field(min_length=1, max_length=64)
+    sort_order: int = Field(default=0, ge=0)
+
+
+class PackageActivityCategoryResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: UUID
+    code: str
+    label: str
+    sort_order: int
+    is_active: bool
+    created_at: datetime
+
+
+class PackageCatalogResponse(BaseModel):
+    categories: list[dict]
+    types: dict[str, list[dict]]
+

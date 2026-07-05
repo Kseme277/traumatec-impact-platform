@@ -107,6 +107,15 @@ export const SEARCH_ENTRIES: SearchEntry[] = [
     adminOnly: true,
   },
   {
+    id: "admin-package-catalog",
+    title: "Catégories et types de paquets",
+    subtitle: "Référentiel des types documentaires",
+    path: "/admin/referentiels/types-paquets",
+    category: "Administration",
+    keywords: ["paquet", "type", "catégorie", "cours", "séminaire", "faculty", "templates"],
+    adminOnly: true,
+  },
+  {
     id: "admin-user-new",
     title: "Inviter un utilisateur",
     path: "/admin/utilisateurs/nouveau",

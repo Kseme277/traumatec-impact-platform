@@ -69,6 +69,7 @@ export const ROUTE_ROLE_ACCESS: Record<string, RoleUtilisateur[]> = {
   "/workflow/validation": ["administrateur", "validateur"],
   "/utilisateurs": ["support_administratif"],
   "/admin/referentiels": ["administrateur"],
+  "/admin/referentiels/types-paquets": ["administrateur"],
   "/profil": ["administrateur", "support_administratif", "controle_procedure", "validateur"],
 };
 

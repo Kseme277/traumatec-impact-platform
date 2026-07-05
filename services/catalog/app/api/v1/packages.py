@@ -1,5 +1,6 @@
 import asyncio
 import os
+import re
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, UploadFile, status
@@ -9,10 +10,13 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import get_settings
 from app.core.database import get_db
-from app.models.catalog import PackageBundle, PackageTypeDefinition
+from app.models.catalog import PackageActivityCategory, PackageBundle, PackageTypeDefinition
 from app.core.database import AsyncSessionLocal
 from app.schemas.catalog import (
+    PackageActivityCategoryCreate,
+    PackageActivityCategoryResponse,
     PackageBundleResponse,
+    PackageCatalogResponse,
     PackageImportJobProgressResponse,
     PackageImportJobStartResponse,
     PackageTypeDefinitionCreate,
@@ -27,19 +31,99 @@ from app.services.package_import import (
     export_package_type_zip,
 )
 from app.services.package_import_jobs import package_import_job_store, run_package_import_job
-from app.services.package_type_catalog import ACTIVITY_KIND_LABELS, get_merged_package_types, list_custom_package_types
+from app.services.package_type_catalog import (
+    BUILTIN_ACTIVITY_KINDS,
+    count_types_in_category,
+    get_activity_category_label,
+    get_package_catalog,
+    get_valid_activity_kind_codes,
+    list_custom_activity_categories,
+    list_custom_package_types,
+    normalize_category_code,
+)
 from tip_common.package_types import PACKAGE_TYPE_SPECS
 from tip_common.security import AuthenticatedUser, get_current_user, require_admin
 
 router = APIRouter()
 
 
-@router.get("/types")
+@router.get("/types", response_model=PackageCatalogResponse)
 async def list_event_package_types(
     _: AuthenticatedUser = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
-) -> dict:
-    return await get_merged_package_types(db)
+) -> PackageCatalogResponse:
+    catalog = await get_package_catalog(db)
+    return PackageCatalogResponse(**catalog)
+
+
+@router.get("/categories", response_model=list[PackageActivityCategoryResponse])
+async def list_package_activity_categories(
+    _: AuthenticatedUser = Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
+) -> list[PackageActivityCategory]:
+    return await list_custom_activity_categories(db)
+
+
+@router.post("/categories", response_model=PackageActivityCategoryResponse, status_code=status.HTTP_201_CREATED)
+async def create_package_activity_category(
+    payload: PackageActivityCategoryCreate,
+    _: AuthenticatedUser = Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
+) -> PackageActivityCategory:
+    code = normalize_category_code(payload.code)
+    if code in BUILTIN_ACTIVITY_KINDS:
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"La catégorie {code} existe déjà (système).",
+        )
+    if not re.match(r"^[a-z][a-z0-9_]{1,31}$", code):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Code invalide (minuscules, chiffres et _ uniquement).",
+        )
+
+    existing = await db.execute(select(PackageActivityCategory).where(PackageActivityCategory.code == code))
+    if existing.scalar_one_or_none():
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=f"La catégorie {code} existe déjà.")
+
+    row = PackageActivityCategory(
+        code=code,
+        label=payload.label.strip(),
+        sort_order=payload.sort_order,
+    )
+    db.add(row)
+    await db.commit()
+    await db.refresh(row)
+    return row
+
+
+@router.delete("/categories/{code}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_package_activity_category(
+    code: str,
+    _: AuthenticatedUser = Depends(require_admin),
+    db: AsyncSession = Depends(get_db),
+) -> None:
+    normalized = normalize_category_code(code)
+    if normalized in BUILTIN_ACTIVITY_KINDS:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Les catégories système ne peuvent pas être supprimées.",
+        )
+
+    result = await db.execute(select(PackageActivityCategory).where(PackageActivityCategory.code == normalized))
+    row = result.scalar_one_or_none()
+    if not row:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Catégorie introuvable.")
+
+    type_count = await count_types_in_category(db, normalized)
+    if type_count > 0:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"Impossible : {type_count} type(s) utilisent encore cette catégorie.",
+        )
+
+    await db.delete(row)
+    await db.commit()
 
 
 @router.get("/types/custom", response_model=list[PackageTypeDefinitionResponse])
@@ -68,14 +152,16 @@ async def create_package_type_definition(
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=f"Le type {code} existe déjà.")
 
     activity_kind = payload.activity_kind.strip().lower()
-    if activity_kind not in ACTIVITY_KIND_LABELS:
+    valid_kinds = await get_valid_activity_kind_codes(db)
+    if activity_kind not in valid_kinds:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Catégorie invalide.")
 
     defn = PackageTypeDefinition(
         code=code,
         label=payload.label.strip(),
         activity_kind=activity_kind,
-        activity_label=payload.activity_label.strip() or ACTIVITY_KIND_LABELS[activity_kind],
+        activity_label=payload.activity_label.strip()
+        or await get_activity_category_label(db, activity_kind),
         title=payload.title.strip(),
         description=(payload.description or "").strip() or None,
         preparation_theme=payload.preparation_theme.strip().lower(),
@@ -110,7 +196,8 @@ async def update_package_type_definition(
     data = payload.model_dump(exclude_unset=True)
     if "activity_kind" in data:
         kind = data["activity_kind"].strip().lower()
-        if kind not in ACTIVITY_KIND_LABELS:
+        valid_kinds = await get_valid_activity_kind_codes(db)
+        if kind not in valid_kinds:
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Catégorie invalide.")
         data["activity_kind"] = kind
     for key, value in data.items():
