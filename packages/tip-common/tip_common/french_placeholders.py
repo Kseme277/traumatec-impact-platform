@@ -130,7 +130,14 @@ def build_french_placeholder_pairs(context: dict[str, Any]) -> list[tuple[str, s
     _append_pairs(pairs, _date_event_keys(), date_event, seen=seen)
     _append_pairs(pairs, [_brace("Date du jour")], date_today, seen=seen)
     _append_pairs(pairs, [_brace("Ville")], city, seen=seen)
-    _append_pairs(pairs, [_brace("Pays")], country, seen=seen)
+    from tip_common.location_fields import country_doc_display
+
+    _append_pairs(
+        pairs,
+        [_brace("Pays")],
+        country_doc_display(country, max_len=8),
+        seen=seen,
+    )
     _append_pairs(
         pairs,
         [

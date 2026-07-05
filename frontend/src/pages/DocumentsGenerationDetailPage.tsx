@@ -68,7 +68,6 @@ import { jobStatusColor, jobStatusLabel } from "../features/documents/types";
 import { useTranslation } from "../i18n/useTranslation";
 import { confirmAction, showError, showSuccess } from "../lib/swal";
 import PackageFileRemarksPanel from "../features/documents/PackageFileRemarksPanel";
-import PackageCorrectionPanel from "../features/documents/PackageCorrectionPanel";
 import { isEventPackageApproved } from "../features/documents/eventWorkflowUi";
 import { getCentralRejectComment, getRemarksJob } from "../features/documents/workflowRemarks";
 import Select from "../components/form/Select";
@@ -843,17 +842,10 @@ export default function DocumentsGenerationDetailPage() {
                 files={fileReviews}
                 workflowStatus={latestPackageWorkflow}
                 centralRemark={centralRemark}
+                jobId={activeJob?.id ?? null}
+                canEdit={Boolean(activeJob && canEditPackageFiles(activeJob))}
               />
             )}
-          </ComponentCard>
-        ) : null}
-
-        {activeJob && canEditPackageFiles(activeJob) && fileReviews.length > 0 ? (
-          <ComponentCard
-            title={t("documents.packageCorrectionTitle")}
-            desc={t("documents.packageCorrectionSubtitle")}
-          >
-            <PackageCorrectionPanel jobId={activeJob.id} files={fileReviews} />
           </ComponentCard>
         ) : null}
 

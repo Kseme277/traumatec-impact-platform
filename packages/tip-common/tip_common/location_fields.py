@@ -177,22 +177,55 @@ _COUNTRY_SHORT_DOC: dict[str, str] = {
 
 def country_short_display(country: str, *, max_len: int = 8) -> str:
     """Forme courte du pays pour champs .doc à largeur fixe (ex. {{Pays}} = 8 car.)."""
+    return country_doc_display(country, max_len=max_len)
+
+
+def country_doc_display(country: str, *, max_len: int = 8) -> str:
+    """Libellé pays pour documents (priorité au nom français lisible)."""
     text = (country or "").strip()
-    if not text:
+    if not text or max_len <= 0:
         return ""
-    key = text.lower().replace("_", " ")
-    mapped = _COUNTRY_SHORT_DOC.get(key)
-    if mapped and len(mapped) <= max_len:
-        return mapped
+
     from tip_common.title_formatter import _country_to_fr
 
     fr = _country_to_fr(text)
+    key = text.lower().replace("_", " ")
     fr_key = fr.lower()
-    mapped_fr = _COUNTRY_SHORT_DOC.get(fr_key)
-    if mapped_fr and len(mapped_fr) <= max_len:
-        return mapped_fr
+
+    compact_8: dict[str, str] = {
+        "democratic republic of the congo": "Répub.DC",
+        "république démocratique du congo": "Répub.DC",
+        "rdc": "Répub.DC",
+        "republic of the congo": "Congo",
+        "république du congo": "Congo",
+        "central african republic": "Rép. cent.",
+        "république centrafricaine": "Rép. cent.",
+        "rca": "RCA",
+        "senegal": "Sénégal",
+        "sénégal": "Sénégal",
+        "cameroon": "Cameroun",
+        "cameroun": "Cameroun",
+        "uganda": "Ouganda",
+        "tanzania": "Tanzanie",
+        "gambia": "Gambie",
+        "côte d'ivoire": "Côte d'Ivoire",
+        "cote d'ivoire": "Côte d'Ivoire",
+    }
+    if max_len <= 8:
+        for marker, label in compact_8.items():
+            if marker in fr_key or marker in key:
+                if len(label) <= max_len:
+                    return label
+
     if len(fr) <= max_len:
         return fr
+
     if len(text) <= max_len:
         return text
-    return text[:max_len].rstrip()
+
+    cut = fr[:max_len]
+    if max_len < len(fr) and fr[max_len : max_len + 1].isalnum() and cut and cut[-1].isalnum():
+        last_space = cut.rfind(" ")
+        if last_space > max(3, max_len // 3):
+            cut = cut[:last_space]
+    return cut.rstrip()

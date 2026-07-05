@@ -160,7 +160,7 @@ def _build_combined_header_replacement(
     country: str,
 ) -> str | None:
     """Remplit la ligne date + ville + pays sur la largeur exacte du modèle."""
-    from tip_common.location_fields import country_short_display
+    from tip_common.location_fields import country_doc_display
 
     date_ph = template.split(_COMBINED_HEADER_SPACING, 1)[0]
     date_width = len(date_ph)
@@ -172,25 +172,24 @@ def _build_combined_header_replacement(
 
     date_val = _normalize_for_doc_text(date_val.strip())
     city = _normalize_for_doc_text(city.strip())
-    country_short = _normalize_for_doc_text(
-        country_short_display(country, max_len=country_width)
+    ville_pays_template = "{{Ville}}, {{Pays}}"
+    country_budget = max(4, len(ville_pays_template) - len(city.strip()) - 2)
+    country_display = _normalize_for_doc_text(
+        country_doc_display(country, max_len=country_budget)
     )
+    ville_pays = f"{city.strip()}, {country_display}"
+    if len(ville_pays) > len(ville_pays_template):
+        country_display = _normalize_for_doc_text(
+            country_doc_display(country, max_len=max(3, country_budget - 1))
+        )
+        ville_pays = f"{city.strip()}, {country_display}"
+    ville_pays = ville_pays.ljust(len(ville_pays_template))[: len(ville_pays_template)]
 
     if len(date_val) > date_width:
         date_val = _safe_truncate(date_val, date_width)
     date_part = date_val.ljust(date_width)[:date_width]
 
-    if len(city) > city_width:
-        city = _safe_truncate(city, city_width)
-    city_part = city.ljust(city_width)[:city_width]
-
-    if len(country_short) > country_width:
-        country_short = _safe_truncate(country_short, country_width)
-    country_part = country_short.ljust(country_width)[:country_width]
-
-    return (
-        f"{date_part}{_COMBINED_HEADER_SPACING}{city_part}, {country_part}"
-    )
+    return f"{date_part}{_COMBINED_HEADER_SPACING}{ville_pays}"
 
 
 def _combined_header_pairs(
@@ -321,6 +320,139 @@ def _welcome_title_fragment(title: str) -> str:
     return text
 
 
+def _welcome_paragraph_marker() -> bytes:
+    return "Bienvenue au séminaire ".encode("utf-16-le")
+
+
+def _extract_welcome_paragraph(doc_bytes: bytes) -> str | None:
+    marker = _welcome_paragraph_marker()
+    idx = doc_bytes.find(marker)
+    if idx < 0:
+        return None
+    try:
+        chunk = doc_bytes[idx : idx + 800].decode("utf-16-le")
+    except UnicodeDecodeError:
+        return None
+    end = chunk.find("\r\r")
+    if end < 0:
+        return None
+    para = chunk[:end]
+    if "à {{Ville}}, {{Pays}}." not in para:
+        return None
+    return para
+
+
+def _compress_welcome_middle(middle: str, budget: int) -> str:
+    text = middle
+    replacements = (
+        ("Problématique de ", "Problématique "),
+        (" de Prise en Charge des Fractures", " prise en charge fractures"),
+        (" de Prise en Charge des ", " prise en charge "),
+        (" des Fractures", " fractures"),
+        (" des agents de santé", " agents santé"),
+        (" des agents", " agents"),
+        (" des ", " "),
+        (" de ", " "),
+        ("communautaire ", "comm. "),
+        ("communautaire", "comm."),
+        ("Prise en Charge", "Prise en charge"),
+        ("Fractures", "fractures"),
+    )
+    while len(text) > budget:
+        changed = False
+        for old, new in replacements:
+            if old in text and len(text.replace(old, new, 1)) <= budget:
+                text = text.replace(old, new, 1)
+                changed = True
+                break
+            if old in text:
+                text = text.replace(old, new, 1)
+                changed = True
+                break
+        if not changed:
+            break
+    return text[:budget].ljust(budget)
+
+
+def _build_welcome_paragraph_replacement(
+    old_para: str,
+    *,
+    title: str,
+    city: str,
+    country: str,
+) -> str | None:
+    """Paragraphe d'accueil : titre + pays complets (largeur fixe du modèle)."""
+    from tip_common.title_formatter import _country_to_fr
+
+    marker = "à {{Ville}}, {{Pays}}."
+    if marker not in old_para:
+        return None
+
+    prefix = "Bienvenue au séminaire "
+    if not old_para.startswith(prefix):
+        return None
+
+    title_part = _welcome_title_fragment(title)
+    if len(title_part) > 57:
+        title_part = _truncate_at_word(title_part, 57)
+    title_part = title_part.ljust(57)[:57]
+
+    country_full = _normalize_for_doc_text(_country_to_fr(country) or country.strip())
+    ending = f"à {city.strip()}, {country_full}."
+    if len(ending) < len(marker):
+        ending = ending.ljust(len(marker))
+
+    sep_idx = old_para.find("\xa0:")
+    if sep_idx < 0:
+        return None
+    old_middle = old_para[sep_idx + 2 : old_para.index(marker)]
+    middle_budget = len(old_para) - len(prefix) - 57 - 2 - len(ending)
+    if middle_budget < 8:
+        return None
+    middle = _compress_welcome_middle(old_middle, middle_budget).rstrip()
+    middle = f"{middle} ".ljust(middle_budget)[:middle_budget]
+    new_para = f"{prefix}{title_part}\xa0:{middle}{ending}"
+    if len(new_para) != len(old_para):
+        return None
+    return new_para
+
+
+def _welcome_paragraph_pairs(
+    context: dict[str, Any],
+    *,
+    doc_bytes: bytes | None = None,
+) -> list[tuple[str, str]]:
+    if not doc_bytes:
+        return []
+    title = (context.get("title_formatted") or context.get("title") or "").strip()
+    city = str(context.get("city") or context.get("ville") or "").strip()
+    country = str(context.get("country") or context.get("pays") or "").strip()
+    if not title or not city or not country:
+        from tip_common.location_fields import resolve_lieu_display
+
+        if not city or not country:
+            lieu = resolve_lieu_display(context)
+            if ", " in lieu:
+                city_part, country_part = lieu.split(", ", 1)
+                city = city or city_part.strip()
+                country = country or country_part.strip()
+    if not title or not city or not country:
+        return []
+
+    old_para = _extract_welcome_paragraph(doc_bytes)
+    if not old_para:
+        return []
+    new_para = _build_welcome_paragraph_replacement(
+        old_para,
+        title=title,
+        city=city,
+        country=country,
+    )
+    if new_para and new_para != old_para:
+        return [(old_para, new_para)]
+    return []
+
+
 def _welcome_seminar_title_pairs(
     context: dict[str, Any],
     *,
@@ -384,7 +516,7 @@ def _nom_event_templates() -> list[str]:
 
 
 def _nom_event_blob(doc_bytes: bytes, placeholder: str) -> str | None:
-    """Placeholder + retours chariot de padding (zone texte page 1)."""
+    """Placeholder + zone texte page 1 (lignes \\r / contrôles Word)."""
     needle = placeholder.encode("utf-16-le")
     idx = doc_bytes.find(needle)
     if idx < 0:
@@ -392,7 +524,7 @@ def _nom_event_blob(doc_bytes: bytes, placeholder: str) -> str | None:
     end = idx + len(needle)
     while end + 1 < len(doc_bytes):
         chunk = doc_bytes[end : end + 2]
-        if chunk == b"\r\x00":
+        if chunk in (b"\r\x00", b"\x01\x00"):
             end += 2
             continue
         break
@@ -400,6 +532,106 @@ def _nom_event_blob(doc_bytes: bytes, placeholder: str) -> str | None:
         return doc_bytes[idx:end].decode("utf-16-le")
     except UnicodeDecodeError:
         return None
+
+
+def _nom_event_expandable_region(doc_bytes: bytes, placeholder: str) -> tuple[str, int, int] | None:
+    """Zone « Nom de l'événement » + padding \\x00 exploitable sans changer la taille du .doc."""
+    needle = placeholder.encode("utf-16-le")
+    idx = doc_bytes.find(needle)
+    if idx < 0:
+        return None
+    end = idx + len(needle)
+    while end + 1 < len(doc_bytes):
+        chunk = doc_bytes[end : end + 2]
+        if chunk in (b"\r\x00", b"\x01\x00"):
+            end += 2
+            continue
+        break
+    null_end = end
+    while null_end + 1 < len(doc_bytes) and doc_bytes[null_end : null_end + 2] == b"\x00\x00":
+        null_end += 2
+    if null_end <= end:
+        return None
+    try:
+        region = doc_bytes[idx:null_end].decode("utf-16-le")
+    except UnicodeDecodeError:
+        return None
+    if len(region) < 48:
+        return None
+    return region, idx, null_end
+
+
+def _nom_event_control_suffix(blob: str) -> str:
+    """Partie contrôles Word après le placeholder (\\r, \\x01)."""
+    for ap in _DOC_APOSTROPHE_CHARS:
+        for spell in ("évenement", "événement", "evenement", "évènement"):
+            marker = f"{{{{Nom de l{ap}{spell}}}}}"
+            if blob.startswith(marker):
+                return blob[len(marker) :]
+    return ""
+
+
+def _build_nom_event_expandable_region(old_region: str, title: str) -> str | None:
+    """Insère le titre complet dans la zone texte page 1 (consomme le padding binaire)."""
+    if not old_region or not title:
+        return None
+    title = _normalize_for_doc_text(title.strip())
+    suffix = _nom_event_control_suffix(old_region.split("\x00", 1)[0])
+    if not suffix:
+        suffix = "\r\r\r\r\r\r\r\r\r\r\r\x01\r\r\r\r"
+    max_len = len(old_region)
+    if len(title) + len(suffix) > max_len:
+        title = _truncate_at_word(title, max(8, max_len - len(suffix)))
+    content = (title + suffix)[:max_len]
+    if len(content) < max_len:
+        content = content + "\x00" * (max_len - len(content))
+    return content if len(content) == max_len else None
+
+
+def _nom_event_expandable_pairs(
+    context: dict[str, Any],
+    *,
+    doc_bytes: bytes | None = None,
+) -> list[tuple[str, str]]:
+    if not doc_bytes:
+        return []
+    title = (context.get("title_formatted") or context.get("title") or "").strip()
+    if not title:
+        return []
+
+    pairs: list[tuple[str, str]] = []
+    seen: set[str] = set()
+    for placeholder in _nom_event_templates():
+        found = _nom_event_expandable_region(doc_bytes, placeholder)
+        if not found:
+            continue
+        old_region, _, _ = found
+        if old_region in seen:
+            continue
+        new_region = _build_nom_event_expandable_region(old_region, title)
+        if new_region and new_region != old_region:
+            seen.add(old_region)
+            pairs.append((old_region, new_region))
+    return pairs
+
+
+def _fit_textbox_blob(old_blob: str, text: str) -> str | None:
+    """Remplit la zone « Nom de l'événement » (1re ligne) sans modifier la taille du blob."""
+    if not old_blob or not text:
+        return None
+    text = _normalize_for_doc_text(text.strip())
+    parts = old_blob.split("\r")
+    if not parts or not parts[0]:
+        return None
+
+    line_width = len(parts[0])
+    if line_width < 8:
+        return None
+
+    # Les lignes vides (\r consécutifs) ne peuvent pas être étendues en binaire : 1re ligne seulement.
+    first = _truncate_at_word(text, line_width).ljust(line_width)[:line_width]
+    new_blob = first + old_blob[line_width:]
+    return new_blob if len(new_blob) == len(old_blob) else None
 
 
 def _find_utf16_blob(doc_bytes: bytes, sample: str) -> str | None:
@@ -515,7 +747,14 @@ def _nom_event_pairs(
         old_blob = _nom_event_blob(doc_bytes, placeholder)
         if not old_blob or old_blob == placeholder:
             continue
-        fitted = _fit_line_blob(old_blob, _programme_title_for_width(title, len(old_blob)))
+        first = old_blob.split("\r", 1)[0]
+        display_title = _programme_title_for_width(title, len(first))
+        fitted = _fit_textbox_blob(old_blob, display_title)
+        if not fitted and old_blob:
+            line = _programme_title_for_width(title, len(first)).ljust(len(first))[: len(first)]
+            fitted = line + old_blob[len(first) :]
+            if len(fitted) != len(old_blob):
+                fitted = None
         if fitted and fitted != old_blob:
             pairs.append((old_blob, fitted))
     return pairs
@@ -557,6 +796,7 @@ def _programme_title_for_width(title: str, budget: int) -> str:
             "Séminaire AO Alliance—Information, Éducation et Communication (IEC)",
             "Séminaire AO Alliance—Information, Éducation et Communication",
             "Séminaire AO Alliance—Information et Communication (IEC)",
+            "Séminaire AO Alliance",
         )
         for candidate in candidates:
             if len(candidate) <= budget:
@@ -576,13 +816,14 @@ def _fit_title_blob(old_blob: str, title: str) -> str | None:
         return None
     title = _normalize_for_doc_text(title)
     if "\r" not in old_blob:
-        fitted = _fit_to_sample_width(old_blob, _programme_title_for_width(title, len(old_blob)))
+        fitted = _fit_to_sample_width(old_blob, _truncate_at_word(title, len(old_blob)))
         return fitted
 
     segments = old_blob.split("\r")
     widths = [len(segment) for segment in segments]
-    budget = sum(widths)
-    title = _programme_title_for_width(title, budget)
+    # Lignes vides = même largeur que la première ligne (zone texte Word).
+    if widths and widths[0] > 0:
+        widths = [widths[0] if width == 0 else width for width in widths]
 
     words = title.split()
     lines: list[list[str]] = [[] for _ in segments]
@@ -735,23 +976,89 @@ def _ville_pays_templates() -> list[str]:
     return ["{{Ville}}, {{Pays}}"]
 
 
+def _welcome_ville_pays_templates() -> list[str]:
+    return ["à {{Ville}}, {{Pays}}.\r\r", "à {{Ville}}, {{Pays}}."]
+
+
+def _build_welcome_lieu_replacement(city: str, country: str, template: str) -> str | None:
+    """Phrase d'accueil « à Ville, Pays. » (largeur fixe du modèle)."""
+    from tip_common.location_fields import country_doc_display
+
+    marker = "à {{Ville}}, {{Pays}}."
+    if not template.startswith(marker):
+        return None
+
+    city = _normalize_for_doc_text(city.strip())
+    location_template = "{{Ville}}, {{Pays}}"
+    country_budget = max(4, len(location_template) - len(city) - 2)
+    country_display = _normalize_for_doc_text(
+        country_doc_display(country, max_len=country_budget)
+    )
+    location = f"{city}, {country_display}"
+    if len(location) > len(location_template):
+        country_display = _normalize_for_doc_text(
+            country_doc_display(country, max_len=max(3, country_budget - 1))
+        )
+        location = f"{city}, {country_display}"
+    location = location.ljust(len(location_template))[: len(location_template)]
+    value = f"à {location}."
+    if len(value) < len(marker):
+        value = value.ljust(len(marker))
+    suffix = template[len(marker) :]
+    value = (value + suffix)[: len(template)]
+    if len(value) != len(template):
+        return None
+    return value
+
+
+def _welcome_ville_pays_pairs(
+    context: dict[str, Any],
+    *,
+    doc_bytes: bytes | None = None,
+) -> list[tuple[str, str]]:
+    if not doc_bytes:
+        return []
+    from tip_common.location_fields import resolve_lieu_display
+
+    city = str(context.get("city") or context.get("ville") or "").strip()
+    country = str(context.get("country") or context.get("pays") or "").strip()
+    if not city or not country:
+        lieu = resolve_lieu_display(context)
+        if ", " in lieu:
+            city_part, country_part = lieu.split(", ", 1)
+            city = city or city_part.strip()
+            country = country or country_part.strip()
+    if not city or not country:
+        return []
+
+    pairs: list[tuple[str, str]] = []
+    for template in _welcome_ville_pays_templates():
+        if template.encode("utf-16-le") not in doc_bytes:
+            continue
+        replacement = _build_welcome_lieu_replacement(city, country, template)
+        if replacement and replacement != template:
+            pairs.append((template, replacement))
+    return pairs
+
+
 def _build_ville_pays_replacement(city: str, country: str) -> str | None:
-    from tip_common.location_fields import country_short_display
+    from tip_common.location_fields import country_doc_display
 
     template = "{{Ville}}, {{Pays}}"
-    city_width = len("{{Ville}}")
-    country_width = len("{{Pays}}")
     city = _normalize_for_doc_text(city.strip())
-    country_short = _normalize_for_doc_text(
-        country_short_display(country, max_len=country_width)
+    country_budget = max(4, len(template) - len(city) - 2)
+    country_display = _normalize_for_doc_text(
+        country_doc_display(country, max_len=country_budget)
     )
-    if len(city) > city_width:
-        city = _safe_truncate(city, city_width)
-    if len(country_short) > country_width:
-        country_short = _safe_truncate(country_short, country_width)
-    city_part = city.ljust(city_width)[:city_width]
-    country_part = country_short.ljust(country_width)[:country_width]
-    return f"{city_part}, {country_part}"
+    value = f"{city}, {country_display}"
+    if len(value) > len(template):
+        country_display = _normalize_for_doc_text(
+            country_doc_display(country, max_len=max(3, country_budget - 1))
+        )
+        value = f"{city}, {country_display}"
+    if len(value) > len(template):
+        value = _truncate_at_word(value, len(template))
+    return value.ljust(len(template))[: len(template)]
 
 
 def _ville_pays_pairs(
@@ -851,9 +1158,17 @@ def _build_safe_pairs(
     pairs: list[tuple[str, str]] = _legacy_template_pairs(context, doc_bytes=doc_bytes)
     combined_pairs = _combined_header_pairs(context, doc_bytes=doc_bytes)
     ville_pays_pairs = _ville_pays_pairs(context, doc_bytes=doc_bytes)
+    welcome_ville_pays_pairs = _welcome_ville_pays_pairs(context, doc_bytes=doc_bytes)
+    welcome_paragraph_pairs = _welcome_paragraph_pairs(context, doc_bytes=doc_bytes)
+    nom_event_expandable_pairs = _nom_event_expandable_pairs(context, doc_bytes=doc_bytes)
     pairs.extend(combined_pairs)
     pairs.extend(ville_pays_pairs)
-    pairs.extend(_nom_event_pairs(context, doc_bytes=doc_bytes))
+    if not welcome_paragraph_pairs:
+        pairs.extend(welcome_ville_pays_pairs)
+    pairs.extend(nom_event_expandable_pairs)
+    if not nom_event_expandable_pairs:
+        pairs.extend(_nom_event_pairs(context, doc_bytes=doc_bytes))
+    pairs.extend(welcome_paragraph_pairs)
     pairs.extend(_contact_section_pairs(context, doc_bytes=doc_bytes))
     pairs.extend(_teacher_line_pairs(context, doc_bytes=doc_bytes))
     pairs.extend(_welcome_seminar_title_pairs(context, doc_bytes=doc_bytes))
@@ -863,8 +1178,11 @@ def _build_safe_pairs(
         template.split(_COMBINED_HEADER_SPACING, 1)[0] for template, _ in combined_pairs
     }
     skip_placeholder_keys = (
-        _COMBINED_HEADER_SKIP | combined_date_keys | frozenset(_ville_pays_templates())
-        if combined_pairs or ville_pays_pairs
+        _COMBINED_HEADER_SKIP
+        | combined_date_keys
+        | frozenset(_ville_pays_templates())
+        | frozenset(_welcome_ville_pays_templates())
+        if combined_pairs or ville_pays_pairs or welcome_ville_pays_pairs
         else set()
     )
 
@@ -920,6 +1238,14 @@ def _build_safe_pairs(
     for old, new in sorted(pairs, key=lambda item: -len(item[0])):
         if not old or not new or old == new:
             continue
+        if any(old == wp for wp, _ in welcome_paragraph_pairs):
+            if old not in {p[0] for p in safe}:
+                safe.append((old, new, limits.get(old)))
+            continue
+        if any(old == nep for nep, _ in nom_event_expandable_pairs):
+            if old not in {p[0] for p in safe}:
+                safe.append((old, new, limits.get(old)))
+            continue
         if any(old.startswith(prefix) for prefix in _STATIC_PREFIXES):
             continue
         if old in _LEGACY_LIEUX or old in _LEGACY_SEMINAR_TITLES:
@@ -935,6 +1261,10 @@ def _build_safe_pairs(
                 safe.append((old, new, limits.get(old)))
             continue
         if any(old == vp for vp, _ in ville_pays_pairs):
+            if old not in {p[0] for p in safe}:
+                safe.append((old, new, limits.get(old)))
+            continue
+        if any(old == wvp for wvp, _ in welcome_ville_pays_pairs):
             if old not in {p[0] for p in safe}:
                 safe.append((old, new, limits.get(old)))
             continue
