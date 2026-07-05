@@ -104,7 +104,8 @@ def build_package_file_editor_config(
         "lang": "fr",
         "user": {"id": user_id, "name": user_name},
         "customization": {
-            "forcesave": mode == "edit",
+            "forcesave": False,
+            "autosave": False,
             "compactToolbar": mode != "edit",
         },
     }

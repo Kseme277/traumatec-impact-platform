@@ -154,6 +154,7 @@ export default function PackageCorrectionPanel({ jobId, files }: PackageCorrecti
           ) : editorConfig ? (
             <OnlyOfficeEditor
               editorConfig={editorConfig}
+              manualSave
               onDocumentSaved={() => void handleSaved()}
               autoFullscreen
               onClose={() => {

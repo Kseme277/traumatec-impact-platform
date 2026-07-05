@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useId, useRef, useState } from "react";
 import { useTranslation } from "../../i18n/useTranslation";
+import { confirmAction } from "../../lib/swal";
 
 export interface OnlyOfficeEditorConfig {
   document_server_url: string;
@@ -13,15 +14,19 @@ interface OnlyOfficeEditorProps {
   /** Ouvre directement en plein écran (aperçu certificats — évite iframe 0×0). */
   autoFullscreen?: boolean;
   onClose?: () => void;
+  /** Enregistrement explicite via bouton (pas d'autosave / pas de rechargement intempestif). */
+  manualSave?: boolean;
+}
+
+interface DocEditorInstance {
+  destroyEditor?: () => void;
+  serviceCommand?: (command: string, data?: string) => void;
 }
 
 declare global {
   interface Window {
     DocsAPI?: {
-      DocEditor: new (
-        id: string,
-        config: Record<string, unknown>,
-      ) => { destroyEditor?: () => void };
+      DocEditor: new (id: string, config: Record<string, unknown>) => DocEditorInstance;
     };
   }
 }
@@ -71,18 +76,22 @@ export default function OnlyOfficeEditor({
   onDocumentSaved,
   autoFullscreen = false,
   onClose,
+  manualSave = false,
 }: OnlyOfficeEditorProps) {
   const { t } = useTranslation();
   const reactId = useId().replace(/:/g, "");
   const mountId = `onlyoffice-${reactId}`;
   const shellRef = useRef<HTMLDivElement>(null);
-  const editorRef = useRef<{ destroyEditor?: () => void } | null>(null);
+  const editorRef = useRef<DocEditorInstance | null>(null);
   const onDocumentSavedRef = useRef(onDocumentSaved);
+  const savePendingRef = useRef(false);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [editorHeight, setEditorHeight] = useState(() => computeEditorHeight(false));
   const [containerSize, setContainerSize] = useState({ width: 0, height: 0 });
+  const [isDirty, setIsDirty] = useState(false);
+  const [savePending, setSavePending] = useState(false);
 
   const syncHeight = useCallback(() => {
     setEditorHeight(computeEditorHeight(isFullscreen));
@@ -93,10 +102,21 @@ export default function OnlyOfficeEditor({
   }, [onDocumentSaved]);
 
   useEffect(() => {
+    savePendingRef.current = savePending;
+  }, [savePending]);
+
+  useEffect(() => {
     if (editorConfig && autoFullscreen) {
       setIsFullscreen(true);
     }
   }, [editorConfig, autoFullscreen]);
+
+  useEffect(() => {
+    if (!editorConfig) {
+      setIsDirty(false);
+      setSavePending(false);
+    }
+  }, [editorConfig]);
 
   useEffect(() => {
     syncHeight();
@@ -135,6 +155,26 @@ export default function OnlyOfficeEditor({
     isFullscreen ||
     (containerSize.width >= MIN_CONTAINER_PX && containerSize.height >= MIN_CONTAINER_PX);
 
+  const handleManualSave = useCallback(() => {
+    if (!editorRef.current?.serviceCommand || savePendingRef.current) return;
+    setSavePending(true);
+    editorRef.current.serviceCommand("forcesave", "");
+  }, []);
+
+  const handleCancel = useCallback(async () => {
+    if (isDirty) {
+      const result = await confirmAction({
+        title: t("documents.discardChangesTitle"),
+        text: t("documents.discardChangesDesc"),
+        confirmText: t("documents.cancelEditing"),
+        cancelText: t("common.back"),
+        icon: "warning",
+      });
+      if (!result.isConfirmed) return;
+    }
+    onClose?.();
+  }, [isDirty, onClose, t]);
+
   useEffect(() => {
     const shell = shellRef.current;
     if (!shell) {
@@ -156,6 +196,8 @@ export default function OnlyOfficeEditor({
     const mountKey = documentMountKey(editorConfig);
     setLoading(true);
     setError(null);
+    setIsDirty(false);
+    setSavePending(false);
 
     let mountEl: HTMLDivElement | null = null;
 
@@ -195,7 +237,19 @@ export default function OnlyOfficeEditor({
               if (!cancelled) setLoading(false);
             },
             onDocumentStateChange: (event: { data?: boolean }) => {
-              if (event.data === false) {
+              if (cancelled) return;
+              const dirty = event.data === true;
+              setIsDirty(dirty);
+
+              if (manualSave) {
+                if (savePendingRef.current && !dirty) {
+                  setSavePending(false);
+                  onDocumentSavedRef.current?.();
+                }
+                return;
+              }
+
+              if (!dirty) {
                 onDocumentSavedRef.current?.();
               }
             },
@@ -203,6 +257,7 @@ export default function OnlyOfficeEditor({
               const detail = event.data?.errorDescription ?? t("documents.onlyofficeError");
               setError(detail);
               setLoading(false);
+              setSavePending(false);
             },
           },
         };
@@ -223,7 +278,7 @@ export default function OnlyOfficeEditor({
       mountEl?.remove();
       shell.replaceChildren();
     };
-  }, [editorConfig, editorHeight, mountId, t, containerReady, containerSize.width]);
+  }, [editorConfig, editorHeight, manualSave, mountId, t, containerReady, containerSize.width]);
 
   if (!editorConfig) {
     return (
@@ -239,8 +294,26 @@ export default function OnlyOfficeEditor({
 
   return (
     <div className={shellClass}>
-      <div className="flex items-center justify-end gap-2">
-        {onClose ? (
+      <div className="flex flex-wrap items-center justify-end gap-2">
+        {manualSave ? (
+          <>
+            <button
+              type="button"
+              onClick={() => void handleCancel()}
+              className="rounded-lg border border-gray-200 px-3 py-1.5 text-xs font-medium text-gray-700 transition hover:bg-gray-50 dark:border-gray-700 dark:text-gray-300 dark:hover:bg-gray-800"
+            >
+              {t("documents.cancelEditing")}
+            </button>
+            <button
+              type="button"
+              onClick={handleManualSave}
+              disabled={!isDirty || savePending || loading}
+              className="rounded-lg bg-brand-500 px-3 py-1.5 text-xs font-medium text-white transition hover:bg-brand-600 disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {savePending ? t("documents.savingDocument") : t("documents.saveDocument")}
+            </button>
+          </>
+        ) : onClose ? (
           <button
             type="button"
             onClick={onClose}
