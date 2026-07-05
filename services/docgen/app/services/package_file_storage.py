@@ -64,6 +64,8 @@ async def replace_package_file_bytes(
     job: dict[str, Any],
     template_code: str,
     data: bytes,
+    *,
+    rebuild_zip: bool = True,
 ) -> dict[str, Any]:
     storage_key, filename = resolve_package_file(job, template_code)
     storage = get_object_storage(settings)
@@ -75,7 +77,6 @@ async def replace_package_file_bytes(
     trace["file_revisions"] = revisions
 
     job_for_zip = {**job, "template_versions_json": trace}
-    await rebuild_job_zip(settings, job_for_zip)
 
     await db.execute(
         text(
@@ -88,7 +89,23 @@ async def replace_package_file_bytes(
         {"trace": json.dumps(trace, ensure_ascii=False), "job_id": str(job["id"])},
     )
     await db.commit()
+
+    if rebuild_zip:
+        await rebuild_job_zip(settings, job_for_zip)
+
     return trace
+
+
+async def rebuild_job_zip_for_id(job_id: UUID) -> None:
+    """Reconstruction ZIP en tâche de fond (après enregistrement ONLYOFFICE)."""
+    from app.core.database import AsyncSessionLocal
+    from app.core.config import get_settings
+    from app.services.package_workflow import _get_job_row
+
+    settings = get_settings()
+    async with AsyncSessionLocal() as db:
+        job = await _get_job_row(db, job_id)
+        await rebuild_job_zip(settings, job)
 
 
 def file_revision(trace: dict[str, Any] | str | None, template_code: str) -> int:

@@ -70,9 +70,7 @@ export default function PackageCorrectionPanel({ jobId, files }: PackageCorrecti
   }
 
   async function handleSaved() {
-    if (!activeCode) return;
-    await showSuccess(t("documents.packageFileSaved"), t("documents.packageFileSavedDesc"));
-    await loadEditor(activeCode);
+    void showSuccess(t("documents.packageFileSaved"), t("documents.packageFileSavedDesc"));
   }
 
   if (files.length === 0) {

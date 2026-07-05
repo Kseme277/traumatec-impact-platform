@@ -1,7 +1,7 @@
 from uuid import UUID
 
 from botocore.exceptions import ClientError
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query, status
 from fastapi.responses import Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -22,6 +22,7 @@ from app.schemas.workflow import (
     WorkflowStatsResponse,
 )
 from app.services import package_workflow as wf
+from app.services.package_file_storage import rebuild_job_zip_for_id
 from app.services.package_file_onlyoffice import (
     build_package_file_editor_config,
     content_type_for_filename,
@@ -249,6 +250,7 @@ async def package_file_onlyoffice_callback(
     job_id: UUID,
     template_code: str,
     body: dict,
+    background_tasks: BackgroundTasks,
     token: str | None = Query(default=None),
     db: AsyncSession = Depends(get_db),
 ) -> dict:
@@ -264,7 +266,10 @@ async def package_file_onlyoffice_callback(
         return {"error": 1}
 
     try:
-        return await handle_package_file_callback(db, settings, job, template_code, body)
+        result = await handle_package_file_callback(db, settings, job, template_code, body)
+        if result.get("error") == 0 and body.get("status") == 2:
+            background_tasks.add_task(rebuild_job_zip_for_id, job_id)
+        return result
     except Exception as exc:
         from fastapi import HTTPException, status
 

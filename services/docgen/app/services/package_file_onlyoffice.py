@@ -168,5 +168,5 @@ async def handle_package_file_callback(
         response.raise_for_status()
         data = response.content
 
-    await replace_package_file_bytes(db, settings, job, template_code, data)
+    await replace_package_file_bytes(db, settings, job, template_code, data, rebuild_zip=False)
     return {"error": 0}

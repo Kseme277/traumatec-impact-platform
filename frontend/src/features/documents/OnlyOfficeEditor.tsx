@@ -85,6 +85,7 @@ export default function OnlyOfficeEditor({
   const editorRef = useRef<DocEditorInstance | null>(null);
   const onDocumentSavedRef = useRef(onDocumentSaved);
   const savePendingRef = useRef(false);
+  const saveTimeoutRef = useRef<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -104,6 +105,40 @@ export default function OnlyOfficeEditor({
   useEffect(() => {
     savePendingRef.current = savePending;
   }, [savePending]);
+
+  const clearSaveTimeout = useCallback(() => {
+    if (saveTimeoutRef.current !== null) {
+      window.clearTimeout(saveTimeoutRef.current);
+      saveTimeoutRef.current = null;
+    }
+  }, []);
+
+  const finishSave = useCallback(
+    (success: boolean) => {
+      if (!savePendingRef.current) return;
+      clearSaveTimeout();
+      savePendingRef.current = false;
+      setSavePending(false);
+      if (success) {
+        setIsDirty(false);
+        onDocumentSavedRef.current?.();
+      } else {
+        setError(t("documents.saveFailed"));
+      }
+    },
+    [clearSaveTimeout, t],
+  );
+
+  const startSaveTimeout = useCallback(() => {
+    clearSaveTimeout();
+    saveTimeoutRef.current = window.setTimeout(() => {
+      if (!savePendingRef.current) return;
+      clearSaveTimeout();
+      savePendingRef.current = false;
+      setSavePending(false);
+      setError(t("documents.saveTimeout"));
+    }, 60000);
+  }, [clearSaveTimeout, t]);
 
   useEffect(() => {
     if (editorConfig && autoFullscreen) {
@@ -157,9 +192,12 @@ export default function OnlyOfficeEditor({
 
   const handleManualSave = useCallback(() => {
     if (!editorRef.current?.serviceCommand || savePendingRef.current) return;
+    setError(null);
+    savePendingRef.current = true;
     setSavePending(true);
+    startSaveTimeout();
     editorRef.current.serviceCommand("forcesave", "");
-  }, []);
+  }, [startSaveTimeout]);
 
   const handleCancel = useCallback(async () => {
     if (isDirty) {
@@ -243,8 +281,7 @@ export default function OnlyOfficeEditor({
 
               if (manualSave) {
                 if (savePendingRef.current && !dirty) {
-                  setSavePending(false);
-                  onDocumentSavedRef.current?.();
+                  finishSave(true);
                 }
                 return;
               }
@@ -253,10 +290,16 @@ export default function OnlyOfficeEditor({
                 onDocumentSavedRef.current?.();
               }
             },
+            onRequestSaveResult: (event: { data?: boolean }) => {
+              if (cancelled || !manualSave || !savePendingRef.current) return;
+              finishSave(event.data === true);
+            },
             onError: (event: { data?: { errorDescription?: string } }) => {
               const detail = event.data?.errorDescription ?? t("documents.onlyofficeError");
+              clearSaveTimeout();
               setError(detail);
               setLoading(false);
+              savePendingRef.current = false;
               setSavePending(false);
             },
           },
@@ -273,12 +316,13 @@ export default function OnlyOfficeEditor({
 
     return () => {
       cancelled = true;
+      clearSaveTimeout();
       editorRef.current?.destroyEditor?.();
       editorRef.current = null;
       mountEl?.remove();
       shell.replaceChildren();
     };
-  }, [editorConfig, editorHeight, manualSave, mountId, t, containerReady, containerSize.width]);
+  }, [editorConfig, editorHeight, manualSave, mountId, t, containerReady, containerSize.width, clearSaveTimeout, finishSave]);
 
   if (!editorConfig) {
     return (
