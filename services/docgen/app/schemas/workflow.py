@@ -87,6 +87,10 @@ class FileReviewPayload(BaseModel):
     comment: str | None = None
 
 
+class FileCommentPayload(BaseModel):
+    comment: str | None = Field(default=None, max_length=4000)
+
+
 class RejectPayload(BaseModel):
     comment: str = Field(min_length=1, max_length=4000)
 

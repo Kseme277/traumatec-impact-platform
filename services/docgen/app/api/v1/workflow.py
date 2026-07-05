@@ -12,6 +12,7 @@ from app.schemas.workflow import (
     AssignReviewerPayload,
     CompleteProcedurePayload,
     DeliveryMailtoResponse,
+    FileCommentPayload,
     FileReviewPayload,
     RejectPayload,
     SubmitPayload,
@@ -126,6 +127,24 @@ async def review_file(
         user,
         template_code,
         review_status=payload.status,
+        comment=payload.comment,
+    )
+    return WorkflowStateResponse(**state)
+
+
+@router.post("/{job_id}/files/{template_code:path}/comment", response_model=WorkflowStateResponse)
+async def save_file_comment(
+    job_id: UUID,
+    template_code: str,
+    payload: FileCommentPayload,
+    user: AuthenticatedUser = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> WorkflowStateResponse:
+    state = await wf.save_file_comment(
+        db,
+        job_id,
+        user,
+        template_code,
         comment=payload.comment,
     )
     return WorkflowStateResponse(**state)

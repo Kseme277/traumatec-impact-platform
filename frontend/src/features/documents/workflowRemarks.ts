@@ -1,5 +1,6 @@
 import type { WorkflowStep } from "../../api/workflow";
 import type { GenerationJob } from "./types";
+import { getLatestCompletedJob } from "./eventPackageLock";
 
 /** Dernier commentaire central de rejet (contrôle ou validateur). */
 export function getCentralRejectComment(history: WorkflowStep[]): string | null {
@@ -16,20 +17,21 @@ export function getCentralRejectComment(history: WorkflowStep[]): string | null 
   return null;
 }
 
-/** Job dont afficher les remarques (rejet ou brouillon avant soumission). */
+const REMARKS_WORKFLOW = new Set([
+  "submitted",
+  "under_procedure_review",
+  "procedure_rejected",
+  "under_final_validation",
+  "validator_rejected",
+  "procedure_approved",
+  "approved",
+]);
+
+/** Job dont afficher les remarques par fichier. */
 export function getRemarksJob(history: GenerationJob[]): GenerationJob | null {
-  const completed = history.filter((job) => job.status === "completed");
-  if (completed.length === 0) return null;
-
-  const actionable = completed.filter((job) => {
-    const wf = job.workflow_status ?? "generated";
-    return wf === "procedure_rejected" || wf === "validator_rejected" || wf === "generated";
-  });
-
-  const pool = actionable.length > 0 ? actionable : completed;
-  return pool.reduce((latest, job) => {
-    const latestTs = latest.completed_at ?? latest.created_at ?? "";
-    const jobTs = job.completed_at ?? job.created_at ?? "";
-    return jobTs > latestTs ? job : latest;
-  });
+  const latest = getLatestCompletedJob(history);
+  if (!latest) return null;
+  const wf = latest.workflow_status ?? "generated";
+  if (!REMARKS_WORKFLOW.has(wf)) return null;
+  return latest;
 }

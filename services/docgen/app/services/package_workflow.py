@@ -395,14 +395,14 @@ async def review_file(
         text(
             """
             UPDATE docgen.package_file_reviews
-            SET status = :status, comment = :comment,
+            SET status = :status, comment = COALESCE(:comment, comment),
                 reviewed_by_id = :user_id, reviewed_at = now()
             WHERE generation_job_id = :job_id AND template_code = :code
             """
         ),
         {
             "status": review_status,
-            "comment": comment,
+            "comment": comment.strip() if comment and comment.strip() else None,
             "user_id": user.id,
             "job_id": str(job_id),
             "code": template_code,
@@ -417,6 +417,48 @@ async def review_file(
         actor_name=_actor_name(user),
         comment=f"{template_code}: {comment or ''}".strip(),
     )
+    await db.commit()
+    return await get_workflow_state(db, job_id)
+
+
+async def save_file_comment(
+    db: AsyncSession,
+    job_id: UUID,
+    user,
+    template_code: str,
+    *,
+    comment: str | None,
+) -> dict[str, Any]:
+    job = await _get_job_row(db, job_id)
+    roles = list(user.roles)
+    wf_status = job["workflow_status"]
+
+    if wf_status in ("under_procedure_review", "submitted"):
+        if not can_review_procedure(roles):
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Revue non autorisée")
+    elif wf_status == "under_final_validation":
+        if not can_validate_final(roles):
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Revue non autorisée")
+    else:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Remarque fichier non modifiable pour cet état")
+
+    result = await db.execute(
+        text(
+            """
+            UPDATE docgen.package_file_reviews
+            SET comment = :comment
+            WHERE generation_job_id = :job_id AND template_code = :code
+            RETURNING id
+            """
+        ),
+        {
+            "comment": comment.strip() if comment else None,
+            "job_id": str(job_id),
+            "code": template_code,
+        },
+    )
+    if result.scalar_one_or_none() is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Fichier introuvable dans le paquet")
     await db.commit()
     return await get_workflow_state(db, job_id)
 

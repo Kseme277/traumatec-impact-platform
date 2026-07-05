@@ -123,6 +123,22 @@ export function reviewFile(
   );
 }
 
+export function saveFileComment(
+  token: string | null,
+  jobId: string,
+  templateCode: string,
+  comment: string | null,
+) {
+  return apiFetch<WorkflowState>(
+    `/v1/generations/${jobId}/files/${encodeURIComponent(templateCode)}/comment`,
+    token,
+    {
+      method: "POST",
+      body: JSON.stringify({ comment }),
+    },
+  );
+}
+
 export function completeProcedure(token: string | null, jobId: string, validatorId: number) {
   return apiFetch<WorkflowState>(`/v1/generations/${jobId}/procedure/complete`, token, {
     method: "POST",

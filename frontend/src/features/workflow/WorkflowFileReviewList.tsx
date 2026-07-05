@@ -7,6 +7,7 @@ import {
   downloadPackageFile,
   fetchPackageFileEditorConfig,
   reviewFile,
+  saveFileComment,
 } from "../../api/workflow";
 import type { WorkflowFileReview, WorkflowState } from "../../api/workflow";
 import { getApiToken } from "../../lib/clerkToken";
@@ -41,27 +42,27 @@ export default function WorkflowFileReviewList({
   const [previewUnavailable, setPreviewUnavailable] = useState(false);
   const [remarks, setRemarks] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState<string | null>(null);
+  const [savingRemark, setSavingRemark] = useState<string | null>(null);
   const [localFiles, setLocalFiles] = useState(files);
+
+  const syncRemarksFromFiles = useCallback((fileList: WorkflowFileReview[]) => {
+    setRemarks((prev) => {
+      const next = { ...prev };
+      for (const file of fileList) {
+        next[file.template_code] = file.comment ?? "";
+      }
+      return next;
+    });
+  }, []);
 
   useEffect(() => {
     setLocalFiles(files);
-  }, [files]);
+    syncRemarksFromFiles(files);
+  }, [files, syncRemarksFromFiles]);
 
   const reviewedCount = localFiles.filter((f) => f.status !== "pending").length;
   const approvedCount = localFiles.filter((f) => f.status === "approved").length;
   const rejectedCount = localFiles.filter((f) => f.status === "rejected").length;
-
-  useEffect(() => {
-    setRemarks((prev) => {
-      const next = { ...prev };
-      for (const file of files) {
-        if (file.comment && next[file.template_code] === undefined) {
-          next[file.template_code] = file.comment;
-        }
-      }
-      return next;
-    });
-  }, [files]);
 
   const loadPreview = useCallback(
     async (templateCode: string) => {
@@ -110,6 +111,29 @@ export default function WorkflowFileReviewList({
     }
   }
 
+  async function handleSaveRemark(templateCode: string) {
+    const comment = (remarks[templateCode] ?? "").trim();
+    const saved = localFiles.find((f) => f.template_code === templateCode)?.comment?.trim() ?? "";
+    if (comment === saved) return;
+
+    setSavingRemark(templateCode);
+    try {
+      const token = await getApiToken(getToken);
+      const state = await saveFileComment(token, jobId, templateCode, comment || null);
+      setLocalFiles(state.files);
+      syncRemarksFromFiles(state.files);
+      onUpdated(state);
+      void showSuccess(t("workflow.remarkSaved"));
+    } catch (err) {
+      showError(
+        t("common.error"),
+        err instanceof ApiError ? err.message : t("common.unknownError"),
+      );
+    } finally {
+      setSavingRemark(null);
+    }
+  }
+
   async function handleReview(templateCode: string, status: "approved" | "rejected") {
     const comment = (remarks[templateCode] ?? "").trim();
     if (status === "rejected" && !comment) {
@@ -126,8 +150,9 @@ export default function WorkflowFileReviewList({
     setSubmitting(templateCode);
     try {
       const token = await getApiToken(getToken);
-      const state = await reviewFile(token, jobId, templateCode, status, comment || undefined);
+      const state = await reviewFile(token, jobId, templateCode, status, comment || null);
       setLocalFiles(state.files);
+      syncRemarksFromFiles(state.files);
       onUpdated(state);
       void showSuccess(status === "approved" ? t("workflow.fileApproved") : t("workflow.fileRejected"));
     } catch (err) {
@@ -216,15 +241,28 @@ export default function WorkflowFileReviewList({
                   </td>
                   <td className="px-3 py-3 align-top">
                     {canReview ? (
-                      <textarea
-                        className="w-full min-w-[200px] rounded-lg border border-gray-200 bg-white p-2 text-xs dark:border-gray-700 dark:bg-gray-900"
-                        rows={2}
-                        placeholder={t("workflow.remarkPlaceholder")}
-                        value={draftRemark}
-                        onChange={(e) =>
-                          setRemarks((prev) => ({ ...prev, [file.template_code]: e.target.value }))
-                        }
-                      />
+                      <div className="space-y-2">
+                        <textarea
+                          className="w-full min-w-[200px] rounded-lg border border-gray-200 bg-white p-2 text-xs dark:border-gray-700 dark:bg-gray-900"
+                          rows={2}
+                          placeholder={t("workflow.remarkPlaceholder")}
+                          value={draftRemark}
+                          onChange={(e) =>
+                            setRemarks((prev) => ({ ...prev, [file.template_code]: e.target.value }))
+                          }
+                          onBlur={() => void handleSaveRemark(file.template_code)}
+                        />
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          disabled={savingRemark === file.template_code || draftRemark.trim() === savedRemark}
+                          onClick={() => void handleSaveRemark(file.template_code)}
+                        >
+                          {savingRemark === file.template_code
+                            ? t("common.saving")
+                            : t("workflow.saveRemark")}
+                        </Button>
+                      </div>
                     ) : savedRemark ? (
                       <p className="rounded-lg bg-gray-50 px-2 py-1.5 text-xs text-gray-700 dark:bg-gray-900 dark:text-gray-300">
                         {savedRemark}
