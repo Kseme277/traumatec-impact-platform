@@ -146,3 +146,53 @@ def resolve_lieu_display(context: dict[str, Any]) -> str:
         or city
         or country
     )
+
+
+_COUNTRY_SHORT_DOC: dict[str, str] = {
+    "democratic republic of the congo": "RDC",
+    "république démocratique du congo": "RDC",
+    "republic of the congo": "Congo",
+    "république du congo": "Congo",
+    "congo": "Congo",
+    "central african republic": "RCA",
+    "république centrafricaine": "RCA",
+    "rca": "RCA",
+    "rdc": "RDC",
+    "senegal": "Sénégal",
+    "sénégal": "Sénégal",
+    "cameroon": "Cameroun",
+    "cameroun": "Cameroun",
+    "uganda": "Ouganda",
+    "tanzania": "Tanzanie",
+    "united republic of tanzania": "Tanzanie",
+    "gambia": "Gambie",
+    "ethiopia": "Éthiopie",
+    "éthiopie": "Éthiopie",
+    "côte d'ivoire": "C.Ivoire",
+    "cote d'ivoire": "C.Ivoire",
+    "switzerland": "Suisse",
+    "suisse": "Suisse",
+}
+
+
+def country_short_display(country: str, *, max_len: int = 8) -> str:
+    """Forme courte du pays pour champs .doc à largeur fixe (ex. {{Pays}} = 8 car.)."""
+    text = (country or "").strip()
+    if not text:
+        return ""
+    key = text.lower().replace("_", " ")
+    mapped = _COUNTRY_SHORT_DOC.get(key)
+    if mapped and len(mapped) <= max_len:
+        return mapped
+    from tip_common.title_formatter import _country_to_fr
+
+    fr = _country_to_fr(text)
+    fr_key = fr.lower()
+    mapped_fr = _COUNTRY_SHORT_DOC.get(fr_key)
+    if mapped_fr and len(mapped_fr) <= max_len:
+        return mapped_fr
+    if len(fr) <= max_len:
+        return fr
+    if len(text) <= max_len:
+        return text
+    return text[:max_len].rstrip()

@@ -38,10 +38,13 @@ import ParametresGuideHubPage from "./pages/admin/ParametresGuideHubPage";
 import ProfilMotDePassePage from "./pages/ProfilMotDePassePage";
 import DocumentsTemplatesPage from "./pages/DocumentsTemplatesPage";
 import DocumentsGenerationPage from "./pages/DocumentsGenerationPage";
+import DocumentsGenerationDetailPage from "./pages/DocumentsGenerationDetailPage";
 import GuidesAdminHandoffGate from "./pages/GuidesAdminHandoffGate";
 import NotificationsPage from "./pages/NotificationsPage";
 import WorkflowControlePage from "./pages/WorkflowControlePage";
+import WorkflowControleDetailPage from "./pages/WorkflowControleDetailPage";
 import WorkflowValidationPage from "./pages/WorkflowValidationPage";
+import WorkflowValidationDetailPage from "./pages/WorkflowValidationDetailPage";
 import UtilisateursRoutePage from "./pages/UtilisateursRoutePage";
 import ReferentielsAdminPage from "./pages/admin/ReferentielsAdminPage";
 import PredictionsPage from "./pages/PredictionsPage";
@@ -83,6 +86,7 @@ export default function App() {
               <Route path="/certificats/participants/:participantId" element={<ParticipantDetailPage />} />
               <Route path="/evenements/:id/participants" element={<EventParticipantsPage />} />
               <Route path="/documents/generation" element={<DocumentsGenerationPage />} />
+              <Route path="/documents/generation/:eventId" element={<DocumentsGenerationDetailPage />} />
             </Route>
 
             <Route element={<ProtectedRoute requireAdmin />}>
@@ -95,9 +99,11 @@ export default function App() {
 
             <Route element={<ProtectedRoute requireAnyRole={["administrateur", "controle_procedure"]} />}>
               <Route path="/workflow/controle" element={<WorkflowControlePage />} />
+              <Route path="/workflow/controle/:jobId" element={<WorkflowControleDetailPage />} />
             </Route>
             <Route element={<ProtectedRoute requireAnyRole={["administrateur", "validateur"]} />}>
               <Route path="/workflow/validation" element={<WorkflowValidationPage />} />
+              <Route path="/workflow/validation/:jobId" element={<WorkflowValidationDetailPage />} />
             </Route>
             <Route path="/profile" element={<UserProfiles />} />
             <Route path="/profil" element={<UserProfiles />} />

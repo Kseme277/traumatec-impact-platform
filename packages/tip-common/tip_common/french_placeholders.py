@@ -134,6 +134,7 @@ def build_french_placeholder_pairs(context: dict[str, Any]) -> list[tuple[str, s
     _append_pairs(
         pairs,
         [
+            _brace("Nom du Responsable"),
             _brace("Nom du responsable"),
             _brace("Nom du responsable national "),
             _brace("Nom du responsable national"),
