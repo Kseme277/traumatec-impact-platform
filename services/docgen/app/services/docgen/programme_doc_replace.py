@@ -22,6 +22,53 @@ _LEGACY_COMBINED_HEADERS = (
     "08 – 10 octobre 2026       Brazzaville, Congo",
 )
 
+_LEGACY_WEEKDAY_SCHEDULE_DATES = (
+    "Mardi 04 avril 2023",
+)
+
+_CONTACT_SECTION_START = "Personne de contact"
+_CONTACT_SECTION_END = "Informations générales"
+
+_FRENCH_WEEKDAYS = (
+    "lundi",
+    "mardi",
+    "mercredi",
+    "jeudi",
+    "vendredi",
+    "samedi",
+    "dimanche",
+)
+
+_FRENCH_MONTHS = (
+    "janvier",
+    "février",
+    "mars",
+    "avril",
+    "mai",
+    "juin",
+    "juillet",
+    "août",
+    "septembre",
+    "octobre",
+    "novembre",
+    "décembre",
+)
+
+_SCHEDULE_MONTH_ABBREV = {
+    "janvier": "janv.",
+    "février": "févr.",
+    "mars": "mars",
+    "avril": "avr.",
+    "mai": "mai",
+    "juin": "juin",
+    "juillet": "juil.",
+    "août": "août",
+    "septembre": "sept.",
+    "octobre": "oct.",
+    "novembre": "nov.",
+    "décembre": "déc.",
+}
+
 from tip_common.french_label_patterns import LEGACY_LIEUX as _LEGACY_LIEUX
 
 # Apostrophe typographique Word (.doc latin-1 / CP1252).
@@ -258,22 +305,21 @@ def _build_combined_header_expandable_region(
         return None
     before = body[:idx]
     controls = before.lstrip("\x00")
-    null_count = len(before) - len(controls)
-    line_budget = null_count + len(template)
-    if line_budget < len(template):
+    null_prefix_len = len(before) - len(controls)
+    replaceable_budget = len(body) - null_prefix_len
+    if replaceable_budget < len(template):
         return None
 
     date_val = _normalize_for_doc_text(date_val.strip())
     city = _normalize_for_doc_text(city.strip())
     country_fr = _normalize_for_doc_text(country_doc_display(country, max_len=0))
     location = f"{city}, {country_fr}"
-    spacing = max(1, line_budget - len(date_val) - len(location))
-    line = f"{date_val}{' ' * spacing}{location}"
-    if len(line) > line_budget:
-        line = _truncate_at_word(line, line_budget)
-    line = line.ljust(line_budget)[:line_budget]
-    remaining_nulls = line_budget - len(line)
-    new_body = ("\x00" * remaining_nulls) + controls + line
+
+    line = f"{date_val}  {location}"
+    if len(line) > replaceable_budget:
+        line = _truncate_at_word(line, replaceable_budget)
+    line = line.ljust(replaceable_budget)[:replaceable_budget]
+    new_body = before[:null_prefix_len] + line
     if len(new_body) != len(body):
         return None
     return new_body + _COMBINED_HEADER_SUFFIX
@@ -379,9 +425,17 @@ def _fit_line_blob(blob: str, value: str) -> str | None:
     value = _normalize_for_doc_text(value.strip())
     if not value:
         return None
-    if len(value) > len(blob):
-        value = _safe_truncate(value, len(blob))
-    return value.ljust(len(blob))[:len(blob)]
+    suffix = ""
+    core = blob
+    if blob.endswith("\r"):
+        suffix = "\r"
+        core = blob[:-1]
+    if len(value) > len(core):
+        value = _safe_truncate(value, len(core))
+    fitted = value.ljust(len(core))[: len(core)] + suffix
+    if len(fitted) != len(blob):
+        return None
+    return fitted
 
 
 def _placeholder_line_blob(doc_bytes: bytes, placeholder: str) -> str | None:
@@ -498,11 +552,7 @@ def _teacher_line_pairs(
     seen: set[str] = set()
     slots: list[int | str] = [1, 2, 3, 4, 5, ".."]
     for slot_index, slot in enumerate(slots):
-        if slot_index % 2 == 1:
-            name = ""
-        else:
-            teacher_index = slot_index // 2
-            name = names[teacher_index] if teacher_index < len(names) else ""
+        name = names[slot_index] if slot_index < len(names) else ""
         for label in _teacher_placeholder_labels(slot):
             placeholder = f"{{{{{label}}}}}"
             blob = _placeholder_line_blob(doc_bytes, placeholder)
@@ -874,6 +924,113 @@ def _fit_textbox_blob(old_blob: str, text: str) -> str | None:
     return new_blob if len(new_blob) == len(old_blob) else None
 
 
+def _contact_section_bounds(doc_bytes: bytes) -> tuple[int, int] | None:
+    start = doc_bytes.find(_CONTACT_SECTION_START.encode("utf-16-le"))
+    if start < 0:
+        return None
+    end = doc_bytes.find(_CONTACT_SECTION_END.encode("utf-16-le"), start)
+    if end <= start:
+        return None
+    return start, end
+
+
+def _find_utf16_blob_in_range(
+    doc_bytes: bytes,
+    sample: str,
+    start: int,
+    end: int,
+) -> str | None:
+    needle = sample.encode("utf-16-le")
+    idx = doc_bytes.find(needle, start, end)
+    if idx < 0:
+        return None
+    blob_end = idx + len(needle)
+    while blob_end + 1 < end:
+        chunk = doc_bytes[blob_end : blob_end + 2]
+        if chunk in (b"\t\x00", b" \x00"):
+            blob_end += 2
+            continue
+        if chunk == b"\r\x00":
+            blob_end += 2
+            break
+        break
+    try:
+        return doc_bytes[idx:blob_end].decode("utf-16-le")
+    except UnicodeDecodeError:
+        return None
+
+
+def _parse_event_date(context: dict[str, Any]):
+    from datetime import date as date_cls
+
+    for key in ("start_date", "event_date", "date_debut"):
+        raw = context.get(key)
+        if not raw:
+            continue
+        text = str(raw).strip()[:10]
+        try:
+            return date_cls.fromisoformat(text)
+        except ValueError:
+            continue
+    long = str(context.get("date_single_formatted") or context.get("start_date_long") or "").strip()
+    match = _DATE_IN_TEXT_RE.search(long)
+    if not match:
+        return None
+    months = {name: index for index, name in enumerate(_FRENCH_MONTHS, start=1)}
+    parts = match.group(0).split()
+    if len(parts) != 3:
+        return None
+    try:
+        day = int(parts[0])
+        month = months.get(parts[1].lower())
+        year = int(parts[2])
+    except ValueError:
+        return None
+    if not month:
+        return None
+    return date_cls(year, month, day)
+
+
+def _format_weekday_schedule_date(value, *, max_len: int) -> str:
+    if value is None:
+        return ""
+    weekday = _FRENCH_WEEKDAYS[value.weekday()]
+    month = _FRENCH_MONTHS[value.month - 1]
+    if len(f"{weekday} {value.day:02d} {month} {value.year}") > max_len:
+        month = _SCHEDULE_MONTH_ABBREV.get(month, month)
+    text = f"{weekday[:1].upper()}{weekday[1:]} {value.day:02d} {month} {value.year}"
+    if len(text) > max_len:
+        text = _truncate_at_word(text, max_len)
+    return text
+
+
+def _schedule_weekday_date_pairs(
+    context: dict[str, Any],
+    *,
+    doc_bytes: bytes | None = None,
+) -> list[tuple[str, str]]:
+    if not doc_bytes:
+        return []
+    event_day = _parse_event_date(context)
+    if not event_day:
+        return []
+
+    pairs: list[tuple[str, str]] = []
+    for legacy in _LEGACY_WEEKDAY_SCHEDULE_DATES:
+        blob = _find_utf16_blob(doc_bytes, legacy)
+        if not blob:
+            continue
+        core = blob.rstrip("\r")
+        suffix = "\r" if blob.endswith("\r") else ""
+        new_core = _format_weekday_schedule_date(event_day, max_len=len(core))
+        if not new_core or new_core == core:
+            continue
+        fitted = new_core.ljust(len(core))[: len(core)] + suffix
+        if len(fitted) == len(blob) and fitted != blob:
+            pairs.append((blob, fitted))
+    return pairs
+
+
 def _find_utf16_blob(doc_bytes: bytes, sample: str) -> str | None:
     needle = sample.encode("utf-16-le")
     idx = doc_bytes.find(needle)
@@ -900,10 +1057,15 @@ def _contact_section_pairs(
     *,
     doc_bytes: bytes | None = None,
 ) -> list[tuple[str, str]]:
-    """Personne de contact (programme IEC .doc) : nom, courriel, téléphone."""
+    """Personne de contact uniquement — ne touche pas aux « Prénom Nom » des tableaux."""
     if not doc_bytes:
         return []
 
+    bounds = _contact_section_bounds(doc_bytes)
+    if not bounds:
+        return []
+
+    start, end = bounds
     responsible = (
         context.get("responsible_formatted")
         or context.get("responsible_person")
@@ -915,58 +1077,27 @@ def _contact_section_pairs(
     phone = (context.get("responsible_phone") or context.get("national_responsible_phone") or "").strip()
 
     pairs: list[tuple[str, str]] = []
-    seen: set[str] = set()
 
-    for sample in ("Prénom/ Nom", "Prénom Nom", "Prénom/Nom"):
-        blob = _find_utf16_blob(doc_bytes, sample)
-        if not blob or blob in seen or not responsible:
-            continue
-        fitted = _fit_line_blob(blob, responsible)
-        if fitted and fitted != blob:
-            seen.add(blob)
-            pairs.append((blob, fitted))
+    if responsible:
+        blob = _find_utf16_blob_in_range(doc_bytes, "Prénom/ Nom", start, end)
+        if blob:
+            fitted = _fit_line_blob(blob, responsible)
+            if fitted and fitted != blob:
+                pairs.append((blob, fitted))
 
-    for sample in (
-        "Courriel : xxxxx@email.com",
-        "Courriel: xxxxx@email.com",
-        "Courriel : adresse@email",
-        "Courriel: adresse@email",
-        "Courriel: adresse@emailTéléphone: +11 111 111 111 111",
-    ):
-        blob = _find_utf16_blob(doc_bytes, sample)
-        if not blob or blob in seen or not email:
-            continue
-        from tip_common.contact_fields import format_contact_from_sample
+    if email:
+        placeholder = "xxxxx@email.com"
+        if placeholder.encode("utf-16-le") in doc_bytes[start:end]:
+            fitted = _fit_to_sample_width(placeholder, email)
+            if fitted and fitted != placeholder:
+                pairs.append((placeholder, fitted))
 
-        fitted = format_contact_from_sample(blob, {**context, "responsible_email": email, "responsible_phone": phone})
-        if not fitted:
-            fitted = _fit_line_blob(blob, f"Courriel : {email}")
-        if fitted and len(fitted) <= len(blob):
-            fitted = fitted.ljust(len(blob))[: len(blob)]
-        if fitted and fitted != blob:
-            seen.add(blob)
-            pairs.append((blob, fitted))
-
-    for sample in (
-        "Téléphone : +xx xxx xxx xxx",
-        "Telephone : +xx xxx xxx xxx",
-        "Téléphone: +11 111 111 111 111",
-        "+xx xxx xxx xxx",
-    ):
-        blob = _find_utf16_blob(doc_bytes, sample)
-        if not blob or blob in seen or not phone:
-            continue
-        from tip_common.contact_fields import format_contact_from_sample, format_phone_sample
-
-        fitted = format_phone_sample(blob, context) or format_contact_from_sample(blob, context)
-        if not fitted:
-            prefix = "Téléphone : " if "Téléphone" in blob or "Telephone" in blob else ""
-            fitted = _fit_line_blob(blob, f"{prefix}{phone}".strip())
-        if fitted and len(fitted) <= len(blob):
-            fitted = fitted.ljust(len(blob))[: len(blob)]
-        if fitted and fitted != blob:
-            seen.add(blob)
-            pairs.append((blob, fitted))
+    if phone:
+        placeholder = "+xx xxx xxx xxx"
+        if placeholder.encode("utf-16-le") in doc_bytes[start:end]:
+            fitted = _fit_to_sample_width(placeholder, phone)
+            if fitted and fitted != placeholder:
+                pairs.append((placeholder, fitted))
 
     return pairs
 
@@ -1414,6 +1545,7 @@ def _build_safe_pairs(
         pairs.extend(_nom_event_pairs(context, doc_bytes=doc_bytes))
     pairs.extend(welcome_paragraph_pairs)
     pairs.extend(_contact_section_pairs(context, doc_bytes=doc_bytes))
+    pairs.extend(_schedule_weekday_date_pairs(context, doc_bytes=doc_bytes))
     pairs.extend(_teacher_line_pairs(context, doc_bytes=doc_bytes))
     pairs.extend(build_replacement_pairs(fields, context))
 
@@ -1488,6 +1620,8 @@ def _build_safe_pairs(
                 safe.append((old, new, limits.get(old)))
             continue
         if any(old.startswith(prefix) for prefix in _STATIC_PREFIXES):
+            continue
+        if old.strip() in {"Prénom Nom", "Prénom/ Nom", "Prénom/Nom"}:
             continue
         if any(old == combined for combined, _ in combined_pairs):
             if old not in {p[0] for p in safe}:

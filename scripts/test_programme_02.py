@@ -80,7 +80,7 @@ def test_programme_02() -> list[tuple[str, bool]]:
         ("02 date filled", "31 d\xe9cembre 2026".encode("utf-16-le") in out),
         (
             "02 header full country",
-            "R\xe9publique d\xe9mocratique du Congo".encode("utf-16-le") in out
+            "République démocratique du Congo".encode("utf-16-le") in out
             and b"R\xe9publique d\xe9m.\x00" not in out,
         ),
         (
@@ -152,6 +152,38 @@ def test_programme_02() -> list[tuple[str, bool]]:
         )
     else:
         checks.append(("02 teachers one per line", False))
+
+    ctx_full = {
+        **CONTEXT,
+        "start_date": "2026-12-31",
+        "teacher_names": teacher_names,
+        "national_responsible_name": "Dominique Nkoa",
+        "responsible_email": "contact@example.com",
+        "responsible_phone": "+237 78515882",
+    }
+    out_full = apply_programme_doc_replacements(doc, ctx_full)
+    table_start = out_full.find("Modérateur".encode("utf-16-le"))
+    if table_start >= 0:
+        table_chunk = out_full[table_start : table_start + 12000]
+        checks.append(
+            (
+                "02 schedule keeps Prénom Nom",
+                table_chunk.count("Prénom Nom".encode("utf-16-le")) >= 10,
+            )
+        )
+        checks.append(
+            (
+                "02 schedule weekday date updated",
+                "Mardi 04 avril 2023".encode("utf-16-le") not in out_full
+                and "2026".encode("utf-16-le") in out_full[table_start : table_start + 12000],
+            )
+        )
+    checks.append(
+        (
+            "02 contact keeps table names clean",
+            out_full.find("Dominique NkCourriel".encode("utf-16-le")) < 0,
+        )
+    )
 
     return checks
 
