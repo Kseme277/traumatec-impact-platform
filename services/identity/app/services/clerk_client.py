@@ -61,6 +61,26 @@ class ClerkClient:
                     return address.strip().lower()
         return None
 
+async def get_user_image_url(self, clerk_id: str) -> str | None:
+        async with httpx.AsyncClient(timeout=10.0) as client:
+            response = await client.get(
+                f"{self.BASE_URL}/users/{clerk_id}",
+                headers=self._headers,
+            )
+            if response.status_code >= 400:
+                return None
+            user = response.json()
+            image = user.get("image_url")
+            if isinstance(image, str) and image.strip():
+                return image.strip()
+            for account in user.get("external_accounts") or []:
+                if not isinstance(account, dict):
+                    continue
+                img = account.get("image_url") or account.get("avatar_url")
+                if isinstance(img, str) and img.strip():
+                    return img.strip()
+        return None
+
     async def find_clerk_emails_for_local_part(self, email: str) -> list[str]:
         """Emails Clerk partageant la même partie locale (détecte les variantes de domaine)."""
         local = email_local_part(email)

@@ -67,6 +67,7 @@ async def upload_package_zip(
     package_type: str | None = Form(default=None),
     notes: str | None = Form(default=None),
     activate: bool = Form(default=True),
+    use_ai: bool = Form(default=False),
     user: AuthenticatedUser = Depends(require_admin),
 ) -> PackageImportJobStartResponse:
     if not file.filename or not file.filename.lower().endswith(".zip"):
@@ -79,7 +80,7 @@ async def upload_package_zip(
     if not raw:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Fichier ZIP vide.")
 
-    use_ai = _upload_scan_use_ai()
+    use_ai = use_ai or _upload_scan_use_ai()
     job = await package_import_job_store.create(
         filename=file.filename,
         uploaded_by_id=user.id,

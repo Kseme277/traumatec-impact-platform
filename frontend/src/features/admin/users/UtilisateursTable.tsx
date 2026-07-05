@@ -1,4 +1,3 @@
-import { Link } from "react-router";
 import Badge from "../../../components/ui/badge/Badge";
 import Switch from "../../../components/form/switch/Switch";
 import TableIconButton from "../../../components/common/TableIconButton";
@@ -10,6 +9,7 @@ import {
   TableRow,
 } from "../../../components/ui/table";
 import { Eye, Mail, Trash2 } from "lucide-react";
+import UserProfileCell from "./UserProfileCell";
 import { useTranslation } from "../../../i18n/useTranslation";
 import type { Utilisateur } from "../../auth/types";
 import { normalizeRoles, roleLabel } from "../../auth/types";
@@ -85,13 +85,12 @@ export default function UtilisateursTable({
                   {user.username ?? "—"}
                 </TableCell>
                 <TableCell className="px-4 py-4 text-start">
-                  <Link
-                    to={`/admin/utilisateurs/${user.id}`}
-                    className="block truncate font-medium text-gray-800 transition hover:text-brand-500 dark:text-white/90 dark:hover:text-brand-400"
-                    title={`${user.prenom} ${user.nom}`}
-                  >
-                    {user.prenom} {user.nom}
-                  </Link>
+                  <UserProfileCell
+                    user={user}
+                    showPrimaryRole
+                    linkTo={`/admin/utilisateurs/${user.id}`}
+                    t={t}
+                  />
                 </TableCell>
                 <TableCell className="px-4 py-4 text-start text-theme-sm text-gray-600 dark:text-gray-300">
                   <span className="block truncate" title={user.email}>

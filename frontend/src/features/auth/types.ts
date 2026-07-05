@@ -27,6 +27,7 @@ export interface Utilisateur {
   activation_date?: string | null;
   deactivation_date?: string | null;
   last_access?: string | null;
+  avatar_url?: string | null;
 }
 
 export interface UtilisateurCreateResult extends Utilisateur {
@@ -102,7 +103,7 @@ export function roleLabel(role: RoleUtilisateur, t?: (key: string) => string): s
   const labels: Record<RoleUtilisateur, string> = {
     administrateur: "Administrateur",
     support_administratif: "Support administratif",
-    controle_procedure: "Contrôle procédure",
+    controle_procedure: "Contrôleur de procédure",
     validateur: "Validateur",
     preparateur: "Support administratif",
   };

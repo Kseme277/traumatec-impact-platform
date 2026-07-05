@@ -382,6 +382,100 @@ def _merge_field_lists(*lists: list[dict[str, Any]] | None) -> list[dict[str, An
     return merged
 
 
+async def _mistral_classify_batch(
+    filename: str,
+    document_role: str,
+    sections: list[DocumentSection],
+    *,
+    batch_index: int,
+) -> list[dict[str, Any]] | None:
+    from tip_common.mistral_client import mistral_api_key, mistral_chat_completion
+    from tip_common.template_field_analyzer import CONTEXT_KEYS
+
+    if not mistral_api_key() or not sections:
+        return None
+
+    lines = [f"[{s.location}] {s.text[:220]}" for s in sections]
+    prompt = (
+        "Analyse EXHAUSTIVE d'un modèle AO Alliance. Liste TOUTES les sections à remplacer par les données événement.\n"
+        f"Fichier : {filename} | Rôle : {document_role} | Lot {batch_index + 1}\n\n"
+        + "\n".join(f"- {ln}" for ln in lines)
+        + "\n\n"
+        f"Clés : {', '.join(CONTEXT_KEYS)}, date_range, weekday_date, lieu, start_date_long\n\n"
+        "RÈGLES :\n"
+        "- strategy=replace pour : titres, dates, lieux, villes, pays, responsable, numéro projet, hôtel\n"
+        "- strategy=replace pour courriel/téléphone responsable (adresse@email, N° téléphone…)\n"
+        "- strategy=keep pour : Prénom Nom (tableaux vides), adresse siège AO Foundation Chur, texte légal générique\n"
+        "- format_hint : format cible (ex: « Titre AO complet », « Ville, Pays JJ mois AAAA »)\n"
+        "- sample : texte EXACT du modèle\n\n"
+        'JSON : {"sections":[{"sample":"…","context_key":"title","strategy":"replace","format_hint":"…"}]}'
+    )
+
+    content, error = await mistral_chat_completion(
+        messages=[{"role": "user", "content": prompt}],
+        temperature=0.05,
+        max_tokens=3500,
+        timeout=120.0,
+    )
+    if not content:
+        logger.warning("Mistral batch %s %s : %s", filename, batch_index, error)
+        return None
+
+    match = re.search(r"\{.*\}", content, re.DOTALL)
+    if not match:
+        return None
+    try:
+        parsed = json.loads(match.group())
+    except json.JSONDecodeError:
+        return None
+
+    valid_keys = set(CONTEXT_KEYS) | {
+        "date_range",
+        "weekday_date",
+        "participant_name",
+        "contact_line",
+        "contact_placeholder",
+        "lieu",
+    }
+    out: list[dict[str, Any]] = []
+    for item in parsed.get("sections") or parsed.get("fields") or []:
+        if not isinstance(item, dict):
+            continue
+        sample = str(item.get("sample", "")).strip()
+        ctx = str(item.get("context_key", "")).strip()
+        if not sample or str(item.get("strategy", "replace")).lower() == "keep":
+            continue
+        out.append(
+            {
+                "sample": sample,
+                "context_key": ctx if ctx in valid_keys else "title",
+                "strategy": "replace",
+                "section_kind": str(item.get("section_kind", "body_text")),
+                "format_hint": str(item.get("format_hint", "")).strip(),
+                "note": str(item.get("note", "")).strip(),
+                "classifier": "mistral",
+            }
+        )
+    return out or None
+
+
+async def mistral_classify_sections(
+    filename: str,
+    document_role: str,
+    sections: list[DocumentSection],
+) -> list[dict[str, Any]] | None:
+    if not sections:
+        return None
+    batch_size = 30
+    all_fields: list[dict[str, Any]] = []
+    for i in range(0, len(sections), batch_size):
+        batch = sections[i : i + batch_size]
+        result = await _mistral_classify_batch(filename, document_role, batch, batch_index=i // batch_size)
+        if result:
+            all_fields.extend(result)
+    return all_fields or None
+
+
 async def _nvidia_classify_batch(
     filename: str,
     document_role: str,
@@ -497,7 +591,7 @@ async def scan_document_sections(
 
     ai_fields: list[dict[str, Any]] | None = None
     if use_ai:
-        ai_fields = await nvidia_classify_sections(filename, document_role, sections)
+        ai_fields = await mistral_classify_sections(filename, document_role, sections)
 
     fields = _merge_field_lists(brace_fields, rule_fields, ai_fields)
 
@@ -507,7 +601,7 @@ async def scan_document_sections(
     if rule_fields:
         classifier_parts.append("rules")
     if ai_fields:
-        classifier_parts.append("nvidia")
+        classifier_parts.append("mistral")
     classifier = "+".join(classifier_parts) if classifier_parts else "none"
 
     return {

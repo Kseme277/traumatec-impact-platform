@@ -1,19 +1,20 @@
-import { useAuth } from "@clerk/clerk-react";
-import { useEffect, useState } from "react";
 import PageMeta from "../components/common/PageMeta";
 import SpinnerLoader from "../components/common/SpinnerLoader";
-import {
-  DATA_TABLE,
-  DATA_TABLE_HEAD,
-  DATA_TABLE_ROW,
-  DATA_TABLE_TD,
-  DATA_TABLE_TH,
-} from "../components/common/dataTableClasses";
 import Badge from "../components/ui/badge/Badge";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHeader,
+  TableRow,
+} from "../components/ui/table";
+import UserProfileCell from "../features/admin/users/UserProfileCell";
 import { fetchUsersDirectory } from "../api/workflow";
 import { getApiToken } from "../lib/clerkToken";
-import { roleLabel, type Utilisateur } from "../features/auth/types";
+import { normalizeRoles, roleLabel, type Utilisateur } from "../features/auth/types";
 import { useTranslation } from "../i18n/useTranslation";
+import { useAuth } from "@clerk/clerk-react";
+import { useEffect, useState } from "react";
 
 export default function UtilisateursReadOnlyPage() {
   const { getToken } = useAuth();
@@ -31,41 +32,53 @@ export default function UtilisateursReadOnlyPage() {
 
   return (
     <>
-      <PageMeta title="Utilisateurs" description="Annuaire TIP (lecture seule)" />
-      <h1 className="mb-2 text-2xl font-semibold text-gray-800 dark:text-white/90">Utilisateurs</h1>
-      <p className="mb-6 text-sm text-gray-500 dark:text-gray-400">Liste en lecture seule — contactez un administrateur pour modifier les comptes.</p>
+      <PageMeta title={t("users.title")} description={t("users.readOnlyDesc")} />
+      <h1 className="mb-2 text-2xl font-semibold text-gray-800 dark:text-white/90">{t("users.title")}</h1>
+      <p className="mb-6 text-sm text-gray-500 dark:text-gray-400">{t("users.readOnlyDesc")}</p>
       {loading ? <SpinnerLoader message={t("common.loading")} /> : null}
       <div className="overflow-x-auto rounded-2xl border border-gray-200 dark:border-gray-800">
-        <table className={DATA_TABLE}>
-          <thead className={DATA_TABLE_HEAD}>
-            <tr>
-              <th className={`${DATA_TABLE_TH} px-4 py-3`}>Nom</th>
-              <th className={`${DATA_TABLE_TH} px-4 py-3`}>Email</th>
-              <th className={`${DATA_TABLE_TH} px-4 py-3`}>Rôles</th>
-              <th className={`${DATA_TABLE_TH} px-4 py-3`}>Statut</th>
-            </tr>
-          </thead>
-          <tbody>
+        <Table className="min-w-[720px]">
+          <TableHeader className="border-b border-gray-100 dark:border-white/[0.05]">
+            <TableRow>
+              <TableCell isHeader className="px-4 py-3 text-theme-xs font-medium text-gray-500">
+                {t("users.fullName")}
+              </TableCell>
+              <TableCell isHeader className="px-4 py-3 text-theme-xs font-medium text-gray-500">
+                {t("common.email")}
+              </TableCell>
+              <TableCell isHeader className="px-4 py-3 text-theme-xs font-medium text-gray-500">
+                {t("users.rolesLabel")}
+              </TableCell>
+              <TableCell isHeader className="px-4 py-3 text-theme-xs font-medium text-gray-500">
+                {t("common.status")}
+              </TableCell>
+            </TableRow>
+          </TableHeader>
+          <TableBody className="divide-y divide-gray-100 dark:divide-white/[0.05]">
             {users.map((user) => (
-              <tr key={user.id} className={DATA_TABLE_ROW}>
-                <td className={`${DATA_TABLE_TD} px-4 py-3`}>{user.prenom} {user.nom}</td>
-                <td className={`${DATA_TABLE_TD} px-4 py-3`}>{user.email}</td>
-                <td className={`${DATA_TABLE_TD} px-4 py-3`}>
+              <TableRow key={user.id} className="hover:bg-gray-50 dark:hover:bg-white/[0.02]">
+                <TableCell className="px-4 py-3.5">
+                  <UserProfileCell user={user} t={t} />
+                </TableCell>
+                <TableCell className="px-4 py-3.5 text-sm text-gray-600 dark:text-gray-300">{user.email}</TableCell>
+                <TableCell className="px-4 py-3.5">
                   <div className="flex flex-wrap gap-1">
-                    {(user.roles ?? [user.role]).map((role) => (
-                      <Badge key={role} color="light" size="sm">{roleLabel(role)}</Badge>
+                    {normalizeRoles(user.roles, user.role).map((role) => (
+                      <Badge key={role} color="light" size="sm">
+                        {roleLabel(role, t)}
+                      </Badge>
                     ))}
                   </div>
-                </td>
-                <td className={`${DATA_TABLE_TD} px-4 py-3`}>
+                </TableCell>
+                <TableCell className="px-4 py-3.5">
                   <Badge color={user.est_actif ? "success" : "error"} size="sm">
-                    {user.est_actif ? "Actif" : "Inactif"}
+                    {user.est_actif ? t("common.active") : t("common.inactive")}
                   </Badge>
-                </td>
-              </tr>
+                </TableCell>
+              </TableRow>
             ))}
-          </tbody>
-        </table>
+          </TableBody>
+        </Table>
       </div>
     </>
   );

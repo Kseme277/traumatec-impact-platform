@@ -7,9 +7,11 @@ from pydantic import BaseModel, ConfigDict
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from app.core.config import get_settings
 from app.core.database import get_db
 from app.deps.auth import get_current_utilisateur, require_can_view_users_identity
 from app.models.utilisateur import Utilisateur
+from app.services.user_avatars import resolve_avatar_url
 from app.services.user_roles import load_user_roles
 from tip_common.roles import primary_role
 
@@ -42,6 +44,7 @@ class UserListItem(BaseModel):
     roles: list[str]
     est_actif: bool
     created_at: datetime
+    avatar_url: str | None = None
 
 
 @router.get("/unread-count")
@@ -95,8 +98,10 @@ async def list_users_directory(
         )
     )
     items: list[UserListItem] = []
+    settings = get_settings()
     for row in result.fetchall():
         roles = await load_user_roles(db, row.id, row.role)
+        avatar_url = await resolve_avatar_url(settings, row.clerk_id)
         items.append(
             UserListItem(
                 id=row.id,
@@ -110,6 +115,7 @@ async def list_users_directory(
                 roles=roles,
                 est_actif=row.est_actif,
                 created_at=row.created_at,
+                avatar_url=avatar_url,
             )
         )
     return items

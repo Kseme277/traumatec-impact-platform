@@ -47,6 +47,7 @@ class UtilisateurResponse(BaseModel):
     activation_date: datetime | None = None
     deactivation_date: datetime | None = None
     last_access: datetime | None = None
+    avatar_url: str | None = None
 
 
 class UtilisateurCreateResponse(UtilisateurResponse):

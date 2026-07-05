@@ -21,6 +21,7 @@ from app.schemas.utilisateur import (
 from app.services.audit_service import record_audit_event
 from app.services.clerk_client import ClerkAPIError, ClerkClient
 from app.services.email_service import EmailService
+from app.services.user_avatars import resolve_avatar_map, resolve_avatar_url
 from app.services.user_roles import load_user_roles, set_user_roles
 from tip_common.email_identity import email_local_part, normalize_email
 from tip_common.roles import normalize_roles, primary_role
@@ -86,9 +87,17 @@ def _clerk_sent_activation_email(invitation_url: str | None) -> bool:
     return "accept-invitation?ticket=" not in invitation_url
 
 
-async def _user_response(db: AsyncSession, utilisateur: Utilisateur) -> UtilisateurResponse:
+async def _user_response(
+    db: AsyncSession,
+    utilisateur: Utilisateur,
+    *,
+    avatar_url: str | None = None,
+) -> UtilisateurResponse:
     roles = await load_user_roles(db, utilisateur.id, utilisateur.role)
     primary = primary_role(roles)
+    if avatar_url is None and utilisateur.clerk_id:
+        settings = get_settings()
+        avatar_url = await resolve_avatar_url(settings, utilisateur.clerk_id)
     return UtilisateurResponse(
         id=utilisateur.id,
         clerk_id=utilisateur.clerk_id,
@@ -104,6 +113,7 @@ async def _user_response(db: AsyncSession, utilisateur: Utilisateur) -> Utilisat
         activation_date=utilisateur.activation_date,
         deactivation_date=utilisateur.deactivation_date,
         last_access=utilisateur.last_access,
+        avatar_url=avatar_url,
     )
 
 
@@ -274,7 +284,12 @@ async def list_utilisateurs(
 ) -> list[UtilisateurResponse]:
     result = await db.execute(select(Utilisateur).order_by(Utilisateur.created_at.desc()))
     users = list(result.scalars().all())
-    return [await _user_response(db, user) for user in users]
+    settings = get_settings()
+    avatars = await resolve_avatar_map(settings, users)
+    return [
+        await _user_response(db, user, avatar_url=avatars.get(user.id))
+        for user in users
+    ]
 
 
 @router.patch("/{user_id}/roles", response_model=UtilisateurResponse)

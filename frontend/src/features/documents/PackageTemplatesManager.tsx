@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router";
 import { useAuth } from "@clerk/clerk-react";
+import Switch from "../../components/form/switch/Switch";
 import Button from "../../components/ui/button/Button";
 import Badge from "../../components/ui/badge/Badge";
 import Label from "../../components/form/Label";
@@ -80,6 +81,7 @@ export default function PackageTemplatesManager({ isAdmin }: PackageTemplatesMan
   const [isEditorLoading, setIsEditorLoading] = useState(false);
   const [isDownloadingZip, setIsDownloadingZip] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
+  const [importUseAi, setImportUseAi] = useState(false);
 
   const typesInTab = catalog[activityTab] ?? [];
 
@@ -256,6 +258,7 @@ export default function PackageTemplatesManager({ isAdmin }: PackageTemplatesMan
       const result = await uploadPackageZip(token, file, {
         packageType: selectedType,
         activate: true,
+        useAi: importUseAi,
         onProgress: setUploadProgress,
       });
       await showSuccess(t("documents.packageUploadDone"), result.message);
@@ -508,6 +511,18 @@ export default function PackageTemplatesManager({ isAdmin }: PackageTemplatesMan
             <Button size="sm" disabled={isUploading} onClick={() => zipInputRef.current?.click()}>
               {isUploading ? t("common.importing") : t("documents.addPackageVersion")}
             </Button>
+            <div className="flex items-center gap-2 rounded-lg border border-gray-100 px-3 py-2 dark:border-gray-800">
+              <Switch
+                checked={importUseAi}
+                disabled={isUploading}
+                aria-label={t("documents.importUseAi")}
+                onChange={setImportUseAi}
+              />
+              <div>
+                <p className="text-xs font-medium text-gray-800 dark:text-white/90">{t("documents.importUseAi")}</p>
+                <p className="text-[11px] text-gray-500 dark:text-gray-400">{t("documents.importUseAiHint")}</p>
+              </div>
+            </div>
           </>
         )}
         <Link to="/documents/generation">

@@ -85,13 +85,14 @@ export function fetchPackageBundles(token: string | null, packageType?: string) 
 async function startPackageZipUpload(
   token: string | null,
   file: File,
-  options?: { packageType?: string; notes?: string; activate?: boolean },
+  options?: { packageType?: string; notes?: string; activate?: boolean; useAi?: boolean },
 ): Promise<PackageImportJobStart> {
   const formData = new FormData();
   formData.append("file", file);
   if (options?.packageType) formData.append("package_type", options.packageType);
   if (options?.notes) formData.append("notes", options.notes);
   formData.append("activate", String(options?.activate ?? true));
+  formData.append("use_ai", String(options?.useAi ?? false));
 
   const headers = new Headers();
   if (token) headers.set("Authorization", `Bearer ${token}`);
@@ -143,6 +144,7 @@ export async function uploadPackageZip(
     packageType?: string;
     notes?: string;
     activate?: boolean;
+    useAi?: boolean;
     onProgress?: (progress: PackageImportProgress) => void;
   },
 ): Promise<PackageUploadResult> {
@@ -156,7 +158,7 @@ export async function uploadPackageZip(
     message: "Envoi du fichier ZIP…",
     filename: file.name,
     current_file: null,
-    use_ai: false,
+    use_ai: options?.useAi ?? false,
     result: null,
     error: null,
   });

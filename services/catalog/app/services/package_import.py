@@ -39,7 +39,7 @@ async def _invalidate_templates_cache(settings: Settings) -> None:
 
 
 def _import_scan_use_ai(explicit: bool | None = None) -> bool:
-    """Analyse NVIDIA à l'import : désactivée par défaut (lente). Activer via CATALOG_IMPORT_SCAN_USE_AI=true."""
+    """Analyse Mistral à l'import : désactivée par défaut (lente). Peut être forcée par requête ou CATALOG_IMPORT_SCAN_USE_AI."""
     if explicit is not None:
         return explicit
     return os.getenv("CATALOG_IMPORT_SCAN_USE_AI", "").strip().lower() in ("1", "true", "yes")
@@ -238,7 +238,7 @@ async def import_package_zip(
     total_files = len(sorted_files)
     field_by_name: dict[str, dict] = {}
     for index, analyzed in enumerate(sorted_files, start=1):
-        label = "Variables {{ }}" if not use_ai_for_scan else "Analyse IA"
+        label = "Variables {{ }}" if not use_ai_for_scan else "Analyse Mistral"
         if on_progress:
             on_progress(
                 phase="analyzing",
