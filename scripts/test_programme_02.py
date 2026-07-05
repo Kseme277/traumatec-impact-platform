@@ -147,6 +147,9 @@ def test_programme_02() -> list[tuple[str, bool]]:
                  for line in lines
              )),
         )
+        checks.append(
+            ("02 teachers no column breaks", b"\x0e\x00" not in out_teachers[sec_start:sec_end]),
+        )
     else:
         checks.append(("02 teachers one per line", False))
 

@@ -413,27 +413,62 @@ def _teacher_placeholder_labels(index: int | str) -> list[str]:
     return labels
 
 
-_TEACHER_COLUMN_BREAK = "\x0e"
+_NOM_EVENT_X01_INDEX = 33
+_NOM_EVENT_TAIL_START = 38
+_NOM_EVENT_FIRST_LINE_WIDTH = 22
+_NOM_EVENT_LINE_WIDTH = 32
 
 
-def _fit_teacher_slot_blob(blob: str, name: str) -> str | None:
-    """Remplit un placeholder enseignant sans toucher au binaire Word après la ligne."""
-    if not blob:
-        return None
-    core = blob.rstrip("\r")
-    suffix = "\r" if blob.endswith("\r") else ""
-    if not name.strip():
-        fitted = (" " * len(core)) + suffix
-        return fitted if len(fitted) == len(blob) else None
-    prefix = _TEACHER_COLUMN_BREAK
-    budget = len(core) - len(prefix)
-    if budget < 4:
-        return None
-    text = _normalize_for_doc_text(name.strip())
-    if len(text) > budget:
-        text = _safe_truncate(text, budget)
-    fitted = prefix + text.ljust(budget)[:budget] + suffix
-    return fitted if len(fitted) == len(blob) else None
+def _nom_event_title_lines(title: str) -> list[str]:
+    """Découpe le titre en lignes (22 car. puis 32 car.) en respectant les mots."""
+    text = title.strip()
+    if not text:
+        return []
+    lines: list[str] = []
+    width = _NOM_EVENT_FIRST_LINE_WIDTH
+    while text:
+        if len(text) <= width:
+            lines.append(text)
+            break
+        chunk = text[:width]
+        next_char = text[width : width + 1]
+        if (
+            len(chunk) == width
+            and next_char
+            and next_char not in (" ",)
+            and chunk[-1].isalnum()
+            and next_char.isalnum()
+        ):
+            last_space = chunk.rfind(" ")
+            if last_space > width // 4:
+                chunk = chunk[:last_space].rstrip()
+        if not chunk:
+            chunk = text[:width]
+        lines.append(chunk)
+        text = text[len(chunk) :].lstrip()
+        width = _NOM_EVENT_LINE_WIDTH
+    return lines
+
+
+def _encode_title_lines_to_tail(lines: list[str], budget: int) -> str:
+    """Encode des lignes complètes dans la zone de continuation (après \\x01)."""
+    if budget <= 0 or not lines:
+        return "\x00" * budget
+    out: list[str] = []
+    rem = budget
+    for line_idx, line in enumerate(lines):
+        if line_idx > 0 and rem >= 1:
+            out.append("\r")
+            rem -= 1
+        take = min(len(line), _NOM_EVENT_LINE_WIDTH, rem)
+        if take <= 0:
+            break
+        out.append(line[:take])
+        rem -= take
+    encoded = "".join(out)
+    if len(encoded) < budget:
+        encoded += "\x00" * (budget - len(encoded))
+    return encoded[:budget]
 
 
 def _teacher_names_from_context(context: dict[str, Any]) -> list[str]:
@@ -463,13 +498,23 @@ def _teacher_line_pairs(
     seen: set[str] = set()
     slots: list[int | str] = [1, 2, 3, 4, 5, ".."]
     for slot_index, slot in enumerate(slots):
-        name = names[slot_index] if slot_index < len(names) else ""
+        if slot_index % 2 == 1:
+            name = ""
+        else:
+            teacher_index = slot_index // 2
+            name = names[teacher_index] if teacher_index < len(names) else ""
         for label in _teacher_placeholder_labels(slot):
             placeholder = f"{{{{{label}}}}}"
             blob = _placeholder_line_blob(doc_bytes, placeholder)
             if not blob or blob in seen:
                 continue
-            fitted = _fit_teacher_slot_blob(blob, name)
+            if name:
+                fitted = _fit_line_blob(blob, name)
+            else:
+                core = blob.rstrip("\r")
+                fitted = (" " * len(core)) + ("\r" if blob.endswith("\r") else "")
+                if len(fitted) != len(blob):
+                    fitted = None
             if fitted and fitted != blob:
                 seen.add(blob)
                 pairs.append((blob, fitted))
@@ -751,19 +796,35 @@ def _nom_event_control_suffix(blob: str) -> str:
 
 
 def _build_nom_event_expandable_region(old_region: str, title: str) -> str | None:
-    """Insère le titre complet dans la zone texte page 1 (consomme le padding binaire)."""
+    """Insère le titre complet sur plusieurs lignes dans la zone texte page 1."""
     if not old_region or not title:
         return None
     title = _normalize_for_doc_text(title.strip())
-    suffix = _nom_event_control_suffix(old_region.split("\x00", 1)[0])
-    if not suffix:
-        suffix = "\r\r\r\r\r\r\r\r\r\r\r\x01\r\r\r\r"
     max_len = len(old_region)
-    if len(title) + len(suffix) > max_len:
-        title = _truncate_at_word(title, max(8, max_len - len(suffix)))
-    content = (title + suffix)[:max_len]
-    if len(content) < max_len:
-        content = content + "\x00" * (max_len - len(content))
+    x01_idx = old_region.find("\x01")
+    if x01_idx != _NOM_EVENT_X01_INDEX or max_len < _NOM_EVENT_TAIL_START + 8:
+        suffix = _nom_event_control_suffix(old_region.split("\x00", 1)[0])
+        if not suffix:
+            suffix = "\r\r\r\r\r\r\r\r\r\r\r\x01\r\r\r\r"
+        if len(title) + len(suffix) > max_len:
+            title = _truncate_at_word(title, max(8, max_len - len(suffix)))
+        content = (title + suffix)[:max_len]
+        if len(content) < max_len:
+            content = content + "\x00" * (max_len - len(content))
+        return content if len(content) == max_len else None
+
+    head_budget = _NOM_EVENT_X01_INDEX
+    tail_budget = max_len - _NOM_EVENT_TAIL_START
+    control = old_region[x01_idx : _NOM_EVENT_TAIL_START]
+
+    lines = _nom_event_title_lines(title)
+    first_line = lines[0][: _NOM_EVENT_FIRST_LINE_WIDTH].ljust(_NOM_EVENT_FIRST_LINE_WIDTH)[
+        : _NOM_EVENT_FIRST_LINE_WIDTH
+    ]
+    head = first_line + "\r" * (head_budget - len(first_line))
+    tail = _encode_title_lines_to_tail(lines[1:], tail_budget)
+
+    content = head + control + tail
     return content if len(content) == max_len else None
 
 
@@ -1320,7 +1381,9 @@ def _build_expandable_pairs(
 ) -> list[tuple[str, str]]:
     if not doc_bytes:
         return []
-    return _nom_event_expandable_pairs(context, doc_bytes=doc_bytes)
+    pairs = _nom_event_expandable_pairs(context, doc_bytes=doc_bytes)
+    pairs.extend(_combined_header_expandable_pairs(context, doc_bytes=doc_bytes))
+    return pairs
 
 
 def _build_safe_pairs(
@@ -1336,7 +1399,10 @@ def _build_safe_pairs(
     fields = _programme_fields_for_role(replacement_fields)
     pairs: list[tuple[str, str]] = []
     nom_expandable = _nom_event_expandable_pairs(context, doc_bytes=doc_bytes)
-    combined_pairs = _combined_header_pairs(context, doc_bytes=doc_bytes)
+    combined_expandable = _combined_header_expandable_pairs(context, doc_bytes=doc_bytes)
+    combined_pairs = (
+        [] if combined_expandable else _combined_header_pairs(context, doc_bytes=doc_bytes)
+    )
     ville_pays_pairs = _ville_pays_pairs(context, doc_bytes=doc_bytes)
     welcome_ville_pays_pairs = _welcome_ville_pays_pairs(context, doc_bytes=doc_bytes)
     welcome_paragraph_pairs = _welcome_paragraph_pairs(context, doc_bytes=doc_bytes)
