@@ -91,13 +91,13 @@ export default function UserProfileCell({
 
   const nameBlock = (
     <div className="min-w-0">
-      <p className="truncate font-medium text-gray-800 dark:text-white/90" title={fullName}>
+      <span className="block truncate font-medium text-gray-800 text-theme-sm dark:text-white/90" title={fullName}>
         {fullName}
-      </p>
+      </span>
       {roleText ? (
-        <p className="mt-0.5 truncate text-xs text-gray-500 dark:text-gray-400" title={roleText}>
+        <span className="block truncate text-gray-500 text-theme-xs dark:text-gray-400" title={roleText}>
           {roleText}
-        </p>
+        </span>
       ) : null}
     </div>
   );

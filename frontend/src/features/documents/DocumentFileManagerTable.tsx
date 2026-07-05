@@ -50,38 +50,39 @@ export default function DocumentFileManagerTable({
   }
 
   return (
-    <div className="overflow-x-auto">
-      <Table className={`${minWidthClass} w-full`}>
-        <TableHeader className="border-b border-gray-100 dark:border-white/[0.05]">
-          <TableRow>
-            <TableCell
-              isHeader
-              className="px-4 py-3 text-start text-theme-xs font-medium text-gray-500 dark:text-gray-400"
-            >
+    <div className="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-white/[0.05] dark:bg-white/[0.03]">
+      <div className="max-w-full overflow-x-auto">
+        <Table className={`${minWidthClass} w-full`}>
+          <TableHeader className="border-b border-gray-100 dark:border-white/[0.05]">
+            <TableRow>
+              <TableCell
+                isHeader
+                className="px-5 py-3 text-start text-theme-xs font-medium text-gray-500 dark:text-gray-400"
+              >
               {t("documents.fileTable.fileName")}
             </TableCell>
             <TableCell
               isHeader
-              className="px-4 py-3 text-start text-theme-xs font-medium text-gray-500 dark:text-gray-400"
+              className="px-5 py-3 text-start text-theme-xs font-medium text-gray-500 dark:text-gray-400"
             >
               {t("documents.fileTable.category")}
             </TableCell>
             <TableCell
               isHeader
-              className="hidden px-4 py-3 text-start text-theme-xs font-medium text-gray-500 dark:text-gray-400 sm:table-cell"
+              className="hidden px-5 py-3 text-start text-theme-xs font-medium text-gray-500 dark:text-gray-400 sm:table-cell"
             >
               {t("documents.fileTable.format")}
             </TableCell>
             <TableCell
               isHeader
-              className="px-4 py-3 text-start text-theme-xs font-medium text-gray-500 dark:text-gray-400"
+              className="px-5 py-3 text-start text-theme-xs font-medium text-gray-500 dark:text-gray-400"
             >
               {t("documents.fileTable.modified")}
             </TableCell>
             {hasActions ? (
               <TableCell
                 isHeader
-                className="px-4 py-3 text-end text-theme-xs font-medium text-gray-500 dark:text-gray-400"
+                className="px-5 py-3 text-end text-theme-xs font-medium text-gray-500 dark:text-gray-400"
               >
                 {t("documents.fileTable.action")}
               </TableCell>
@@ -98,24 +99,24 @@ export default function DocumentFileManagerTable({
                   : "hover:bg-gray-50 dark:hover:bg-white/[0.02]"
               }
             >
-              <TableCell className="px-4 py-3.5 text-start">
+              <TableCell className="px-5 py-4 text-start sm:px-6">
                 <DocumentFileNameCell
                   name={row.name}
                   filePath={row.filePath}
                   subtitle={row.subtitle}
                 />
               </TableCell>
-              <TableCell className="px-4 py-3.5 text-start text-sm text-gray-600 dark:text-gray-300">
+              <TableCell className="px-4 py-4 text-start text-theme-sm text-gray-500 dark:text-gray-400">
                 {row.category ?? fileCategoryFromPath(row.filePath, t)}
               </TableCell>
-              <TableCell className="hidden px-4 py-3.5 text-start text-sm uppercase text-gray-500 dark:text-gray-400 sm:table-cell">
+              <TableCell className="hidden px-4 py-4 text-start text-theme-sm uppercase text-gray-500 dark:text-gray-400 sm:table-cell">
                 {templateFileExtension(row.filePath) || "—"}
               </TableCell>
-              <TableCell className="px-4 py-3.5 text-start text-sm text-gray-500 dark:text-gray-400">
+              <TableCell className="px-4 py-4 text-start text-theme-sm text-gray-500 dark:text-gray-400">
                 {formatDocumentFileDate(row.modifiedAt, localeTag)}
               </TableCell>
               {hasActions ? (
-                <TableCell className="px-4 py-3.5 text-end align-middle">
+                <TableCell className="px-4 py-4 text-end align-middle">
                   <div className="flex flex-wrap items-center justify-end gap-1.5">
                     {renderActions?.(row)}
                   </div>
@@ -125,6 +126,7 @@ export default function DocumentFileManagerTable({
           ))}
         </TableBody>
       </Table>
+      </div>
     </div>
   );
 }

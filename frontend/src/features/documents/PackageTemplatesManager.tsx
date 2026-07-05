@@ -52,6 +52,7 @@ import { isOnlyofficeEditable, templateFileExtension } from "./templateFileExten
 import { Download, Eye, Trash2 } from "lucide-react";
 import TableIconButton from "../../components/common/TableIconButton";
 import DocumentFileManagerTable from "./DocumentFileManagerTable";
+import { filterTemplatesByPackageDuration } from "./templateDurationFilter";
 
 interface PackageTemplatesManagerProps {
   isAdmin: boolean;
@@ -634,9 +635,9 @@ export default function PackageTemplatesManager({ isAdmin }: PackageTemplatesMan
                   : "w-full"
               }
             >
-              <div className="rounded-xl border border-gray-100 dark:border-gray-800">
-                <div className="flex flex-wrap items-center justify-between gap-2 border-b border-gray-100 px-4 py-3 dark:border-gray-800">
-                  <p className="text-sm font-medium">
+              <div className={isEditorOpen ? "max-h-[min(55vh,520px)] overflow-auto" : undefined}>
+                <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                  <p className="text-sm font-medium text-gray-800 dark:text-white/90">
                     {activeBundle
                       ? `${t("documents.filesInVersion")} v${activeBundle.version}`
                       : t("documents.filesSystemPackage")}
@@ -650,8 +651,7 @@ export default function PackageTemplatesManager({ isAdmin }: PackageTemplatesMan
                     {isDownloadingZip ? t("common.downloading") : t("documents.downloadBundleZip")}
                   </Button>
                 </div>
-                <div className={isEditorOpen ? "max-h-[min(55vh,520px)] overflow-auto" : "overflow-auto"}>
-                  <DocumentFileManagerTable
+                <DocumentFileManagerTable
                     rows={fileManagerRows}
                     renderActions={(row) => {
                       const tmpl = templateById.get(row.id);
@@ -689,7 +689,6 @@ export default function PackageTemplatesManager({ isAdmin }: PackageTemplatesMan
                       );
                     }}
                   />
-                </div>
               </div>
 
               {isEditorOpen && openedTemplate ? (

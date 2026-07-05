@@ -9,7 +9,7 @@ import {
   TableRow,
 } from "../../../components/ui/table";
 import { Eye, Mail, Trash2 } from "lucide-react";
-import UserProfileCell, { UserAvatar } from "./UserProfileCell";
+import UserProfileCell from "./UserProfileCell";
 import { useTranslation } from "../../../i18n/useTranslation";
 import type { Utilisateur } from "../../auth/types";
 import { normalizeRoles, roleLabel } from "../../auth/types";
@@ -41,7 +41,6 @@ export default function UtilisateursTable({
 
   const headers = [
     t("users.profilePhoto"),
-    t("users.fullName"),
     t("common.email"),
     t("users.phone"),
     t("common.role"),
@@ -62,18 +61,16 @@ export default function UtilisateursTable({
   };
 
   return (
-    <div className="-mx-4 overflow-hidden sm:-mx-6">
-      <div className="overflow-x-auto px-4 sm:px-6">
-        <Table className="min-w-[1050px] table-fixed w-full">
+    <div className="overflow-hidden rounded-xl border border-gray-200 bg-white dark:border-white/[0.05] dark:bg-white/[0.03]">
+      <div className="max-w-full overflow-x-auto">
+        <Table className="min-w-[980px] w-full">
           <TableHeader className="border-b border-gray-100 dark:border-white/[0.05]">
             <TableRow>
-              {headers.map((header, index) => (
+              {headers.map((header) => (
                 <TableCell
                   key={header}
                   isHeader
-                  className={`px-4 py-3 text-start text-theme-xs font-medium text-gray-500 dark:text-gray-400 ${
-                    index === 0 ? "w-[72px]" : ""
-                  }`}
+                  className="px-5 py-3 text-start text-theme-xs font-medium text-gray-500 dark:text-gray-400"
                 >
                   {header}
                 </TableCell>
@@ -83,13 +80,9 @@ export default function UtilisateursTable({
           <TableBody className="divide-y divide-gray-100 dark:divide-white/[0.05]">
             {users.map((user) => (
               <TableRow key={user.id} className="hover:bg-gray-50 dark:hover:bg-white/[0.02]">
-                <TableCell className="w-[72px] px-4 py-4 text-start">
-                  <UserAvatar user={user} linkTo={`/admin/utilisateurs/${user.id}`} />
-                </TableCell>
-                <TableCell className="px-4 py-4 text-start">
+                <TableCell className="px-5 py-4 text-start sm:px-6">
                   <UserProfileCell
                     user={user}
-                    hideAvatar
                     subtitle={user.username ?? undefined}
                     linkTo={`/admin/utilisateurs/${user.id}`}
                   />
