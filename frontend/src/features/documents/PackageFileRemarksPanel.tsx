@@ -11,6 +11,11 @@ import { workflowStatusLabel, type WorkflowStatus } from "../auth/types";
 import { isWorkflowRejected } from "./eventPackageLock";
 import PackageFileCorrectionActions from "./PackageFileCorrectionActions";
 import { useTranslation } from "../../i18n/useTranslation";
+import {
+  DocumentFileNameCell,
+  fileCategoryFromPath,
+  formatDocumentFileDate,
+} from "./documentFilePresentation";
 
 interface PackageFileRemarksPanelProps {
   files: WorkflowFileReview[];
@@ -35,7 +40,8 @@ export default function PackageFileRemarksPanel({
   canEdit = false,
   onFileCorrected,
 }: PackageFileRemarksPanelProps) {
-  const { t } = useTranslation();
+  const { t, locale } = useTranslation();
+  const localeTag = locale.startsWith("en") ? "en-GB" : "fr-FR";
 
   if (files.length === 0 && !centralRemark) {
     return (
@@ -84,12 +90,15 @@ export default function PackageFileRemarksPanel({
 
       <div className="-mx-4 overflow-hidden sm:-mx-6">
         <div className="overflow-x-auto px-4 sm:px-6">
-          <Table className={`min-w-[720px] table-fixed w-full ${showEditActions ? "min-w-[920px]" : ""}`}>
+          <Table className={`min-w-[920px] table-fixed w-full ${showEditActions ? "min-w-[1080px]" : ""}`}>
             <colgroup>
               <col />
+              <col className="w-[120px]" />
+              <col className="w-[90px]" />
               <col className="w-[110px]" />
-              <col className={showEditActions ? "w-[220px]" : "w-[280px]"} />
-              {!showEditActions ? null : <col className="w-[320px]" />}
+              <col className={showEditActions ? "w-[200px]" : "w-[240px]"} />
+              <col className="w-[120px]" />
+              {!showEditActions ? null : <col className="w-[280px]" />}
             </colgroup>
             <TableHeader className="border-b border-gray-100 dark:border-white/[0.05]">
               <TableRow>
@@ -97,7 +106,19 @@ export default function PackageFileRemarksPanel({
                   isHeader
                   className="px-4 py-3 text-start text-theme-xs font-medium text-gray-500 dark:text-gray-400"
                 >
-                  {t("workflow.filesTable.document")}
+                  {t("documents.fileTable.fileName")}
+                </TableCell>
+                <TableCell
+                  isHeader
+                  className="px-4 py-3 text-start text-theme-xs font-medium text-gray-500 dark:text-gray-400"
+                >
+                  {t("documents.fileTable.category")}
+                </TableCell>
+                <TableCell
+                  isHeader
+                  className="hidden px-4 py-3 text-start text-theme-xs font-medium text-gray-500 dark:text-gray-400 sm:table-cell"
+                >
+                  {t("documents.fileTable.format")}
                 </TableCell>
                 <TableCell
                   isHeader
@@ -110,6 +131,12 @@ export default function PackageFileRemarksPanel({
                   className="px-4 py-3 text-start text-theme-xs font-medium text-gray-500 dark:text-gray-400"
                 >
                   {t("workflow.filesTable.remark")}
+                </TableCell>
+                <TableCell
+                  isHeader
+                  className="px-4 py-3 text-start text-theme-xs font-medium text-gray-500 dark:text-gray-400"
+                >
+                  {t("documents.fileTable.modified")}
                 </TableCell>
                 {showEditActions ? (
                   <TableCell
@@ -124,18 +151,23 @@ export default function PackageFileRemarksPanel({
             <TableBody className="divide-y divide-gray-100 dark:divide-white/[0.05]">
               {files.map((file) => {
                 const displayName = file.file_path || file.template_code;
+                const filePath = file.file_path || `${file.template_code}.doc`;
                 const remark = file.comment?.trim();
                 const canEditFile = showEditActions && file.status === "rejected";
                 return (
                   <TableRow key={file.id} className="hover:bg-gray-50 dark:hover:bg-white/[0.02]">
                     <TableCell className="px-4 py-3.5 text-start">
-                      <p
-                        className="truncate font-medium text-gray-800 dark:text-white/90"
-                        title={displayName}
-                      >
-                        {displayName}
-                      </p>
-                      <p className="mt-0.5 truncate text-xs text-gray-400">{file.template_code}</p>
+                      <DocumentFileNameCell
+                        name={displayName}
+                        filePath={filePath}
+                        subtitle={file.template_code}
+                      />
+                    </TableCell>
+                    <TableCell className="px-4 py-3.5 text-start text-sm text-gray-600 dark:text-gray-300">
+                      {fileCategoryFromPath(filePath, t)}
+                    </TableCell>
+                    <TableCell className="hidden px-4 py-3.5 text-start text-sm uppercase text-gray-500 dark:text-gray-400 sm:table-cell">
+                      {filePath.includes(".") ? filePath.split(".").pop()?.toLowerCase() ?? "—" : "—"}
                     </TableCell>
                     <TableCell className="px-4 py-3.5 text-start">
                       <Badge color={fileStatusColor(file.status)} size="sm">
@@ -148,6 +180,9 @@ export default function PackageFileRemarksPanel({
                       ) : (
                         <p className="text-xs italic text-gray-400">{t("workflow.noRemarkYet")}</p>
                       )}
+                    </TableCell>
+                    <TableCell className="px-4 py-3.5 text-start text-sm text-gray-500 dark:text-gray-400">
+                      {formatDocumentFileDate(file.reviewed_at ?? file.created_at, localeTag)}
                     </TableCell>
                     {showEditActions ? (
                       <TableCell className="px-4 py-3.5 text-end align-top">

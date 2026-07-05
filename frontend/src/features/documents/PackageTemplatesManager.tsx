@@ -48,7 +48,9 @@ import { confirmAction, showError, showSuccess } from "../../lib/swal";
 import OnlyOfficeEditor from "./OnlyOfficeEditor";
 import TemplateFileFieldsPanel from "./TemplateFileFieldsPanel";
 import { isOnlyofficeEditable, templateFileExtension } from "./templateFileExtension";
-import { filterTemplatesByPackageDuration } from "./templateDurationFilter";
+import { Download, Eye, Trash2 } from "lucide-react";
+import TableIconButton from "../../components/common/TableIconButton";
+import DocumentFileManagerTable from "./DocumentFileManagerTable";
 
 interface PackageTemplatesManagerProps {
   isAdmin: boolean;
@@ -108,6 +110,23 @@ export default function PackageTemplatesManager({ isAdmin }: PackageTemplatesMan
   const visibleTemplates = useMemo(
     () => filterTemplatesByPackageDuration(templates, typeInfo?.duration_days ?? 3),
     [templates, typeInfo?.duration_days],
+  );
+  const templateById = useMemo(
+    () => new Map(visibleTemplates.map((tmpl) => [tmpl.id, tmpl])),
+    [visibleTemplates],
+  );
+  const fileManagerRows = useMemo(
+    () =>
+      visibleTemplates.map((tmpl) => ({
+        id: tmpl.id,
+        name: templateDisplayName(tmpl),
+        filePath: tmpl.file_path,
+        subtitle: documentRoleLabel(tmpl.document_type, t),
+        category: documentRoleLabel(tmpl.document_type, t),
+        modifiedAt: tmpl.created_at,
+        isActive: tmpl.id === openedTemplateId,
+      })),
+    [visibleTemplates, openedTemplateId, t],
   );
   const typeBundles = useMemo(
     () => bundles.filter((b) => canonicalPackageType(b.package_type) === selectedType),
@@ -617,59 +636,44 @@ export default function PackageTemplatesManager({ isAdmin }: PackageTemplatesMan
                   </Button>
                 </div>
                 <div className={isEditorOpen ? "max-h-[min(55vh,520px)] overflow-auto" : "overflow-auto"}>
-                  <Table>
-                    <TableBody>
-                      {visibleTemplates.map((tmpl) => {
-                        const editable = isOnlyofficeEditable(tmpl.file_path);
-                        const isOpen = tmpl.id === openedTemplateId;
-                        return (
-                          <TableRow
-                            key={tmpl.id}
-                            className={isOpen ? "bg-brand-50/80 dark:bg-brand-500/10" : ""}
+                  <DocumentFileManagerTable
+                    rows={fileManagerRows}
+                    renderActions={(row) => {
+                      const tmpl = templateById.get(row.id);
+                      if (!tmpl) return null;
+                      const editable = isOnlyofficeEditable(tmpl.file_path);
+                      return (
+                        <>
+                          {editable ? (
+                            <TableIconButton
+                              label={isAdmin ? t("documents.openAndEdit") : t("documents.openFile")}
+                              disabled={busyId === tmpl.id}
+                              onClick={() => void openTemplate(tmpl)}
+                            >
+                              <Eye className="size-4.5" />
+                            </TableIconButton>
+                          ) : null}
+                          <TableIconButton
+                            label={t("common.download")}
+                            disabled={busyId === tmpl.id}
+                            onClick={() => void handleDownloadFile(tmpl)}
                           >
-                            <TableCell className="px-3 py-2">
-                              <p className="text-sm font-medium truncate" title={templateDisplayName(tmpl)}>{templateDisplayName(tmpl)}</p>
-                              <p className="text-xs text-gray-500">
-                                {documentRoleLabel(tmpl.document_type, t)} · {templateFileExtension(tmpl.file_path)}
-                              </p>
-                            </TableCell>
-                            <TableCell className="px-2 py-2 text-right whitespace-nowrap">
-                              {editable ? (
-                                <button
-                                  type="button"
-                                  className="text-xs font-medium text-brand-600 hover:underline"
-                                  disabled={busyId === tmpl.id}
-                                  onClick={() => void openTemplate(tmpl)}
-                                >
-                                  {isAdmin ? t("documents.openAndEdit") : t("documents.openFile")}
-                                </button>
-                              ) : (
-                                <span className="text-xs text-gray-400">{t("documents.downloadOnly")}</span>
-                              )}
-                              <button
-                                type="button"
-                                className="ml-2 text-xs text-gray-600 hover:underline dark:text-gray-400"
-                                disabled={busyId === tmpl.id}
-                                onClick={() => void handleDownloadFile(tmpl)}
-                              >
-                                {t("common.download")}
-                              </button>
-                              {isAdmin && (
-                                <button
-                                  type="button"
-                                  className="ml-2 text-xs text-error-500 hover:underline"
-                                  disabled={busyId === tmpl.id}
-                                  onClick={() => void handleDeleteTemplate(tmpl)}
-                                >
-                                  {t("common.delete")}
-                                </button>
-                              )}
-                            </TableCell>
-                          </TableRow>
-                        );
-                      })}
-                    </TableBody>
-                  </Table>
+                            <Download className="size-4.5" />
+                          </TableIconButton>
+                          {isAdmin ? (
+                            <TableIconButton
+                              label={t("common.delete")}
+                              variant="danger"
+                              disabled={busyId === tmpl.id}
+                              onClick={() => void handleDeleteTemplate(tmpl)}
+                            >
+                              <Trash2 className="size-4.5" />
+                            </TableIconButton>
+                          ) : null}
+                        </>
+                      );
+                    }}
+                  />
                 </div>
               </div>
 

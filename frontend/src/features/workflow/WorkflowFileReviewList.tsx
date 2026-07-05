@@ -24,6 +24,7 @@ import { getApiToken } from "../../lib/clerkToken";
 import { ApiError } from "../../api/client";
 import { confirmAction, showError, showSuccess } from "../../lib/swal";
 import { useTranslation } from "../../i18n/useTranslation";
+import { DocumentFileNameCell } from "../documents/documentFilePresentation";
 
 interface WorkflowFileReviewListProps {
   jobId: string;
@@ -261,13 +262,11 @@ export default function WorkflowFileReviewList({
                     }
                   >
                     <TableCell className="px-4 py-3.5 align-top text-start">
-                      <p
-                        className="truncate font-medium text-gray-800 dark:text-white/90"
-                        title={displayName}
-                      >
-                        {displayName}
-                      </p>
-                      <p className="mt-0.5 truncate text-xs text-gray-400">{file.template_code}</p>
+                      <DocumentFileNameCell
+                        name={displayName}
+                        filePath={file.file_path || `${file.template_code}.doc`}
+                        subtitle={file.template_code}
+                      />
                     </TableCell>
                     <TableCell className="px-4 py-3.5 align-top text-start">
                       <Badge color={fileStatusColor(file.status)} size="sm">

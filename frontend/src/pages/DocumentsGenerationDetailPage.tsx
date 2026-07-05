@@ -14,7 +14,9 @@ import Badge from "../components/ui/badge/Badge";
 import { fetchEvent, updateEvent } from "../api/events";
 import { fetchPackageBundles, fetchTemplates } from "../api/catalog";
 import type { PackageBundle, PackageTemplate } from "../features/documents/types";
-import { templateFileExtension } from "../features/documents/templateFileExtension";
+import { templateDisplayName } from "../features/documents/types";
+import DocumentFileManagerTable from "../features/documents/DocumentFileManagerTable";
+import { documentRoleLabel } from "../features/documents/documentRoleLabel";
 import {
   effectiveListDays,
   filterTemplatesByPackageDuration,
@@ -635,18 +637,22 @@ export default function DocumentsGenerationDetailPage() {
                 {packagePreviewLoading ? (
                   <p className="mt-3 text-sm text-gray-500">{t("documents.loadingEventPackage")}</p>
                 ) : eventPackageFiles.length > 0 ? (
-                  <div className="mt-4">
-                    <p className="text-sm font-medium text-gray-800 dark:text-white/90">
-                      {t("documents.eventPackageFiles")} ({eventPackageFiles.length})
-                    </p>
-                    <ul className="mt-2 max-h-40 space-y-1 overflow-auto text-xs text-gray-600 dark:text-gray-300">
-                      {eventPackageFiles.map((file) => (
-                        <li key={file.id} className="truncate" title={file.name}>
-                          {file.name}
-                          <span className="ml-1 text-gray-400">· {templateFileExtension(file.file_path)}</span>
-                        </li>
-                      ))}
-                    </ul>
+                  <div className="mt-4 rounded-xl border border-gray-100 dark:border-gray-800">
+                    <div className="border-b border-gray-100 px-4 py-3 dark:border-gray-800">
+                      <p className="text-sm font-medium text-gray-800 dark:text-white/90">
+                        {t("documents.eventPackageFiles")} ({eventPackageFiles.length})
+                      </p>
+                    </div>
+                    <DocumentFileManagerTable
+                      rows={eventPackageFiles.map((file) => ({
+                        id: file.id,
+                        name: templateDisplayName(file),
+                        filePath: file.file_path,
+                        subtitle: documentRoleLabel(file.document_type, t),
+                        category: documentRoleLabel(file.document_type, t),
+                        modifiedAt: file.created_at,
+                      }))}
+                    />
                   </div>
                 ) : inferredPackage ? (
                   <p className="mt-3 text-sm text-warning-600 dark:text-warning-400">
