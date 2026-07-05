@@ -87,9 +87,9 @@ def _event_day(context: dict[str, Any], day_index: int | None) -> date | None:
 
 
 def _lieu_line(context: dict[str, Any]) -> str:
-    from tip_common.location_fields import resolve_lieu_display
+    from tip_common.location_fields import resolve_lieu_doc_display
 
-    return resolve_lieu_display(context)
+    return resolve_lieu_doc_display(context)
 
 
 def _date_for_role(context: dict[str, Any], document_role: str, day_index: int | None) -> str:

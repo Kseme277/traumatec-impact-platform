@@ -77,6 +77,19 @@ def apply_strict_excel_replacements(
                 if updated is None and extra_prepared_by:
                     updated = _replace_prepared_by_cell(stripped, context)
 
+                if updated is None and "{{" in stripped:
+                    from tip_common.french_placeholders import build_french_placeholder_pairs
+
+                    candidate = stripped
+                    for old, new in sorted(
+                        build_french_placeholder_pairs(context),
+                        key=lambda item: -len(item[0]),
+                    ):
+                        if old in candidate:
+                            candidate = candidate.replace(old, new)
+                    if candidate != stripped:
+                        updated = candidate
+
                 if updated is not None and updated != stripped:
                     set_cell_value(sheet, cell, updated)
                     replaced += 1

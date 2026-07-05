@@ -43,7 +43,6 @@ def _context_fallback_pairs(context: dict[str, Any]) -> list[tuple[str, str]]:
 
     pairs: list[tuple[str, str]] = []
     mapping = {
-        "TBD": context.get("city") or context.get("lieu") or "",
         "Zurich": context.get("city") or "",
         "[PROJECT_NUMBER]": context.get("project_number") or "",
         "[EVENT_TITLE]": context.get("title") or "",

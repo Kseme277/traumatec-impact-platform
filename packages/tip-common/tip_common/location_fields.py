@@ -110,6 +110,29 @@ def infer_location_from_title(title: str) -> dict[str, str]:
     return result
 
 
+def resolve_lieu_doc_display(context: dict[str, Any] | None = None, *, city: str = "", country: str = "") -> str:
+    """Lieu « Ville, Pays » avec nom de pays français complet (en-têtes documents)."""
+    from tip_common.title_formatter import _country_to_fr
+
+    ctx = context if isinstance(context, dict) else {}
+    city = (city or str(ctx.get("city") or ctx.get("ville") or "")).strip()
+    country = (country or str(ctx.get("country") or ctx.get("pays") or "")).strip()
+    if not city or not country:
+        lieu = resolve_lieu_display(ctx)
+        if ", " in lieu:
+            city_part, country_part = lieu.split(", ", 1)
+            city = city or city_part.strip()
+            country = country or country_part.strip()
+    country_fr = _country_to_fr(country) or country
+    if city and country_fr:
+        if city.lower() == country_fr.lower():
+            return country_fr
+        return f"{city}, {country_fr}"
+    if not city and not country_fr:
+        return resolve_lieu_display(ctx)
+    return country_fr or city
+
+
 def resolve_lieu_display(context: dict[str, Any]) -> str:
     """Lieu affichable « Ville, Pays » à partir du contexte événement."""
     city = (context.get("city") or "").strip()

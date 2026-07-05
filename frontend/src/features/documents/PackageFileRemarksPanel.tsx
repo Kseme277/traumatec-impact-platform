@@ -17,6 +17,7 @@ import { ApiError } from "../../api/client";
 import { showError, showSuccess } from "../../lib/swal";
 import OnlyOfficeEditor, { type OnlyOfficeEditorConfig } from "./OnlyOfficeEditor";
 import { workflowStatusLabel, type WorkflowStatus } from "../auth/types";
+import { isWorkflowRejected } from "./eventPackageLock";
 import { useTranslation } from "../../i18n/useTranslation";
 
 interface PackageFileRemarksPanelProps {
@@ -46,8 +47,6 @@ export default function PackageFileRemarksPanel({
   const [editorConfig, setEditorConfig] = useState<OnlyOfficeEditorConfig | null>(null);
   const [editorLoading, setEditorLoading] = useState(false);
   const [previewUnavailable, setPreviewUnavailable] = useState(false);
-
-  const showEditActions = Boolean(canEdit && jobId);
 
   const loadEditor = useCallback(
     async (fileReviewId: string) => {
@@ -103,6 +102,10 @@ export default function PackageFileRemarksPanel({
   const withRemarks = files.filter((file) => file.comment?.trim());
   const reviewed = files.filter((file) => file.status !== "pending").length;
   const rejectedCount = files.filter((file) => file.status === "rejected").length;
+  const workflowRejected = isWorkflowRejected(
+    (workflowStatus ?? null) as WorkflowStatus | null,
+  );
+  const showEditActions = Boolean(jobId && rejectedCount > 0 && (canEdit || workflowRejected));
 
   return (
     <div className="space-y-3">

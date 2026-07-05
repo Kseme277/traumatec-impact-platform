@@ -356,11 +356,10 @@ def _compress_welcome_middle(middle: str, budget: int) -> str:
         (" de Prise en Charge des Fractures", " prise en charge fractures"),
         (" de Prise en Charge des ", " prise en charge "),
         (" des Fractures", " fractures"),
-        (" des agents de santé", " agents santé"),
+        (" des agents de santé", " agents de santé"),
         (" des agents", " agents"),
         (" des ", " "),
         (" de ", " "),
-        ("communautaire ", "comm. "),
         ("Prise en Charge", "Prise en charge"),
         ("Fractures", "fractures"),
     )
@@ -377,6 +376,10 @@ def _compress_welcome_middle(middle: str, budget: int) -> str:
                 break
         if not changed:
             break
+    if "communaut" in text and "communautaire" not in text:
+        text = text.replace("communaut", "communautaire")
+    if text.endswith("comm") and "communautaire" in old_middle:
+        text = text[:-4] + "communautaire"
     return text[:budget].ljust(budget)
 
 
@@ -415,11 +418,26 @@ def _build_welcome_paragraph_replacement(
     middle_budget = len(old_para) - len(prefix) - 57 - 2 - len(ending)
     if middle_budget < 8:
         return None
-    middle = _compress_welcome_middle(old_middle, middle_budget).rstrip()
-    middle = middle.replace(" santé comm ", " santé comm. ")
-    if middle.endswith(" comm"):
-        middle = f"{middle}."
-    middle = middle.ljust(middle_budget)[:middle_budget]
+    prepared = old_middle
+    if "communautaire" in old_middle.lower():
+        prepared = prepared.replace(
+            "Problématique de Prise en Charge des Fractures",
+            "Prob. prise en charge fractures",
+        )
+        prepared = prepared.replace(" des agents de santé communautaire", " agents santé communautaires")
+        prepared = prepared.replace(" à l´intention ", " à l'intention ")
+    prepared = prepared.strip()
+    if len(prepared) <= middle_budget + 1 and "communautaire" in prepared.lower():
+        middle = prepared[:middle_budget].ljust(middle_budget)[:middle_budget]
+    elif len(prepared) <= middle_budget:
+        middle = prepared.ljust(middle_budget)[:middle_budget]
+    else:
+        middle = _compress_welcome_middle(old_middle, middle_budget).rstrip()
+        if "communautaire" in old_middle.lower() and "communautaire" not in middle.lower():
+            compact = middle.replace(" santé comm", " santé communautaires")
+            if len(compact) <= middle_budget:
+                middle = compact
+        middle = middle.ljust(middle_budget)[:middle_budget]
     new_para = f"{prefix}{title_part}\xa0:{middle}{ending}"
     if len(new_para) != len(old_para):
         return None

@@ -408,6 +408,11 @@ def format_value_for_field(
         if title:
             return title
     if "ville" in hint and "pays" in hint:
+        from tip_common.location_fields import resolve_lieu_doc_display
+
+        lieu = resolve_lieu_doc_display(context)
+        if lieu:
+            return lieu
         city = (context.get("city") or "").strip()
         country = (context.get("country") or "").strip()
         if city and country:
@@ -495,6 +500,11 @@ def context_value_for_key(key: str, context: dict[str, Any]) -> str | None:
             context.get("date_single_formatted") or context.get("start_date_long") or ""
         ).strip() or None
     if key == "lieu":
+        from tip_common.location_fields import resolve_lieu_doc_display
+
+        formatted = resolve_lieu_doc_display(context)
+        if formatted:
+            return formatted
         formatted = context.get("lieu_formatted") or context.get("lieu") or context.get("location")
         if formatted:
             return str(formatted).strip()

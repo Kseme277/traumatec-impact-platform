@@ -72,6 +72,44 @@ def _append_pairs(
         pairs.append((key, text))
 
 
+def _lieu_date_line_keys() -> list[str]:
+    """Ligne « {{Ville}}, {{Pays}}  {{Date de l'évenement}} » (variantes modèles)."""
+    keys: list[str] = []
+    seen: set[str] = set()
+    for ap in _APOSTROPHES:
+        for article in ("L", "l"):
+            for spell in ("évenement", "événement", "evenement", "évènement"):
+                date_ph = f"Date de {article}{ap}{spell}"
+                template = f"{_brace('Ville')}, {_brace('Pays')}  {_brace(date_ph)}"
+                if template not in seen:
+                    seen.add(template)
+                    keys.append(template)
+                template_sp = f"{_brace('Ville')}, {_brace('Pays')}  {_brace(date_ph, spaced=True)}"
+                if template_sp not in seen:
+                    seen.add(template_sp)
+                    keys.append(template_sp)
+    return keys
+
+
+def _budget_header_line_keys() -> list[str]:
+    """Ligne « {{Nom}}; {{Ville}}, {{Pays}}; {{Date}}; {{Project}}, {{Cost}} » (fichier 10)."""
+    keys: list[str] = []
+    seen: set[str] = set()
+    for ap in _APOSTROPHES:
+        for article in ("L", "l"):
+            for spell in ("évenement", "événement", "evenement", "évènement"):
+                nom = _brace(f"Nom de {article}{ap}{spell}")
+                date_ph = _brace(f"Date de {article}{ap}{spell}")
+                template = (
+                    f"{nom}; {_brace('Ville')}, {_brace('Pays')}; {date_ph}; "
+                    f"{_brace('Project Number')}, {_brace('Cost Center')}"
+                )
+                if template not in seen:
+                    seen.add(template)
+                    keys.append(template)
+    return keys
+
+
 def build_french_placeholder_pairs(context: dict[str, Any]) -> list[tuple[str, str]]:
     """Construit toutes les paires {{Placeholder FR}} → valeur événement."""
     pairs: list[tuple[str, str]] = []
@@ -86,9 +124,19 @@ def build_french_placeholder_pairs(context: dict[str, Any]) -> list[tuple[str, s
         or context.get("start_date")
         or ""
     ).strip()
-    date_today = str(context.get("date_du_jour") or context.get("today") or "").strip()
+    date_today = str(
+        context.get("date_du_jour")
+        or context.get("date_single_formatted")
+        or context.get("start_date_long")
+        or context.get("start_date")
+        or ""
+    ).strip()
     if not date_today:
         date_today = datetime.now().strftime("%d/%m/%Y")
+
+    from tip_common.title_formatter import _country_to_fr
+
+    country_fr = (_country_to_fr(country) or country).strip()
 
     responsible = str(
         context.get("responsible_formatted")
@@ -130,14 +178,17 @@ def build_french_placeholder_pairs(context: dict[str, Any]) -> list[tuple[str, s
     _append_pairs(pairs, _date_event_keys(), date_event, seen=seen)
     _append_pairs(pairs, [_brace("Date du jour")], date_today, seen=seen)
     _append_pairs(pairs, [_brace("Ville")], city, seen=seen)
-    from tip_common.location_fields import country_doc_display
+    _append_pairs(pairs, [_brace("Pays")], country_fr, seen=seen)
 
-    _append_pairs(
-        pairs,
-        [_brace("Pays")],
-        country_doc_display(country, max_len=8),
-        seen=seen,
-    )
+    if city and country_fr and date_event:
+        lieu_line = f"{city}, {country_fr}  {date_event}"
+        _append_pairs(pairs, _lieu_date_line_keys(), lieu_line, seen=seen)
+    if title and city and country_fr and date_event:
+        project = str(context.get("project_number") or "").strip()
+        cost_center = str(context.get("cost_center") or "").strip()
+        if project or cost_center:
+            budget_line = f"{title}; {city}, {country_fr}; {date_event}; {project}, {cost_center}"
+            _append_pairs(pairs, _budget_header_line_keys(), budget_line, seen=seen)
     _append_pairs(
         pairs,
         [

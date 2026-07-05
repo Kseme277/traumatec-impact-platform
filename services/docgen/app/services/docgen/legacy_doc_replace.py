@@ -11,7 +11,6 @@ logger = logging.getLogger(__name__)
 def _pairs(context: dict[str, Any]) -> list[tuple[str, str]]:
     items: list[tuple[str, str]] = []
     mapping = {
-        "TBD": context.get("city") or context.get("lieu") or context.get("project_number", ""),
         "Zurich": context.get("city") or "Zurich",
         "[PROJECT_NUMBER]": context.get("project_number", ""),
         "[EVENT_TITLE]": context.get("title", ""),

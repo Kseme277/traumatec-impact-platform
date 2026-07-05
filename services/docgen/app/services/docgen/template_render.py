@@ -73,15 +73,16 @@ def build_event_context(event: dict[str, Any]) -> dict[str, Any]:
     """Contexte Jinja2 / docxtpl — alias FR et EN pour les modèles AO."""
     start = event.get("start_date")
     end = event.get("end_date") or start
-    from tip_common.location_fields import resolve_lieu_display
+    from tip_common.location_fields import resolve_lieu_display, resolve_lieu_doc_display
 
     city = (event.get("city") or "").strip()
     country = (event.get("country") or "").strip()
     lieu = resolve_lieu_display(event)
+    lieu_doc = resolve_lieu_doc_display(event)
 
     lieu_complet = (event.get("lieu_complet") or "").strip() or lieu
+    lieu_display = (event.get("lieu_formatted") or lieu_doc or lieu_complet).strip()
     title_display = (event.get("title_formatted") or event.get("title") or "").strip()
-    lieu_display = (event.get("lieu_formatted") or lieu_complet).strip()
     resp_display = (
         event.get("responsible_formatted") or event.get("responsible_person") or ""
     ).strip()
@@ -144,8 +145,8 @@ def build_event_context(event: dict[str, Any]) -> dict[str, Any]:
         "start_date_raw": str(start)[:10] if start else "",
         "end_date_raw": str(end)[:10] if end else "",
         "cost_center": (event.get("cost_center") or "").strip(),
-        "date_du_jour": _format_date_fr(datetime.now().date()),
-        "today": _format_date_fr(datetime.now().date()),
+        "date_du_jour": (event.get("date_single_formatted") or _format_date_long_fr(start) or "").strip(),
+        "today": (event.get("date_single_formatted") or _format_date_long_fr(start) or "").strip(),
         "organizer_responsible_name": (event.get("organizer_responsible_name") or "").strip(),
     }
     teacher_names: list[str] = list(event.get("teacher_names") or [])
@@ -170,7 +171,6 @@ def _plain_replacements(context: dict[str, Any]) -> list[tuple[str, str]]:
 
     pairs: list[tuple[str, str]] = []
     mapping = {
-        "TBD": context.get("city") or context.get("lieu") or context.get("title", "")[:80],
         "Zurich": context.get("city") or "Zurich",
         "{{ project_number }}": context.get("project_number", ""),
         "{{ title }}": context.get("title", ""),
@@ -237,9 +237,20 @@ def render_package_document(
         apply_exhaustive_pairs_xlsx,
         build_exhaustive_pairs,
     )
+    from app.services.docgen.document_role_replace import _date_for_role
     from app.services.docgen.docx_xml_replace import apply_role_replacements_docx
     from app.services.docgen.excel_replace import apply_excel_replacements
     from app.services.docgen.legacy_doc_replace import apply_legacy_doc_replacements
+    from tip_common.location_fields import resolve_lieu_doc_display
+
+    context = dict(context)
+    if day_index and document_role in {"presence_enseignants", "presence_participants"}:
+        context["date_du_jour"] = _date_for_role(context, document_role, day_index)
+    lieu_doc = resolve_lieu_doc_display(context)
+    if lieu_doc:
+        context["lieu_formatted"] = lieu_doc
+        context["lieu"] = lieu_doc
+        context["location"] = lieu_doc
 
     fields = replacement_fields or []
     exhaustive = build_exhaustive_pairs(context, fields)
