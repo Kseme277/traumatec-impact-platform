@@ -31,7 +31,7 @@ _DOC_APOSTROPHE_CHARS = ("'", "\u2019", "\u2018", "`", _DOC_APOSTROPHE)
 # Ligne entête page 1 : {{Date}}       {{Ville}}, {{Pays}} (49 car. dans le modèle IEC)
 _COMBINED_HEADER_SPACING = "       "
 _COMBINED_HEADER_SUFFIX = "\r\r\x01\r"
-_MAX_COMBINED_HEADER_NULL_PREFIX = 12
+_MAX_COMBINED_HEADER_NULL_PREFIX = 4
 _MAX_COMBINED_HEADER_REGION_LEN = 130
 _COMBINED_HEADER_SKIP = frozenset(
     {
@@ -413,67 +413,27 @@ def _teacher_placeholder_labels(index: int | str) -> list[str]:
     return labels
 
 
-_TEACHER_BLOCK_LINE_WIDTH = 47
-_TEACHER_BLOCK_END_MARKER = "Organisation du séminaire"
+_TEACHER_COLUMN_BREAK = "\x0e"
 
 
-def _teacher_block_region(doc_bytes: bytes) -> tuple[str, int, int] | None:
-    """Bloc binaire Ens. 1 … Ens. .. (mise en page 2 colonnes dans le modèle)."""
-    start: int | None = None
-    for label in _teacher_placeholder_labels(1):
-        needle = f"{{{{{label}}}}}".encode("utf-16-le")
-        idx = doc_bytes.find(needle)
-        if idx >= 0:
-            start = idx
-            break
-    if start is None:
+def _fit_teacher_slot_blob(blob: str, name: str) -> str | None:
+    """Remplit un placeholder enseignant sans toucher au binaire Word après la ligne."""
+    if not blob:
         return None
-
-    end = doc_bytes.find(_TEACHER_BLOCK_END_MARKER.encode("utf-16-le"), start)
-    if end <= start:
+    core = blob.rstrip("\r")
+    suffix = "\r" if blob.endswith("\r") else ""
+    if not name.strip():
+        fitted = (" " * len(core)) + suffix
+        return fitted if len(fitted) == len(blob) else None
+    prefix = _TEACHER_COLUMN_BREAK
+    budget = len(core) - len(prefix)
+    if budget < 4:
         return None
-    try:
-        region = doc_bytes[start:end].decode("utf-16-le")
-    except UnicodeDecodeError:
-        return None
-    if len(region) < 120:
-        return None
-    return region, start, end
-
-
-def _fit_teacher_line(name: str, width: int) -> str:
     text = _normalize_for_doc_text(name.strip())
-    if len(text) > width:
-        text = _safe_truncate(text, width)
-    return text.ljust(width)[:width]
-
-
-def _build_teacher_block_region(old_region: str, names: list[str]) -> str | None:
-    """
-    Une ligne par enseignant (colonne gauche), ligne vide à droite pour éviter
-    le rendu 2 colonnes « deux noms sur la même ligne » du modèle Word.
-    """
-    if not old_region or not names:
-        return None
-
-    width = _TEACHER_BLOCK_LINE_WIDTH
-    blank_line = " " * width
-    lines: list[str] = []
-    for name in names:
-        if not name.strip():
-            continue
-        lines.append(_fit_teacher_line(name, width) + "\r")
-        lines.append(blank_line + "\r")
-
-    if not lines:
-        return None
-
-    new_body = "".join(lines)
-    if len(new_body) > len(old_region):
-        return None
-    if len(new_body) < len(old_region):
-        new_body += "\r" * (len(old_region) - len(new_body))
-    return new_body if len(new_body) == len(old_region) else None
+    if len(text) > budget:
+        text = _safe_truncate(text, budget)
+    fitted = prefix + text.ljust(budget)[:budget] + suffix
+    return fitted if len(fitted) == len(blob) else None
 
 
 def _teacher_names_from_context(context: dict[str, Any]) -> list[str]:
@@ -499,34 +459,17 @@ def _teacher_line_pairs(
     if not names:
         return []
 
-    block = _teacher_block_region(doc_bytes)
-    if block:
-        old_region, _, _ = block
-        new_region = _build_teacher_block_region(old_region, names)
-        if new_region and new_region != old_region:
-            return [(old_region, new_region)]
-
     pairs: list[tuple[str, str]] = []
     seen: set[str] = set()
     slots: list[int | str] = [1, 2, 3, 4, 5, ".."]
     for slot_index, slot in enumerate(slots):
-        if slot_index % 2 == 1:
-            name = ""
-        else:
-            teacher_index = slot_index // 2
-            name = names[teacher_index] if teacher_index < len(names) else ""
+        name = names[slot_index] if slot_index < len(names) else ""
         for label in _teacher_placeholder_labels(slot):
             placeholder = f"{{{{{label}}}}}"
             blob = _placeholder_line_blob(doc_bytes, placeholder)
             if not blob or blob in seen:
                 continue
-            if name:
-                fitted = _fit_line_blob(blob, name)
-            else:
-                core = blob.rstrip("\r")
-                fitted = (" " * len(core)) + ("\r" if blob.endswith("\r") else "")
-                if len(fitted) != len(blob):
-                    fitted = None
+            fitted = _fit_teacher_slot_blob(blob, name)
             if fitted and fitted != blob:
                 seen.add(blob)
                 pairs.append((blob, fitted))
@@ -1377,9 +1320,7 @@ def _build_expandable_pairs(
 ) -> list[tuple[str, str]]:
     if not doc_bytes:
         return []
-    pairs = _nom_event_expandable_pairs(context, doc_bytes=doc_bytes)
-    pairs.extend(_combined_header_expandable_pairs(context, doc_bytes=doc_bytes))
-    return pairs
+    return _nom_event_expandable_pairs(context, doc_bytes=doc_bytes)
 
 
 def _build_safe_pairs(
@@ -1395,10 +1336,7 @@ def _build_safe_pairs(
     fields = _programme_fields_for_role(replacement_fields)
     pairs: list[tuple[str, str]] = []
     nom_expandable = _nom_event_expandable_pairs(context, doc_bytes=doc_bytes)
-    combined_expandable = _combined_header_expandable_pairs(context, doc_bytes=doc_bytes)
-    combined_pairs = (
-        [] if combined_expandable else _combined_header_pairs(context, doc_bytes=doc_bytes)
-    )
+    combined_pairs = _combined_header_pairs(context, doc_bytes=doc_bytes)
     ville_pays_pairs = _ville_pays_pairs(context, doc_bytes=doc_bytes)
     welcome_ville_pays_pairs = _welcome_ville_pays_pairs(context, doc_bytes=doc_bytes)
     welcome_paragraph_pairs = _welcome_paragraph_pairs(context, doc_bytes=doc_bytes)

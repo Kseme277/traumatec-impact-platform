@@ -143,24 +143,23 @@ export default function PackageFileCorrectionActions({
       </div>
 
       {previewOpen ? (
-        <div className="rounded-lg border border-gray-200 p-2 dark:border-gray-800">
-          {previewLoading ? (
-            <p className="text-sm text-gray-500">{t("documents.onlyofficeLoading")}</p>
-          ) : previewUnavailable ? (
-            <p className="text-sm text-warning-600 dark:text-warning-400">
-              {t("documents.onlyofficeUnsupportedFormat")}
-            </p>
-          ) : previewConfig ? (
-            <OnlyOfficeEditor
-              editorConfig={previewConfig}
-              fileRevision={previewConfig.file_revision}
-              onClose={() => {
-                setPreviewOpen(false);
-                setPreviewConfig(null);
-              }}
-            />
-          ) : null}
-        </div>
+        previewLoading ? (
+          <p className="text-sm text-gray-500">{t("documents.onlyofficeLoading")}</p>
+        ) : previewUnavailable ? (
+          <p className="text-sm text-warning-600 dark:text-warning-400">
+            {t("documents.onlyofficeUnsupportedFormat")}
+          </p>
+        ) : previewConfig ? (
+          <OnlyOfficeEditor
+            editorConfig={previewConfig}
+            fileRevision={previewConfig.file_revision}
+            autoFullscreen
+            onClose={() => {
+              setPreviewOpen(false);
+              setPreviewConfig(null);
+            }}
+          />
+        ) : null
       ) : null}
     </div>
   );

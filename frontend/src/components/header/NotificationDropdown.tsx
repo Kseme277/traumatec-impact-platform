@@ -5,7 +5,7 @@ import { Dropdown } from "../ui/dropdown/Dropdown";
 import {
   fetchNotifications,
   fetchUnreadCount,
-  markNotificationRead,
+  markAllNotificationsRead,
   type TipNotification,
 } from "../../api/notifications";
 import { getApiToken } from "../../lib/clerkToken";
@@ -25,7 +25,7 @@ export default function NotificationDropdown() {
     try {
       const token = await getApiToken(getToken);
       const [list, count] = await Promise.all([
-        fetchNotifications(token, false, 6),
+        fetchNotifications(token, true, 6),
         fetchUnreadCount(token),
       ]);
       setItems(list);
@@ -41,28 +41,40 @@ export default function NotificationDropdown() {
     return () => window.clearInterval(timer);
   }, [load]);
 
+  const clearUnread = useCallback(async () => {
+    try {
+      const token = await getApiToken(getToken);
+      await markAllNotificationsRead(token);
+    } catch {
+      /* ignore */
+    } finally {
+      setItems([]);
+      setUnread(0);
+    }
+  }, [getToken]);
+
   async function handleToggle() {
     const next = !isOpen;
-    setIsOpen(next);
-    if (next) await load();
+    if (next) {
+      setIsOpen(true);
+      await load();
+      return;
+    }
+    setIsOpen(false);
+    await clearUnread();
+  }
+
+  async function handleClose() {
+    setIsOpen(false);
+    await clearUnread();
   }
 
   async function handleItemClick(item: TipNotification) {
-    try {
-      if (!item.read_at) {
-        const token = await getApiToken(getToken);
-        await markNotificationRead(token, item.id);
-        setUnread((c) => Math.max(0, c - 1));
-        setItems((prev) =>
-          prev.map((row) => (row.id === item.id ? { ...row, read_at: new Date().toISOString() } : row)),
-        );
-      }
-    } catch {
-      /* ignore */
-    }
+    const link = item.link;
     setIsOpen(false);
-    if (item.link) {
-      navigate(item.link);
+    await clearUnread();
+    if (link) {
+      navigate(link);
     }
   }
 
@@ -92,7 +104,7 @@ export default function NotificationDropdown() {
 
       <Dropdown
         isOpen={isOpen}
-        onClose={() => setIsOpen(false)}
+        onClose={() => void handleClose()}
         className="absolute right-0 mt-3 flex w-[min(100vw-2rem,380px)] flex-col rounded-2xl border border-gray-200 bg-white p-0 shadow-theme-lg dark:border-gray-800 dark:bg-gray-900"
       >
         <div className="flex items-center justify-between border-b border-gray-100 px-4 py-3 dark:border-gray-800">
@@ -103,7 +115,7 @@ export default function NotificationDropdown() {
             type="button"
             aria-label={t("common.close")}
             className="flex h-8 w-8 items-center justify-center rounded-lg text-gray-400 transition hover:bg-gray-100 hover:text-gray-600 dark:hover:bg-white/5 dark:hover:text-gray-200"
-            onClick={() => setIsOpen(false)}
+            onClick={() => void handleClose()}
           >
             <svg width="20" height="20" viewBox="0 0 20 20" fill="none" aria-hidden="true">
               <path
@@ -128,17 +140,15 @@ export default function NotificationDropdown() {
                 <li key={item.id}>
                   <button
                     type="button"
-                    className={`flex w-full gap-3 border-b border-gray-100 px-4 py-3 text-left transition hover:bg-gray-50 dark:border-gray-800 dark:hover:bg-white/[0.03] ${!item.read_at ? "bg-brand-50/30 dark:bg-brand-500/5" : ""}`}
+                    className="flex w-full gap-3 border-b border-gray-100 px-4 py-3 text-left transition hover:bg-gray-50 dark:border-gray-800 dark:hover:bg-white/[0.03] bg-brand-50/30 dark:bg-brand-500/5"
                     onClick={() => void handleItemClick(item)}
                   >
                     <span
                       className={`relative mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-full ${visual.bgClass}`}
                     >
-                      {!item.read_at ? (
-                        <span
-                          className={`absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full border-2 border-white dark:border-gray-900 ${visual.dotClass}`}
-                        />
-                      ) : null}
+                      <span
+                        className={`absolute -right-0.5 -top-0.5 h-2.5 w-2.5 rounded-full border-2 border-white dark:border-gray-900 ${visual.dotClass}`}
+                      />
                       <svg className="h-5 w-5 fill-current" viewBox="0 0 20 20" aria-hidden="true">
                         <path fillRule="evenodd" clipRule="evenodd" d={visual.iconPath} />
                       </svg>
@@ -165,7 +175,7 @@ export default function NotificationDropdown() {
           <Link
             to="/notifications"
             className="flex w-full items-center justify-center rounded-xl border border-gray-200 bg-white px-4 py-2.5 text-sm font-medium text-gray-700 transition hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-300 dark:hover:bg-gray-700"
-            onClick={() => setIsOpen(false)}
+            onClick={() => void handleClose()}
           >
             {t("notifications.viewMore")}
           </Link>
