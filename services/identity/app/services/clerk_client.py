@@ -61,7 +61,7 @@ class ClerkClient:
                     return address.strip().lower()
         return None
 
-async def get_user_image_url(self, clerk_id: str) -> str | None:
+    async def get_user_image_url(self, clerk_id: str) -> str | None:
         async with httpx.AsyncClient(timeout=10.0) as client:
             response = await client.get(
                 f"{self.BASE_URL}/users/{clerk_id}",
