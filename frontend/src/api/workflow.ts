@@ -201,6 +201,18 @@ export function fetchPackageFileRevision(
   );
 }
 
+export function forceSavePackageFile(
+  token: string | null,
+  jobId: string,
+  templateCode: string,
+) {
+  return apiFetch<{ error: number; revision: number; no_changes?: boolean }>(
+    `/v1/generations/${jobId}/files/${encodeURIComponent(templateCode)}/onlyoffice-forcesave`,
+    token,
+    { method: "POST" },
+  );
+}
+
 export async function downloadPackageFile(
   token: string | null,
   jobId: string,

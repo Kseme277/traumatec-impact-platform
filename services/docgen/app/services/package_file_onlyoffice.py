@@ -142,6 +142,37 @@ def download_package_file_bytes(settings: Settings, storage_key: str) -> bytes:
     return storage.download_bytes(storage_key)
 
 
+def _normalize_onlyoffice_download_url(settings: Settings, url: str) -> str:
+    """Réécrit une URL publique ONLYOFFICE vers le service Docker interne."""
+    internal = settings.onlyoffice_internal_url.rstrip("/")
+    public = settings.onlyoffice_public_url.rstrip("/")
+    if url.startswith(public):
+        path = url[len(public) :]
+        if path.startswith("/onlyoffice"):
+            path = path[len("/onlyoffice") :]
+        return f"{internal}{path}"
+    marker = "/onlyoffice/"
+    idx = url.find(marker)
+    if idx >= 0:
+        return f"{internal}/{url[idx + len(marker) :]}"
+    return url
+
+
+async def trigger_onlyoffice_forcesave(settings: Settings, document_key: str) -> dict:
+    """Demande un enregistrement forcé via le command service ONLYOFFICE."""
+    base = settings.onlyoffice_internal_url.rstrip("/")
+    command_url = f"{base}/coauthoring/CommandService.ashx"
+    payload = {"c": "forcesave", "key": document_key}
+    async with httpx.AsyncClient(timeout=60.0) as client:
+        response = await client.post(command_url, json=payload)
+        response.raise_for_status()
+        data = response.json()
+    if not isinstance(data, dict):
+        raise ValueError("Réponse ONLYOFFICE command service invalide")
+    logger.info("ONLYOFFICE forcesave key=%s result=%s", document_key, data)
+    return data
+
+
 async def handle_package_file_callback(
     db: AsyncSession,
     settings: Settings,
@@ -179,10 +210,18 @@ async def handle_package_file_callback(
         logger.warning("ONLYOFFICE callback sans URL job=%s file=%s", job.get("id"), template_code)
         return {"error": 1}
 
+    download_url = _normalize_onlyoffice_download_url(settings, download_url.strip())
+
     async with httpx.AsyncClient(timeout=120.0, follow_redirects=True) as client:
         response = await client.get(download_url)
         response.raise_for_status()
         data = response.content
 
     await replace_package_file_bytes(db, settings, job, template_code, data, rebuild_zip=False)
+    logger.info(
+        "ONLYOFFICE fichier enregistré job=%s file=%s bytes=%s",
+        job.get("id"),
+        template_code,
+        len(data),
+    )
     return {"error": 0}

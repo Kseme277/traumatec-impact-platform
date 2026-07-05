@@ -10,7 +10,7 @@ import {
   TableHeader,
   TableRow,
 } from "../../components/ui/table";
-import { downloadPackageFile, fetchPackageFileEditorConfig, fetchPackageFileRevision } from "../../api/workflow";
+import { downloadPackageFile, fetchPackageFileEditorConfig, fetchPackageFileRevision, forceSavePackageFile } from "../../api/workflow";
 import type { WorkflowFileReview } from "../../api/workflow";
 import { getApiToken } from "../../lib/clerkToken";
 import { ApiError } from "../../api/client";
@@ -266,9 +266,18 @@ export default function PackageFileRemarksPanel({
               fileRevision={editorConfig.file_revision}
               pollFileRevision={async () => {
                 if (!jobId || !activeCode) return 0;
+                const file = files.find((item) => item.id === activeCode);
+                const code = file?.template_code ?? activeCode;
                 const token = await getApiToken(getToken);
-                const result = await fetchPackageFileRevision(token, jobId, activeCode);
+                const result = await fetchPackageFileRevision(token, jobId, code);
                 return result.revision;
+              }}
+              onBackendForceSave={async () => {
+                if (!jobId || !activeCode) return { error: 1 };
+                const file = files.find((item) => item.id === activeCode);
+                const code = file?.template_code ?? activeCode;
+                const token = await getApiToken(getToken);
+                return forceSavePackageFile(token, jobId, code);
               }}
               onDocumentSaved={() => void handleSaved()}
               autoFullscreen

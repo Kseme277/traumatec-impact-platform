@@ -16,6 +16,7 @@ class Settings(BaseServiceSettings):
     docgen_internal_url: str = "http://docgen:8004"
     app_public_url: str = "http://localhost:5173"
     onlyoffice_public_url: str = "http://localhost:9980"
+    onlyoffice_internal_url: str = "http://onlyoffice"
     onlyoffice_file_secret: str = "change-me-onlyoffice-file-secret"
     onlyoffice_token_ttl_seconds: int = 7200
 

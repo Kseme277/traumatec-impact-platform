@@ -26,12 +26,14 @@ from app.services.package_file_storage import file_revision, rebuild_job_zip_for
 from app.services.package_file_onlyoffice import (
     build_package_file_editor_config,
     content_type_for_filename,
+    document_key,
     download_package_file_bytes,
     handle_package_file_callback,
     onlyoffice_document_meta,
-    resolve_package_file,
+    trigger_onlyoffice_forcesave,
     verify_access_token,
 )
+from app.services.package_file_utils import resolve_package_file
 from tip_common.security import (
     AuthenticatedUser,
     get_current_user,
@@ -248,6 +250,36 @@ async def package_file_revision(
     assert_event_access(user, job.get("organizer_responsible_user_id"))
     resolved_code = await wf.resolve_template_code(db, job_id, template_code)
     return {"revision": file_revision(job.get("template_versions_json"), resolved_code)}
+
+
+@router.post("/{job_id}/files/{template_code:path}/onlyoffice-forcesave")
+async def package_file_onlyoffice_forcesave(
+    job_id: UUID,
+    template_code: str,
+    user: AuthenticatedUser = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> dict:
+    settings = get_settings()
+    job = await wf._get_job_row(db, job_id)
+    if job["status"] != "completed":
+        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Paquet non généré")
+    wf.assert_package_editable(job, user)
+    resolved_code = await wf.resolve_template_code(db, job_id, template_code)
+    revision = file_revision(job.get("template_versions_json"), resolved_code)
+    doc_key = document_key(job_id, resolved_code, revision)
+    try:
+        result = await trigger_onlyoffice_forcesave(settings, doc_key)
+    except Exception as exc:
+        raise HTTPException(
+            status_code=status.HTTP_502_BAD_GATEWAY,
+            detail=f"Enregistrement ONLYOFFICE impossible : {exc}",
+        ) from exc
+    error_code = int(result.get("error", 3))
+    return {
+        "error": error_code,
+        "revision": revision,
+        "no_changes": error_code == 4,
+    }
 
 
 @router.get("/{job_id}/files/{template_code:path}/onlyoffice-file")

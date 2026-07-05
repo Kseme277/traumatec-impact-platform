@@ -21,6 +21,8 @@ interface OnlyOfficeEditorProps {
   fileRevision?: number;
   /** Interroge le serveur jusqu'à détection d'une nouvelle révision (forcesave). */
   pollFileRevision?: () => Promise<number>;
+  /** Enregistrement via command service backend (fiable pour les .doc). */
+  onBackendForceSave?: () => Promise<{ no_changes?: boolean; error?: number }>;
 }
 
 interface DocEditorInstance {
@@ -84,6 +86,7 @@ export default function OnlyOfficeEditor({
   manualSave = false,
   fileRevision = 0,
   pollFileRevision,
+  onBackendForceSave,
 }: OnlyOfficeEditorProps) {
   const { t } = useTranslation();
   const reactId = useId().replace(/:/g, "");
@@ -96,6 +99,7 @@ export default function OnlyOfficeEditor({
   const savePollRef = useRef<number | null>(null);
   const fileRevisionRef = useRef(fileRevision);
   const pollFileRevisionRef = useRef(pollFileRevision);
+  const onBackendForceSaveRef = useRef(onBackendForceSave);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [isFullscreen, setIsFullscreen] = useState(autoFullscreen);
@@ -119,6 +123,10 @@ export default function OnlyOfficeEditor({
   useEffect(() => {
     pollFileRevisionRef.current = pollFileRevision;
   }, [pollFileRevision]);
+
+  useEffect(() => {
+    onBackendForceSaveRef.current = onBackendForceSave;
+  }, [onBackendForceSave]);
 
   useEffect(() => {
     savePendingRef.current = savePending;
@@ -241,14 +249,36 @@ export default function OnlyOfficeEditor({
     (containerSize.width >= MIN_CONTAINER_PX && containerSize.height >= MIN_CONTAINER_PX);
 
   const handleManualSave = useCallback(() => {
-    if (!editorRef.current?.serviceCommand || savePendingRef.current) return;
+    if (savePendingRef.current) return;
+    if (!onBackendForceSaveRef.current && !editorRef.current?.serviceCommand) return;
     setError(null);
     savePendingRef.current = true;
     setSavePending(true);
     startSaveTimeout();
     startSavePoll();
-    editorRef.current.serviceCommand("forcesave", "");
-  }, [startSavePoll, startSaveTimeout]);
+
+    void (async () => {
+      const backendSave = onBackendForceSaveRef.current;
+      if (backendSave) {
+        try {
+          const result = await backendSave();
+          if (result.no_changes || result.error === 4) {
+            finishSave(true);
+            return;
+          }
+          if (result.error !== undefined && result.error !== 0) {
+            finishSave(false);
+            return;
+          }
+        } catch {
+          finishSave(false);
+          return;
+        }
+      } else {
+        editorRef.current?.serviceCommand("forcesave", "");
+      }
+    })();
+  }, [finishSave, startSavePoll, startSaveTimeout]);
 
   const handleCancel = useCallback(async () => {
     if (isDirty) {

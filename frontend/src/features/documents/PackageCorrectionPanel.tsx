@@ -4,7 +4,7 @@ import { Download, Pencil } from "lucide-react";
 import Badge from "../../components/ui/badge/Badge";
 import Button from "../../components/ui/button/Button";
 import OnlyOfficeEditor, { type OnlyOfficeEditorConfig } from "../documents/OnlyOfficeEditor";
-import { downloadPackageFile, fetchPackageFileEditorConfig, fetchPackageFileRevision } from "../../api/workflow";
+import { downloadPackageFile, fetchPackageFileEditorConfig, fetchPackageFileRevision, forceSavePackageFile } from "../../api/workflow";
 import type { WorkflowFileReview } from "../../api/workflow";
 import { getApiToken } from "../../lib/clerkToken";
 import { ApiError } from "../../api/client";
@@ -157,9 +157,18 @@ export default function PackageCorrectionPanel({ jobId, files }: PackageCorrecti
               fileRevision={editorConfig.file_revision}
               pollFileRevision={async () => {
                 if (!activeCode) return 0;
+                const file = files.find((item) => item.id === activeCode);
+                const code = file?.template_code ?? activeCode;
                 const token = await getApiToken(getToken);
-                const result = await fetchPackageFileRevision(token, jobId, activeCode);
+                const result = await fetchPackageFileRevision(token, jobId, code);
                 return result.revision;
+              }}
+              onBackendForceSave={async () => {
+                if (!activeCode) return { error: 1 };
+                const file = files.find((item) => item.id === activeCode);
+                const code = file?.template_code ?? activeCode;
+                const token = await getApiToken(getToken);
+                return forceSavePackageFile(token, jobId, code);
               }}
               onDocumentSaved={() => void handleSaved()}
               autoFullscreen
