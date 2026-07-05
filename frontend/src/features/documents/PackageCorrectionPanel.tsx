@@ -31,14 +31,14 @@ export default function PackageCorrectionPanel({ jobId, files }: PackageCorrecti
   const [previewUnavailable, setPreviewUnavailable] = useState(false);
 
   const loadEditor = useCallback(
-    async (templateCode: string) => {
-      setActiveCode(templateCode);
+    async (fileReviewId: string) => {
+      setActiveCode(fileReviewId);
       setEditorConfig(null);
       setPreviewUnavailable(false);
       setEditorLoading(true);
       try {
         const token = await getApiToken(getToken);
-        const config = await fetchPackageFileEditorConfig(token, jobId, templateCode, "edit");
+        const config = await fetchPackageFileEditorConfig(token, jobId, fileReviewId, "edit");
         setEditorConfig(config);
       } catch (err) {
         setEditorConfig(null);
@@ -57,10 +57,10 @@ export default function PackageCorrectionPanel({ jobId, files }: PackageCorrecti
     [getToken, jobId, t],
   );
 
-  async function handleDownload(templateCode: string) {
+  async function handleDownload(fileReviewId: string) {
     try {
       const token = await getApiToken(getToken);
-      await downloadPackageFile(token, jobId, templateCode);
+      await downloadPackageFile(token, jobId, fileReviewId);
     } catch (err) {
       showError(
         t("common.error"),
@@ -101,7 +101,7 @@ export default function PackageCorrectionPanel({ jobId, files }: PackageCorrecti
           <tbody className="divide-y divide-gray-200 bg-white dark:divide-gray-800 dark:bg-transparent">
             {files.map((file) => {
               const displayName = file.file_path || file.template_code;
-              const isActive = activeCode === file.template_code;
+              const isActive = activeCode === file.id;
               return (
                 <tr
                   key={file.id}
@@ -120,12 +120,12 @@ export default function PackageCorrectionPanel({ jobId, files }: PackageCorrecti
                       <Button
                         size="sm"
                         variant={isActive ? "primary" : "outline"}
-                        onClick={() => void loadEditor(file.template_code)}
+                        onClick={() => void loadEditor(file.id)}
                       >
                         <Pencil className="mr-1.5 size-4" />
                         {t("documents.openAndEdit")}
                       </Button>
-                      <Button size="sm" variant="outline" onClick={() => void handleDownload(file.template_code)}>
+                      <Button size="sm" variant="outline" onClick={() => void handleDownload(file.id)}>
                         <Download className="mr-1.5 size-4" />
                         {t("documents.downloadZip")}
                       </Button>
@@ -141,7 +141,8 @@ export default function PackageCorrectionPanel({ jobId, files }: PackageCorrecti
       {activeCode ? (
         <div className="rounded-xl border border-gray-200 p-3 dark:border-gray-800">
           <p className="mb-3 text-sm font-medium text-gray-800 dark:text-white/90">
-            {t("documents.editingFile")} : {activeCode}
+            {t("documents.editingFile")} :{" "}
+            {files.find((file) => file.id === activeCode)?.file_path ?? activeCode}
           </p>
           {editorLoading ? (
             <p className="text-sm text-gray-500">{t("documents.onlyofficeLoading")}</p>

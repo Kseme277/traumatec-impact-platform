@@ -109,12 +109,12 @@ export function assignReviewer(token: string | null, jobId: string, reviewerId?:
 export function reviewFile(
   token: string | null,
   jobId: string,
-  templateCode: string,
+  fileReviewId: string,
   status: "approved" | "rejected",
   comment?: string,
 ) {
   return apiFetch<WorkflowState>(
-    `/v1/generations/${jobId}/files/${encodeURIComponent(templateCode)}/review`,
+    `/v1/generations/${jobId}/file-reviews/${fileReviewId}/review`,
     token,
     {
       method: "POST",
@@ -126,11 +126,11 @@ export function reviewFile(
 export function saveFileComment(
   token: string | null,
   jobId: string,
-  templateCode: string,
+  fileReviewId: string,
   comment: string | null,
 ) {
   return apiFetch<WorkflowState>(
-    `/v1/generations/${jobId}/files/${encodeURIComponent(templateCode)}/comment`,
+    `/v1/generations/${jobId}/file-reviews/${fileReviewId}/comment`,
     token,
     {
       method: "POST",

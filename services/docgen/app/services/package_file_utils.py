@@ -25,9 +25,9 @@ def resolve_package_file(job: dict, template_code: str) -> tuple[str, str]:
     if isinstance(trace, dict):
         prefix = trace.get("dossier_prefix") or ""
     for item in trace_package_files(trace):
-        if item.get("template_code") == template_code:
-            arcname = item.get("file_path") or template_code
-            return f"{prefix}{arcname}", arcname
+        if item.get("template_code") == template_code or item.get("file_path") == template_code:
+            arcname = item.get("file_path") or item.get("template_code") or template_code
+            return f"{prefix}{arcname}", str(arcname)
     raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Fichier introuvable dans le paquet")
 
 

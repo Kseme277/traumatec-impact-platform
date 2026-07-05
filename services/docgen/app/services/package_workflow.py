@@ -5,7 +5,7 @@ from __future__ import annotations
 import json
 from datetime import datetime, timezone
 from typing import Any
-from urllib.parse import quote
+from urllib.parse import quote, unquote
 from uuid import UUID
 
 from fastapi import HTTPException, status
@@ -196,7 +196,9 @@ async def _ensure_file_reviews(db: AsyncSession, job: dict[str, Any]) -> list[di
                 INSERT INTO docgen.package_file_reviews
                     (generation_job_id, template_id, template_code, file_path)
                 VALUES (:job_id, :template_id, :template_code, :file_path)
-                ON CONFLICT (generation_job_id, template_code) DO NOTHING
+                ON CONFLICT (generation_job_id, template_code) DO UPDATE SET
+                    file_path = EXCLUDED.file_path,
+                    template_id = COALESCE(EXCLUDED.template_id, docgen.package_file_reviews.template_id)
                 """
             ),
             {
@@ -220,6 +222,75 @@ async def _ensure_file_reviews(db: AsyncSession, job: dict[str, Any]) -> list[di
         {"job_id": str(job["id"])},
     )
     return [dict(row) for row in result.mappings().all()]
+
+
+async def get_file_review_row(db: AsyncSession, job_id: UUID, review_id: UUID) -> dict[str, Any]:
+    result = await db.execute(
+        text(
+            """
+            SELECT id, generation_job_id, template_id, template_code, file_path,
+                   status, comment, reviewed_by_id, reviewed_at, created_at
+            FROM docgen.package_file_reviews
+            WHERE generation_job_id = :job_id AND id = :review_id
+            """
+        ),
+        {"job_id": str(job_id), "review_id": str(review_id)},
+    )
+    row = result.mappings().first()
+    if row is None:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Fichier introuvable dans le paquet")
+    return dict(row)
+
+
+async def resolve_template_code(db: AsyncSession, job_id: UUID, key: str) -> str:
+    """Résout un identifiant de fichier (id UUID, code modèle ou chemin archive)."""
+    raw = unquote(key).strip()
+    if not raw:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Fichier introuvable dans le paquet")
+
+    try:
+        review_id = UUID(raw)
+        result = await db.execute(
+            text(
+                """
+                SELECT template_code
+                FROM docgen.package_file_reviews
+                WHERE generation_job_id = :job_id AND id = :review_id
+                """
+            ),
+            {"job_id": str(job_id), "review_id": str(review_id)},
+        )
+        code = result.scalar_one_or_none()
+        if code:
+            return str(code)
+    except ValueError:
+        pass
+
+    job = await _get_job_row(db, job_id)
+    await _ensure_file_reviews(db, job)
+
+    result = await db.execute(
+        text(
+            """
+            SELECT template_code
+            FROM docgen.package_file_reviews
+            WHERE generation_job_id = :job_id
+              AND (template_code = :key OR file_path = :key)
+            LIMIT 1
+            """
+        ),
+        {"job_id": str(job_id), "key": raw},
+    )
+    code = result.scalar_one_or_none()
+    if code:
+        return str(code)
+
+    trace = job.get("template_versions_json") or {}
+    for item in trace_package_files(trace):
+        if item.get("template_code") == raw or item.get("file_path") == raw:
+            return str(item["template_code"])
+
+    raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Fichier introuvable dans le paquet")
 
 
 async def _validate_validator_user(db: AsyncSession, validator_id: int) -> None:
@@ -391,7 +462,9 @@ async def review_file(
     else:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Revue fichier non active pour cet état")
 
-    await db.execute(
+    resolved_code = await resolve_template_code(db, job_id, template_code)
+
+    result = await db.execute(
         text(
             """
             UPDATE docgen.package_file_reviews
@@ -405,9 +478,11 @@ async def review_file(
             "comment": comment.strip() if comment and comment.strip() else None,
             "user_id": user.id,
             "job_id": str(job_id),
-            "code": template_code,
+            "code": resolved_code,
         },
     )
+    if result.rowcount == 0:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Fichier introuvable dans le paquet")
     await _append_step(
         db,
         job_id=job_id,
@@ -415,7 +490,7 @@ async def review_file(
         action=review_status,
         actor_id=user.id,
         actor_name=_actor_name(user),
-        comment=f"{template_code}: {comment or ''}".strip(),
+        comment=f"{resolved_code}: {comment or ''}".strip(),
     )
     await db.commit()
     return await get_workflow_state(db, job_id)
@@ -442,6 +517,8 @@ async def save_file_comment(
     else:
         raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Remarque fichier non modifiable pour cet état")
 
+    resolved_code = await resolve_template_code(db, job_id, template_code)
+
     result = await db.execute(
         text(
             """
@@ -454,7 +531,7 @@ async def save_file_comment(
         {
             "comment": comment.strip() if comment else None,
             "job_id": str(job_id),
-            "code": template_code,
+            "code": resolved_code,
         },
     )
     if result.scalar_one_or_none() is None:
@@ -672,7 +749,16 @@ async def list_workflow_queue(
     queue_scope: str = "pending",
 ) -> list[dict[str, Any]]:
     if role_filter == "controle":
-        statuses = ("submitted", "under_procedure_review")
+        if queue_scope == "history":
+            statuses = (
+                "procedure_rejected",
+                "procedure_approved",
+                "under_final_validation",
+                "validator_rejected",
+                "approved",
+            )
+        else:
+            statuses = ("submitted", "under_procedure_review")
     elif role_filter == "validateur":
         if queue_scope == "delivery":
             statuses = ("approved",)

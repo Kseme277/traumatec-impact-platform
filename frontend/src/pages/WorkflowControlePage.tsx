@@ -34,6 +34,7 @@ import WorkflowStatusStepper from "../features/documents/WorkflowStatusStepper";
 import WorkflowFileReviewProgress, {
   useFileReviewSummary,
 } from "../features/workflow/WorkflowFileReviewProgress";
+import WorkflowHistoryPanel from "../features/workflow/WorkflowHistoryPanel";
 import { usePagination } from "../hooks/usePagination";
 import { useTranslation } from "../i18n/useTranslation";
 
@@ -51,6 +52,7 @@ export default function WorkflowControlePage() {
   const [validatorId, setValidatorId] = useState("");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [queueScope, setQueueScope] = useState<"pending" | "history">("pending");
 
   const loadQueue = useCallback(async () => {
     setLoading(true);
@@ -58,7 +60,7 @@ export default function WorkflowControlePage() {
     try {
       const token = await getApiToken(getToken);
       const [items, users, validatorUsers] = await Promise.all([
-        fetchWorkflowQueue(token, "controle"),
+        fetchWorkflowQueue(token, "controle", 50, queueScope),
         fetchUsersByRole(token, "controle_procedure"),
         fetchUsersByRole(token, "validateur"),
       ]);
@@ -71,7 +73,7 @@ export default function WorkflowControlePage() {
     } finally {
       setLoading(false);
     }
-  }, [getToken, t]);
+  }, [getToken, queueScope, t]);
 
   const loadJob = useCallback(
     async (jobId: string) => {
@@ -208,12 +210,32 @@ export default function WorkflowControlePage() {
 
       <div className="grid gap-6 xl:grid-cols-[minmax(280px,360px)_1fr]">
         <ComponentCard title={t("workflow.queueControle")}>
+          <div className="mb-4 flex flex-wrap gap-2">
+            <Button
+              size="sm"
+              variant={queueScope === "pending" ? "primary" : "outline"}
+              onClick={() => setQueueScope("pending")}
+            >
+              {t("workflow.queuePending")}
+            </Button>
+            <Button
+              size="sm"
+              variant={queueScope === "history" ? "primary" : "outline"}
+              onClick={() => setQueueScope("history")}
+            >
+              {t("workflow.queueHistory")}
+            </Button>
+          </div>
           {loading ? <TableLoader message={t("common.loading")} /> : null}
           {!loading && queue.length === 0 ? (
             <GuidedEmptyState
               icon={ClipboardList}
               title={t("ux.workflowEmptyTitle")}
-              message={t("ux.workflowEmptyControle")}
+              message={
+                queueScope === "history"
+                  ? t("workflow.historyEmpty")
+                  : t("ux.workflowEmptyControle")
+              }
             >
               <Link to="/documents/generation">
                 <Button size="sm" variant="outline">{t("nav.generation")}</Button>
@@ -272,6 +294,8 @@ export default function WorkflowControlePage() {
                 phaseDueAt={selected.phase_due_at}
                 isOverdue={selected.is_overdue}
               />
+
+              <WorkflowHistoryPanel history={selected.history} />
 
               {selected.workflow_status === "submitted" ? (
                 <div className="space-y-2">
@@ -334,19 +358,6 @@ export default function WorkflowControlePage() {
                 }}
               />
 
-              {selected.history.length > 0 ? (
-                <div className="border-t pt-3 dark:border-gray-800">
-                  <p className="mb-2 text-xs font-medium text-gray-500">{t("workflow.history")}</p>
-                  <ul className="space-y-1 text-xs text-gray-600 dark:text-gray-400">
-                    {selected.history.map((step) => (
-                      <li key={step.id}>
-                        {new Date(step.created_at).toLocaleString()} — {step.actor_name ?? "—"} : {step.action}
-                        {step.comment ? ` (${step.comment})` : ""}
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              ) : null}
             </div>
           )}
         </ComponentCard>

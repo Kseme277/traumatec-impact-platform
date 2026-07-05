@@ -65,14 +65,14 @@ export default function WorkflowFileReviewList({
   const rejectedCount = localFiles.filter((f) => f.status === "rejected").length;
 
   const loadPreview = useCallback(
-    async (templateCode: string) => {
-      setActiveCode(templateCode);
+    async (fileReviewId: string) => {
+      setActiveCode(fileReviewId);
       setEditorConfig(null);
       setPreviewUnavailable(false);
       setEditorLoading(true);
       try {
         const token = await getApiToken(getToken);
-        const config = await fetchPackageFileEditorConfig(token, jobId, templateCode);
+        const config = await fetchPackageFileEditorConfig(token, jobId, fileReviewId);
         setEditorConfig(config);
       } catch (err) {
         setEditorConfig(null);
@@ -99,10 +99,10 @@ export default function WorkflowFileReviewList({
     }
   }, [localFiles.length]);
 
-  async function handleDownload(templateCode: string) {
+  async function handleDownload(fileReviewId: string) {
     try {
       const token = await getApiToken(getToken);
-      await downloadPackageFile(token, jobId, templateCode);
+      await downloadPackageFile(token, jobId, fileReviewId);
     } catch (err) {
       showError(
         t("common.error"),
@@ -111,15 +111,15 @@ export default function WorkflowFileReviewList({
     }
   }
 
-  async function handleSaveRemark(templateCode: string) {
+  async function handleSaveRemark(fileReviewId: string, templateCode: string) {
     const comment = (remarks[templateCode] ?? "").trim();
-    const saved = localFiles.find((f) => f.template_code === templateCode)?.comment?.trim() ?? "";
+    const saved = localFiles.find((f) => f.id === fileReviewId)?.comment?.trim() ?? "";
     if (comment === saved) return;
 
-    setSavingRemark(templateCode);
+    setSavingRemark(fileReviewId);
     try {
       const token = await getApiToken(getToken);
-      const state = await saveFileComment(token, jobId, templateCode, comment || null);
+      const state = await saveFileComment(token, jobId, fileReviewId, comment || null);
       setLocalFiles(state.files);
       syncRemarksFromFiles(state.files);
       onUpdated(state);
@@ -134,7 +134,7 @@ export default function WorkflowFileReviewList({
     }
   }
 
-  async function handleReview(templateCode: string, status: "approved" | "rejected") {
+  async function handleReview(fileReviewId: string, templateCode: string, status: "approved" | "rejected") {
     const comment = (remarks[templateCode] ?? "").trim();
     if (status === "rejected" && !comment) {
       showError(t("common.error"), t("workflow.remarkRequired"));
@@ -147,10 +147,10 @@ export default function WorkflowFileReviewList({
       icon: status === "approved" ? "question" : "warning",
     });
     if (!confirmed.isConfirmed) return;
-    setSubmitting(templateCode);
+    setSubmitting(fileReviewId);
     try {
       const token = await getApiToken(getToken);
-      const state = await reviewFile(token, jobId, templateCode, status, comment || null);
+      const state = await reviewFile(token, jobId, fileReviewId, status, comment || null);
       setLocalFiles(state.files);
       syncRemarksFromFiles(state.files);
       onUpdated(state);
@@ -216,7 +216,7 @@ export default function WorkflowFileReviewList({
           <tbody className="divide-y divide-gray-200 bg-white dark:divide-gray-800 dark:bg-transparent">
             {localFiles.map((file) => {
               const displayName = file.file_path || file.template_code;
-              const isActive = activeCode === file.template_code;
+              const isActive = activeCode === file.id;
               const savedRemark = file.comment?.trim() ?? "";
               const draftRemark = remarks[file.template_code] ?? savedRemark;
               return (
@@ -250,15 +250,15 @@ export default function WorkflowFileReviewList({
                           onChange={(e) =>
                             setRemarks((prev) => ({ ...prev, [file.template_code]: e.target.value }))
                           }
-                          onBlur={() => void handleSaveRemark(file.template_code)}
+                          onBlur={() => void handleSaveRemark(file.id, file.template_code)}
                         />
                         <Button
                           size="sm"
                           variant="outline"
-                          disabled={savingRemark === file.template_code || draftRemark.trim() === savedRemark}
-                          onClick={() => void handleSaveRemark(file.template_code)}
+                          disabled={savingRemark === file.id || draftRemark.trim() === savedRemark}
+                          onClick={() => void handleSaveRemark(file.id, file.template_code)}
                         >
-                          {savingRemark === file.template_code
+                          {savingRemark === file.id
                             ? t("common.saving")
                             : t("workflow.saveRemark")}
                         </Button>
@@ -277,14 +277,14 @@ export default function WorkflowFileReviewList({
                         <Button
                           size="sm"
                           variant={isActive ? "primary" : "outline"}
-                          onClick={() => void loadPreview(file.template_code)}
+                          onClick={() => void loadPreview(file.id)}
                         >
                           {t("workflow.viewFile")}
                         </Button>
                         <Button
                           size="sm"
                           variant="outline"
-                          onClick={() => void handleDownload(file.template_code)}
+                          onClick={() => void handleDownload(file.id)}
                         >
                           {t("common.download")}
                         </Button>
@@ -293,16 +293,16 @@ export default function WorkflowFileReviewList({
                         <div className="flex flex-wrap justify-end gap-2">
                           <Button
                             size="sm"
-                            disabled={submitting === file.template_code}
-                            onClick={() => void handleReview(file.template_code, "approved")}
+                            disabled={submitting === file.id}
+                            onClick={() => void handleReview(file.id, file.template_code, "approved")}
                           >
                             {t("workflow.validateFile")}
                           </Button>
                           <Button
                             size="sm"
                             variant="outline"
-                            disabled={submitting === file.template_code}
-                            onClick={() => void handleReview(file.template_code, "rejected")}
+                            disabled={submitting === file.id}
+                            onClick={() => void handleReview(file.id, file.template_code, "rejected")}
                           >
                             {t("workflow.rejectFile")}
                           </Button>

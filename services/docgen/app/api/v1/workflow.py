@@ -58,7 +58,7 @@ async def get_workflow_stats(
 async def get_workflow_queue(
     role: str = Query("support", pattern="^(support|controle|validateur|admin)$"),
     limit: int = Query(50, ge=1, le=200),
-    queue_scope: str = Query("pending", pattern="^(pending|delivery)$"),
+    queue_scope: str = Query("pending", pattern="^(pending|delivery|history)$"),
     user: AuthenticatedUser = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> list[WorkflowQueueItem]:
@@ -112,6 +112,45 @@ async def list_job_files(
 ) -> list:
     state = await wf.get_workflow_state(db, job_id)
     return state["files"]
+
+
+@router.post("/{job_id}/file-reviews/{review_id}/review", response_model=WorkflowStateResponse)
+async def review_file_by_id(
+    job_id: UUID,
+    review_id: UUID,
+    payload: FileReviewPayload,
+    user: AuthenticatedUser = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> WorkflowStateResponse:
+    row = await wf.get_file_review_row(db, job_id, review_id)
+    state = await wf.review_file(
+        db,
+        job_id,
+        user,
+        str(row["template_code"]),
+        review_status=payload.status,
+        comment=payload.comment,
+    )
+    return WorkflowStateResponse(**state)
+
+
+@router.post("/{job_id}/file-reviews/{review_id}/comment", response_model=WorkflowStateResponse)
+async def save_file_comment_by_id(
+    job_id: UUID,
+    review_id: UUID,
+    payload: FileCommentPayload,
+    user: AuthenticatedUser = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> WorkflowStateResponse:
+    row = await wf.get_file_review_row(db, job_id, review_id)
+    state = await wf.save_file_comment(
+        db,
+        job_id,
+        user,
+        str(row["template_code"]),
+        comment=payload.comment,
+    )
+    return WorkflowStateResponse(**state)
 
 
 @router.post("/{job_id}/files/{template_code:path}/review", response_model=WorkflowStateResponse)
@@ -169,7 +208,8 @@ async def package_file_editor_config(
         from tip_common.event_scope import assert_event_access
 
         assert_event_access(user, job.get("organizer_responsible_user_id"))
-    _, filename = resolve_package_file(job, template_code)
+    resolved_code = await wf.resolve_template_code(db, job_id, template_code)
+    _, filename = resolve_package_file(job, resolved_code)
     if onlyoffice_document_meta(filename) is None:
         raise HTTPException(
             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
@@ -178,7 +218,7 @@ async def package_file_editor_config(
     payload = build_package_file_editor_config(
         settings,
         job_id=job_id,
-        template_code=template_code,
+        template_code=resolved_code,
         filename=filename,
         user_id=str(user.id),
         user_name=f"{user.prenom} {user.nom}".strip(),
@@ -203,7 +243,8 @@ async def package_file_onlyoffice(
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Jeton ONLYOFFICE invalide")
 
     job = await wf._get_job_row(db, job_id)
-    storage_key, filename = resolve_package_file(job, template_code)
+    resolved_code = await wf.resolve_template_code(db, job_id, template_code)
+    storage_key, filename = resolve_package_file(job, resolved_code)
     try:
         data = download_package_file_bytes(settings, storage_key)
     except ClientError as exc:
@@ -230,7 +271,8 @@ async def package_file_download(
     job = await wf._get_job_row(db, job_id)
     if job["status"] != "completed":
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Paquet non généré")
-    storage_key, filename = resolve_package_file(job, template_code)
+    resolved_code = await wf.resolve_template_code(db, job_id, template_code)
+    storage_key, filename = resolve_package_file(job, resolved_code)
     try:
         data = download_package_file_bytes(settings, storage_key)
     except ClientError as exc:
@@ -265,8 +307,9 @@ async def package_file_onlyoffice_callback(
     if wf_status not in wf.EDITABLE_PACKAGE:
         return {"error": 1}
 
+    resolved_code = await wf.resolve_template_code(db, job_id, template_code)
     try:
-        result = await handle_package_file_callback(db, settings, job, template_code, body)
+        result = await handle_package_file_callback(db, settings, job, resolved_code, body)
         if result.get("error") == 0 and body.get("status") == 2:
             background_tasks.add_task(rebuild_job_zip_for_id, job_id)
         return result

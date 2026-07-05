@@ -322,6 +322,13 @@ def _build_safe_pairs(
     pairs: list[tuple[str, str]] = _legacy_template_pairs(context, doc_bytes=doc_bytes)
     pairs.extend(build_replacement_pairs(fields, context))
 
+    from tip_common.french_placeholders import build_french_placeholder_pairs
+
+    for old, new in build_french_placeholder_pairs(context):
+        fitted = _fit_to_sample_width(old, new)
+        if fitted and old != fitted and (old, fitted) not in pairs:
+            pairs.append((old, fitted))
+
     title = (context.get("title_formatted") or context.get("title") or "").strip()
     email = (context.get("responsible_email") or "").strip()
     phone = (context.get("responsible_phone") or "").strip()
