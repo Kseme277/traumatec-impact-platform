@@ -86,6 +86,9 @@ export default function GenerationHistoryPanel({
         const remarksOpen = remarksJobId === job.id;
         const remarksState = remarksByJob[job.id];
         const centralRemark = remarksState ? getCentralRejectComment(remarksState.history) : null;
+        const isApproved = job.workflow_status === "approved";
+        const isRejected =
+          job.workflow_status === "procedure_rejected" || job.workflow_status === "validator_rejected";
 
         return (
           <article
@@ -110,14 +113,21 @@ export default function GenerationHistoryPanel({
               </div>
 
               <div className="flex flex-wrap items-center gap-2">
-                {job.status === "completed" && job.zip_available !== false && onDownload ? (
+                {isApproved && job.status === "completed" && job.zip_available !== false && onDownload ? (
                   <Button type="button" size="sm" variant="outline" onClick={() => onDownload(job)}>
                     <Download className="mr-1.5 size-4" />
-                    ZIP
+                    {t("documents.downloadValidatedPackage")}
                   </Button>
                 ) : null}
-                {job.status === "completed" && job.zip_available === false ? (
+                {isApproved && job.status === "completed" && job.zip_available === false ? (
                   <span className="text-xs text-gray-400">{t("documents.zipExpiredShort")}</span>
+                ) : null}
+                {isRejected && job.status === "completed" ? (
+                  <Link to={`/documents/generation?event=${job.event_id}`}>
+                    <Button type="button" size="sm" variant="outline">
+                      {t("events.packageRegenerateLink")}
+                    </Button>
+                  </Link>
                 ) : null}
                 {job.status === "completed" ? (
                   <Button

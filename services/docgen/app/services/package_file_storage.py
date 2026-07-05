@@ -11,7 +11,7 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings
-from app.services.package_file_onlyoffice import content_type_for_filename, resolve_package_file
+from app.services.package_file_utils import content_type_for_filename, resolve_package_file
 from app.services.package_workflow import trace_package_files
 from tip_common.storage import get_object_storage
 

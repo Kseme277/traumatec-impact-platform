@@ -16,20 +16,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.config import Settings
 from app.services.package_file_storage import file_revision, replace_package_file_bytes
-from app.services.package_workflow import trace_package_files
+from app.services.package_file_utils import CONTENT_TYPES, content_type_for_filename, resolve_package_file
 from tip_common.storage import get_object_storage
 
 logger = logging.getLogger(__name__)
-
-CONTENT_TYPES = {
-    ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-    ".doc": "application/msword",
-    ".xlsx": "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-    ".xls": "application/vnd.ms-excel",
-    ".pptx": "application/vnd.openxmlformats-officedocument.presentationml.presentation",
-    ".pdf": "application/pdf",
-    ".txt": "text/plain; charset=utf-8",
-}
 
 DOCX_FALLBACK = "application/vnd.openxmlformats-officedocument.wordprocessingml.document"
 XLSX_FALLBACK = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
@@ -60,18 +50,6 @@ def verify_access_token(
         return False
     expected = _sign(settings.onlyoffice_file_secret, job_id, template_code, purpose, expires)
     return hmac.compare_digest(expected, signature)
-
-
-def resolve_package_file(job: dict, template_code: str) -> tuple[str, str]:
-    trace = job.get("template_versions_json") or {}
-    prefix = ""
-    if isinstance(trace, dict):
-        prefix = trace.get("dossier_prefix") or ""
-    for item in trace_package_files(trace):
-        if item.get("template_code") == template_code:
-            arcname = item.get("file_path") or template_code
-            return f"{prefix}{arcname}", arcname
-    raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Fichier introuvable dans le paquet")
 
 
 def onlyoffice_document_meta(filename: str) -> tuple[str, str, str] | None:
@@ -158,11 +136,6 @@ def build_package_file_editor_config(
 def download_package_file_bytes(settings: Settings, storage_key: str) -> bytes:
     storage = get_object_storage(settings)
     return storage.download_bytes(storage_key)
-
-
-def content_type_for_filename(filename: str) -> str:
-    ext = Path(filename).suffix.lower()
-    return CONTENT_TYPES.get(ext, "application/octet-stream")
 
 
 async def handle_package_file_callback(

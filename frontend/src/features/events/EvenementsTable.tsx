@@ -1,5 +1,6 @@
 import { Link } from "react-router";
-import { ArrowDown, ArrowUp, ArrowUpDown, CalendarDays, Eye, Check, Trash2, FileArchive } from "lucide-react";
+import { ArrowDown, ArrowUp, ArrowUpDown, CalendarDays, Eye, Check, Trash2, FileArchive, Download } from "lucide-react";
+import { useAuth } from "@clerk/clerk-react";
 import Button from "../../components/ui/button/Button";
 import GuidedEmptyState from "../../components/common/GuidedEmptyState";
 import {
@@ -19,10 +20,12 @@ import { formatDateRangeFr } from "./eventDates";
 import ProjectStatusBadge from "./ProjectStatusBadge";
 import Badge from "../../components/ui/badge/Badge";
 import { getPackageGenerationUrgency, needsPackageGenerationHighlight } from "./packageGenerationUrgency";
-import { hasGeneratedPackage, isEventPackageApproved } from "../documents/eventWorkflowUi";
+import { hasGeneratedPackage, isEventPackageApproved, isEventPackageRejected } from "../documents/eventWorkflowUi";
 import { workflowStatusLabel, type WorkflowStatus } from "../auth/types";
 import { workflowStatusBadgeColor } from "../documents/workflowStatusVisual";
 import { isEventOpen } from "./projectStatus";
+import { downloadGenerationZip } from "../../api/docgen";
+import { getApiToken } from "../../lib/clerkToken";
 
 interface EvenementsTableProps {
   events: Evenement[];
@@ -72,7 +75,22 @@ export default function EvenementsTable({
   onImportClick,
 }: EvenementsTableProps) {
   const { t } = useTranslation();
+  const { getToken } = useAuth();
   const { scopesEventsToOrganizer } = useTipAuth();
+
+  const handleDownloadPackage = async (event: Evenement) => {
+    if (!event.latest_package_job_id) return;
+    try {
+      const token = await getApiToken(getToken);
+      await downloadGenerationZip(
+        token,
+        event.latest_package_job_id,
+        event.latest_package_zip_filename ?? "paquet.zip",
+      );
+    } catch {
+      // download errors surfaced by API layer
+    }
+  };
 
   const sortableColumns: SortableColumn[] = [
     { key: "project_number", label: t("events.tableProject") },
@@ -147,8 +165,13 @@ export default function EvenementsTable({
               const packageUrgent = needsPackageGenerationHighlight(event);
               const urgency = getPackageGenerationUrgency(event);
               const validated = isEventPackageApproved(event);
+              const rejected = isEventPackageRejected(event);
               const packageGenerated = hasGeneratedPackage(event);
               const workflowStatus = event.latest_package_workflow as WorkflowStatus | undefined;
+              const canDownloadApproved =
+                validated &&
+                event.latest_package_job_id &&
+                event.latest_package_zip_available !== false;
               return (
               <TableRow
                 key={event.id}
@@ -197,7 +220,30 @@ export default function EvenementsTable({
                       {t("events.packageDueLink")}
                     </Link>
                   )}
-                  {packageGenerated && !packageUrgent && (
+                  {!packageUrgent && rejected && (
+                    <Link
+                      to={`/documents/generation?event=${event.id}`}
+                      className="mt-1 inline-block text-theme-xs text-brand-600/90 hover:text-brand-600 hover:underline dark:text-brand-400"
+                    >
+                      {t("events.packageRegenerateLink")}
+                    </Link>
+                  )}
+                  {!packageUrgent && canDownloadApproved && (
+                    <button
+                      type="button"
+                      onClick={() => void handleDownloadPackage(event)}
+                      className="mt-1 inline-flex items-center gap-1 text-theme-xs text-brand-600/90 hover:text-brand-600 hover:underline dark:text-brand-400"
+                    >
+                      <Download className="size-3" aria-hidden />
+                      {t("documents.downloadValidatedPackage")}
+                    </button>
+                  )}
+                  {!packageUrgent && validated && event.latest_package_zip_available === false && (
+                    <span className="mt-1 block text-theme-xs text-gray-400 dark:text-gray-500">
+                      {t("documents.zipExpiredShort")}
+                    </span>
+                  )}
+                  {packageGenerated && !packageUrgent && !rejected && !validated && (
                     <Link
                       to={`/evenements/${event.id}`}
                       className="mt-1 inline-flex items-center gap-1 text-theme-xs text-gray-600 hover:text-brand-600 hover:underline dark:text-gray-400 dark:hover:text-brand-400"

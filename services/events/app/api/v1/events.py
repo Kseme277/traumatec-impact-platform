@@ -61,18 +61,26 @@ def _event_payload_for_classify(event: Event) -> dict:
     }
 
 
+def _apply_latest_package_meta(updates: dict, latest_package: dict | None) -> None:
+    if latest_package is None:
+        return
+    updates["latest_package_workflow"] = latest_package["workflow_status"]
+    updates["latest_package_job_id"] = UUID(latest_package["job_id"])
+    updates["latest_package_zip_available"] = latest_package["zip_available"]
+    updates["latest_package_zip_filename"] = latest_package["zip_filename"]
+
+
 def _event_to_response(
     event: Event,
     teachers: list[Teacher] | None = None,
     *,
-    latest_package_workflow: str | None = None,
+    latest_package: dict | None = None,
 ) -> EventResponse:
     response = EventResponse.model_validate(event)
     teacher_items = [TeacherResponse.model_validate(t) for t in (teachers or [])]
     inferred = describe_inferred_event_package(**_event_payload_for_classify(event))
     updates: dict = {"teachers": teacher_items}
-    if latest_package_workflow is not None:
-        updates["latest_package_workflow"] = latest_package_workflow
+    _apply_latest_package_meta(updates, latest_package)
     if inferred:
         updates["inferred_package"] = InferredEventPackage.model_validate(inferred)
         return response.model_copy(update=updates)
@@ -106,14 +114,12 @@ async def _event_to_response_async(event: Event, db: AsyncSession) -> EventRespo
     from tip_common.nvidia_event_classifier import classify_event_package
 
     teachers = await _load_event_teachers(db, event.id)
-    workflows = await _load_latest_package_workflows(db, [event.id])
+    package_meta = await _load_latest_package_meta(db, [event.id])
     response = EventResponse.model_validate(event)
     teacher_items = [TeacherResponse.model_validate(t) for t in teachers]
     inferred = await classify_event_package(_event_payload_for_classify(event))
-    updates: dict = {
-        "teachers": teacher_items,
-        "latest_package_workflow": workflows.get(str(event.id)),
-    }
+    updates: dict = {"teachers": teacher_items}
+    _apply_latest_package_meta(updates, package_meta.get(str(event.id)))
     if inferred:
         updates["inferred_package"] = InferredEventPackage.model_validate(inferred)
     return response.model_copy(update=updates)
@@ -256,17 +262,18 @@ async def _notify_admins_if_event_ready(
     event.generation_ready_notified_at = datetime.now(timezone.utc)
 
 
-async def _load_latest_package_workflows(db: AsyncSession, event_ids: list[UUID]) -> dict[str, str]:
+async def _load_latest_package_meta(db: AsyncSession, event_ids: list[UUID]) -> dict[str, dict]:
     if not event_ids:
         return {}
-    from sqlalchemy import text
-
     result = await db.execute(
         text(
             """
             SELECT DISTINCT ON (event_id)
                    event_id::text AS event_id,
-                   workflow_status
+                   workflow_status,
+                   id::text AS job_id,
+                   (zip_path IS NOT NULL) AS zip_available,
+                   zip_filename
             FROM docgen.generation_jobs
             WHERE event_id = ANY(CAST(:ids AS uuid[]))
               AND status = 'completed'
@@ -275,7 +282,15 @@ async def _load_latest_package_workflows(db: AsyncSession, event_ids: list[UUID]
         ),
         {"ids": [str(event_id) for event_id in event_ids]},
     )
-    return {row.event_id: row.workflow_status for row in result.mappings().all()}
+    return {
+        row["event_id"]: {
+            "workflow_status": row["workflow_status"],
+            "job_id": row["job_id"],
+            "zip_available": bool(row["zip_available"]),
+            "zip_filename": row["zip_filename"],
+        }
+        for row in result.mappings().all()
+    }
 
 
 async def _list_events_impl(
@@ -331,12 +346,12 @@ async def _list_events_impl(
     total = (await db.execute(count_query)).scalar_one()
     result = await db.execute(query)
     items = result.scalars().all()
-    workflows = await _load_latest_package_workflows(db, [event.id for event in items])
+    package_meta = await _load_latest_package_meta(db, [event.id for event in items])
     return EventListResponse(
         items=[
             _event_to_response(
                 event,
-                latest_package_workflow=workflows.get(str(event.id)),
+                latest_package=package_meta.get(str(event.id)),
             )
             for event in items
         ],

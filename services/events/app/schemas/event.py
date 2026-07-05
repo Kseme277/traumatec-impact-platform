@@ -124,6 +124,9 @@ class EventResponse(BaseModel):
     updated_at: datetime
     inferred_package: InferredEventPackage | None = None
     latest_package_workflow: str | None = None
+    latest_package_job_id: UUID | None = None
+    latest_package_zip_available: bool | None = None
+    latest_package_zip_filename: str | None = None
 
 
 class EventListResponse(BaseModel):

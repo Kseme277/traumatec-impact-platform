@@ -66,6 +66,9 @@ export interface Evenement {
   updated_at: string;
   inferred_package?: InferredEventPackage | null;
   latest_package_workflow?: string | null;
+  latest_package_job_id?: string | null;
+  latest_package_zip_available?: boolean | null;
+  latest_package_zip_filename?: string | null;
 }
 
 export interface EvenementPayload {
