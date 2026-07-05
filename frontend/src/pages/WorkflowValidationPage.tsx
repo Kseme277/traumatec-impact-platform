@@ -299,7 +299,9 @@ export default function WorkflowValidationPage() {
                 jobId={selected.job_id}
                 files={selected.files}
                 canReview={!!canReviewFiles}
-                onUpdated={() => void loadJob(selected.job_id)}
+                onUpdated={(state) => {
+                  setSelected(state);
+                }}
               />
 
               {selected.history.length > 0 ? (

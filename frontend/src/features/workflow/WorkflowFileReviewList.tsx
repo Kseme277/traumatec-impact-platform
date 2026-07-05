@@ -8,7 +8,7 @@ import {
   fetchPackageFileEditorConfig,
   reviewFile,
 } from "../../api/workflow";
-import type { WorkflowFileReview } from "../../api/workflow";
+import type { WorkflowFileReview, WorkflowState } from "../../api/workflow";
 import { getApiToken } from "../../lib/clerkToken";
 import { ApiError } from "../../api/client";
 import { confirmAction, showError, showSuccess } from "../../lib/swal";
@@ -18,7 +18,7 @@ interface WorkflowFileReviewListProps {
   jobId: string;
   files: WorkflowFileReview[];
   canReview: boolean;
-  onUpdated: () => void;
+  onUpdated: (state: WorkflowState) => void;
 }
 
 function fileStatusColor(status: WorkflowFileReview["status"]) {
@@ -41,10 +41,15 @@ export default function WorkflowFileReviewList({
   const [previewUnavailable, setPreviewUnavailable] = useState(false);
   const [remarks, setRemarks] = useState<Record<string, string>>({});
   const [submitting, setSubmitting] = useState<string | null>(null);
+  const [localFiles, setLocalFiles] = useState(files);
 
-  const reviewedCount = files.filter((f) => f.status !== "pending").length;
-  const approvedCount = files.filter((f) => f.status === "approved").length;
-  const rejectedCount = files.filter((f) => f.status === "rejected").length;
+  useEffect(() => {
+    setLocalFiles(files);
+  }, [files]);
+
+  const reviewedCount = localFiles.filter((f) => f.status !== "pending").length;
+  const approvedCount = localFiles.filter((f) => f.status === "approved").length;
+  const rejectedCount = localFiles.filter((f) => f.status === "rejected").length;
 
   useEffect(() => {
     setRemarks((prev) => {
@@ -86,12 +91,12 @@ export default function WorkflowFileReviewList({
   );
 
   useEffect(() => {
-    if (files.length === 0) {
+    if (localFiles.length === 0) {
       setActiveCode(null);
       setEditorConfig(null);
       setPreviewUnavailable(false);
     }
-  }, [files.length]);
+  }, [localFiles.length]);
 
   async function handleDownload(templateCode: string) {
     try {
@@ -121,9 +126,10 @@ export default function WorkflowFileReviewList({
     setSubmitting(templateCode);
     try {
       const token = await getApiToken(getToken);
-      await reviewFile(token, jobId, templateCode, status, comment || undefined);
-      showSuccess(status === "approved" ? t("workflow.fileApproved") : t("workflow.fileRejected"));
-      onUpdated();
+      const state = await reviewFile(token, jobId, templateCode, status, comment || undefined);
+      setLocalFiles(state.files);
+      onUpdated(state);
+      void showSuccess(status === "approved" ? t("workflow.fileApproved") : t("workflow.fileRejected"));
     } catch (err) {
       showError(
         t("common.error"),
@@ -134,11 +140,9 @@ export default function WorkflowFileReviewList({
     }
   }
 
-  if (files.length === 0) {
+  if (localFiles.length === 0) {
     return <p className="text-sm text-gray-500">{t("workflow.noFiles")}</p>;
   }
-
-  const activeFile = files.find((f) => f.template_code === activeCode);
 
   return (
     <div className="space-y-4">
@@ -151,7 +155,7 @@ export default function WorkflowFileReviewList({
         </div>
         <div className="flex flex-wrap items-center gap-2">
           <Badge color="light" size="sm">
-            {reviewedCount}/{files.length} {t("workflow.filesReviewed")}
+            {reviewedCount}/{localFiles.length} {t("workflow.filesReviewed")}
           </Badge>
           {approvedCount > 0 ? (
             <Badge color="success" size="sm">
@@ -185,7 +189,7 @@ export default function WorkflowFileReviewList({
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-200 bg-white dark:divide-gray-800 dark:bg-transparent">
-            {files.map((file) => {
+            {localFiles.map((file) => {
               const displayName = file.file_path || file.template_code;
               const isActive = activeCode === file.template_code;
               const savedRemark = file.comment?.trim() ?? "";
@@ -275,52 +279,41 @@ export default function WorkflowFileReviewList({
         </table>
       </div>
 
-      {activeCode ? (
-        <div className="rounded-xl border border-gray-200 dark:border-gray-800">
-          <div className="flex flex-wrap items-center justify-between gap-2 border-b border-gray-200 p-3 dark:border-gray-800">
-            <div className="min-w-0">
-              <p className="text-sm font-medium break-all">
-                {activeFile?.file_path || activeCode}
-              </p>
-              {activeFile?.comment ? (
-                <p className="mt-1 text-xs text-gray-500">
-                  {t("workflow.remark")} : {activeFile.comment}
-                </p>
-              ) : null}
-            </div>
+      {activeCode && editorLoading ? (
+        <div className="fixed inset-0 z-[100000] flex items-center justify-center bg-white/95 dark:bg-gray-900/95">
+          <p className="text-sm text-gray-500 dark:text-gray-400">{t("documents.onlyofficeLoading")}</p>
+        </div>
+      ) : null}
+
+      {activeCode && !editorLoading && editorConfig ? (
+        <OnlyOfficeEditor
+          editorConfig={editorConfig}
+          autoFullscreen
+          onClose={() => {
+            setActiveCode(null);
+            setEditorConfig(null);
+            setPreviewUnavailable(false);
+          }}
+        />
+      ) : null}
+
+      {activeCode && !editorLoading && previewUnavailable ? (
+        <div className="fixed inset-0 z-[100000] flex flex-col items-center justify-center gap-4 bg-white p-6 dark:bg-gray-900">
+          <p className="text-sm text-gray-600 dark:text-gray-300">{t("workflow.previewUnavailable")}</p>
+          <div className="flex flex-wrap gap-2">
+            <Button size="sm" onClick={() => void handleDownload(activeCode)}>
+              {t("common.download")}
+            </Button>
             <Button
               size="sm"
               variant="outline"
               onClick={() => {
                 setActiveCode(null);
-                setEditorConfig(null);
                 setPreviewUnavailable(false);
               }}
             >
               {t("documents.closeEditor")}
             </Button>
-          </div>
-          <div className="min-h-[280px] p-2">
-            {editorLoading ? (
-              <p className="p-4 text-sm text-gray-500">{t("documents.onlyofficeLoading")}</p>
-            ) : editorConfig ? (
-              <OnlyOfficeEditor
-                editorConfig={editorConfig}
-                className="min-h-[480px]"
-                onClose={() => {
-                  setActiveCode(null);
-                  setEditorConfig(null);
-                  setPreviewUnavailable(false);
-                }}
-              />
-            ) : previewUnavailable ? (
-              <div className="space-y-3 p-4">
-                <p className="text-sm text-gray-500">{t("workflow.previewUnavailable")}</p>
-                <Button size="sm" onClick={() => void handleDownload(activeCode)}>
-                  {t("common.download")}
-                </Button>
-              </div>
-            ) : null}
           </div>
         </div>
       ) : null}
