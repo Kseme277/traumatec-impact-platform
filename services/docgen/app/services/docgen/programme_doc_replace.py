@@ -404,7 +404,7 @@ def _build_welcome_paragraph_replacement(
     title_part = title_part.ljust(57)[:57]
 
     country_full = _normalize_for_doc_text(_country_to_fr(country) or country.strip())
-    ending = f"à {city.strip()}, {country_full}."
+    ending = f" à {city.strip()}, {country_full}."
     if len(ending) < len(marker):
         ending = ending.ljust(len(marker))
 
@@ -419,8 +419,6 @@ def _build_welcome_paragraph_replacement(
     middle = middle.replace(" santé comm ", " santé comm. ")
     if middle.endswith(" comm"):
         middle = f"{middle}."
-    if not middle.endswith(" "):
-        middle = f"{middle} "
     middle = middle.ljust(middle_budget)[:middle_budget]
     new_para = f"{prefix}{title_part}\xa0:{middle}{ending}"
     if len(new_para) != len(old_para):
