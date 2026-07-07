@@ -34,7 +34,6 @@ sudo ufw allow OpenSSH
 sudo ufw allow 80/tcp
 sudo ufw allow 443/tcp
 sudo ufw allow 3101/tcp
-sudo ufw allow 3102/tcp
 sudo ufw --force enable
 
 echo "==> Code source ($BRANCH)"
