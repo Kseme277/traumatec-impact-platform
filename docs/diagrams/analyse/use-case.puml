@@ -1,12 +1,12 @@
 @startuml tip-use-case
 !include ../_common.puml
 left to right direction
-skinparam nodesep 80
-skinparam ranksep 75
+skinparam nodesep 55
+skinparam ranksep 50
 skinparam usecase {
   BackgroundColor #EEF2FF
   BorderColor #334155
-  FontSize 11
+  FontSize 10
 }
 
 actor "Utilisateur interne" as USER <<abstract>>
@@ -27,37 +27,56 @@ VAL -[hidden]down- ADM
 
 rectangle "Traumatec Impact Platform (TIP)" as TIP {
 
+  ' --- Colonne 1 : tableau de bord & événements ---
   usecase "Consulter le\ntableau de bord" as UC01
-  usecase "Gérer les\névénements" as UC02
+  usecase "Gérer la fiche\névénement" as UC02
   usecase "Importer le\nplan annuel" as UC03
   usecase "Importer les\nparticipants" as UC04
 
+  ' --- Colonne 2 : sous-cas imports & génération ---
+  usecase "Télécharger le\nmodèle Excel" as UC03a
   usecase "S'authentifier" as UC00
   usecase "Générer le paquet\ndocumentaire" as UC05
+  usecase "Suivre le statut\nde génération" as UC05a
+  usecase "Consulter l'historique\ndes générations" as UC05b
   usecase "Télécharger\nle ZIP" as UC06
+
+  ' --- Colonne 3 : workflow qualité ---
   usecase "Soumettre\nau contrôle" as UC07
   usecase "Contrôler le paquet" as UC08
   usecase "Valider\nle paquet" as UC09
 
-  usecase "Gérer les templates\net types de paquet" as UC10
+  ' --- Colonne 4 : administration ---
+  usecase "Gérer les templates\nde paquet" as UC10
+  usecase "Gérer catégories\net types de paquet" as UC13
   usecase "Gérer les\nutilisateurs" as UC11
+  usecase "Inviter un\nutilisateur" as UC11a
+  usecase "Gérer les\nréférentiels" as UC14
   usecase "Consulter\nl'audit" as UC12
+  usecase "Accéder à\nGuideHub" as UC16
 
   UC01 -[hidden]down- UC02
   UC02 -[hidden]down- UC03
   UC03 -[hidden]down- UC04
 
-  UC01 -[hidden]right- UC00
+  UC01 -[hidden]right- UC03a
+  UC03a -[hidden]down- UC00
   UC00 -[hidden]down- UC05
-  UC05 -[hidden]down- UC07
+  UC05 -[hidden]down- UC05a
+  UC05a -[hidden]down- UC05b
+  UC05b -[hidden]down- UC06
+
+  UC01 -[hidden]right- UC07
   UC07 -[hidden]down- UC08
   UC08 -[hidden]down- UC09
 
   UC01 -[hidden]right- UC10
-  UC10 -[hidden]down- UC11
-  UC11 -[hidden]down- UC12
-
-  UC05 -[hidden]right- UC06
+  UC10 -[hidden]down- UC13
+  UC13 -[hidden]down- UC11
+  UC11 -[hidden]down- UC11a
+  UC11a -[hidden]down- UC14
+  UC14 -[hidden]down- UC12
+  UC12 -[hidden]down- UC16
 }
 
 USER --> UC00
@@ -66,26 +85,46 @@ USER --> UC01
 SA --> UC02
 SA --> UC04
 SA --> UC05
+SA --> UC05a
+SA --> UC05b
+SA --> UC06
 SA --> UC07
 
+CP --> UC05b
 CP --> UC08
+
+VAL --> UC05b
 VAL --> UC09
 
 ADM --> UC03
+ADM --> UC03a
 ADM --> UC10
+ADM --> UC13
 ADM --> UC11
+ADM --> UC11a
+ADM --> UC14
 ADM --> UC12
+ADM --> UC16
 
 note top of UC00
   Tous les cas métier
   **<<include>>** S'authentifier
 end note
 
-UC05 ..> UC06 : <<include>>
+UC03a ..> UC03 : <<extend>>
+UC03a ..> UC04 : <<extend>>
 UC03 ..> UC02 : <<extend>>
 UC04 ..> UC02 : <<extend>>
+
+UC05a ..> UC05 : <<include>>
+UC06 ..> UC05 : <<include>>
+
+UC05b ..> UC05 : <<extend>>
 UC07 ..> UC05 : <<extend>>
 UC08 ..> UC07 : <<extend>>
 UC09 ..> UC08 : <<extend>>
+
+UC11a ..> UC11 : <<extend>>
+UC16 ..> UC01 : <<extend>>
 
 @enduml
