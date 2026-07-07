@@ -1,12 +1,12 @@
 @startuml tip-use-case
 !include ../_common.puml
 left to right direction
-skinparam nodesep 50
-skinparam ranksep 45
+skinparam nodesep 35
+skinparam ranksep 35
 skinparam usecase {
   BackgroundColor #EEF2FF
   BorderColor #334155
-  FontSize 12
+  FontSize 11
 }
 
 actor "Utilisateur interne" as USER <<abstract>>
@@ -23,29 +23,68 @@ USER <|-- ADM
 rectangle "Traumatec Impact Platform (TIP)" as TIP {
 
   usecase "S'authentifier" as UC00
+
   usecase "Consulter le\ntableau de bord" as UC01
-  usecase "Gérer les événements" as UC02
-  usecase "Importer participants\nou plan annuel" as UC03
-  usecase "Générer le paquet\ndocumentaire" as UC04
-  usecase "Contrôler et\nvalider le paquet" as UC05
-  usecase "Administrer templates,\nutilisateurs et audit" as UC06
+  usecase "Gérer les\névénements" as UC02
+  usecase "Importer le\nplan annuel" as UC03
+  usecase "Importer les\nparticipants" as UC04
+  usecase "Générer le paquet\ndocumentaire" as UC05
+  usecase "Télécharger\nle ZIP" as UC06
+  usecase "Soumettre\nau contrôle" as UC07
+  usecase "Contrôler le paquet" as UC08
+  usecase "Valider\nle paquet" as UC09
+  usecase "Gérer les templates\net types de paquet" as UC10
+  usecase "Gérer les\nutilisateurs" as UC11
+  usecase "Consulter\nl'audit" as UC12
+
+  UC01 -[hidden]up- UC00
+  UC02 -[hidden]left- UC00
+  UC03 -[hidden]left- UC02
+  UC04 -[hidden]down- UC02
+  UC05 -[hidden]down- UC00
+  UC06 -[hidden]right- UC05
+  UC07 -[hidden]down- UC05
+  UC08 -[hidden]right- UC07
+  UC09 -[hidden]down- UC08
+  UC10 -[hidden]up- UC00
+  UC11 -[hidden]up- UC10
+  UC12 -[hidden]right- UC11
 }
 
 USER --> UC00
 USER --> UC01
 
 SA --> UC02
-SA --> UC03
 SA --> UC04
+SA --> UC05
+SA --> UC07
 
-CP --> UC05
-VAL --> UC05
+CP --> UC08
+VAL --> UC09
 
-ADM --> UC06
+ADM --> UC03
+ADM --> UC10
+ADM --> UC11
+ADM --> UC12
 
-note bottom of TIP
-  Chaque cas métier inclut
-  l'authentification préalable
-end note
+UC01 ..> UC00 : <<include>>
+UC02 ..> UC00 : <<include>>
+UC03 ..> UC00 : <<include>>
+UC04 ..> UC00 : <<include>>
+UC05 ..> UC00 : <<include>>
+UC06 ..> UC00 : <<include>>
+UC07 ..> UC00 : <<include>>
+UC08 ..> UC00 : <<include>>
+UC09 ..> UC00 : <<include>>
+UC10 ..> UC00 : <<include>>
+UC11 ..> UC00 : <<include>>
+UC12 ..> UC00 : <<include>>
+
+UC05 ..> UC06 : <<include>>
+UC03 ..> UC02 : <<extend>>
+UC04 ..> UC02 : <<extend>>
+UC07 ..> UC05 : <<extend>>
+UC08 ..> UC07 : <<extend>>
+UC09 ..> UC08 : <<extend>>
 
 @enduml
