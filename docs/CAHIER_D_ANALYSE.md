@@ -165,7 +165,7 @@ Un même utilisateur peut cumuler plusieurs rôles.
 
 *Source PlantUML : `docs/diagrams/analyse/use-case.puml`*
 
-Le diagramme regroupe tous les cas dans le périmètre **Traumatec Impact Platform (TIP)**. L'acteur abstrait **Utilisateur interne** est spécialisé par héritage en quatre rôles. **S'authentifier** est le prérequis de tous les cas métier (noté en bas du diagramme). Les relations `<<include>>` et `<<extend>>` modélisent les dépendances entre cas (génération → téléchargement, workflow qualité).
+Le diagramme regroupe tous les cas dans le périmètre **Traumatec Impact Platform (TIP)**. L'acteur abstrait **Utilisateur interne** est spécialisé par héritage en quatre rôles. **S'authentifier** est au centre du diagramme : chaque cas métier le **inclut** (`<<include>>`). Les relations `<<extend>>` modélisent les dépendances optionnelles (imports, workflow qualité).
 
 ### 3.4. Description textuelle des cas d'utilisation
 
