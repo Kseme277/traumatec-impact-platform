@@ -1,0 +1,147 @@
+@startuml tip-class-analysis
+!include ../_common.puml
+hide methods
+skinparam nodesep 75
+skinparam ranksep 70
+skinparam classFontSize 11
+
+class Utilisateur {
+  id
+  clerkId
+  email
+  nom
+  prenom
+  role
+  estActif
+}
+
+class Role {
+  code
+  libelle
+}
+
+class Notification {
+  id
+  type
+  title
+  body
+  readAt
+}
+
+class ImportAnnuel {
+  id
+  year
+  filename
+  rowCount
+  errorReport
+}
+
+class Evenement {
+  id
+  projectNumber
+  title
+  preparationTheme
+  packageType
+  status
+  startDate
+  endDate
+  country
+  city
+}
+
+class Participant {
+  id
+  fullName
+  hospital
+  email
+  statut
+}
+
+class JobGeneration {
+  id
+  status
+  workflowStatus
+  zipPath
+  zipFilename
+  certificateCount
+  createdAt
+}
+
+class RevueFichier {
+  id
+  templateCode
+  status
+  comment
+  reviewedAt
+}
+
+class JeuCertificats {
+  id
+  code
+  name
+  preparationTheme
+}
+
+class CategorieActivite {
+  code
+  label
+  sortOrder
+  isBuiltin
+}
+
+class TypePaquet {
+  code
+  label
+  activityKind
+  durationDays
+  preparationTheme
+}
+
+class PackageBundle {
+  id
+  packageType
+  version
+  isActive
+  zipPath
+}
+
+class PackageTemplate {
+  id
+  code
+  name
+  documentType
+  filePath
+}
+
+' Bande 1 — identité
+Utilisateur -[hidden]right- Role
+Role -[hidden]right- Notification
+
+' Bande 2 — événements (cœur métier)
+ImportAnnuel -[hidden]right- Evenement
+Evenement -[hidden]right- Participant
+Participant -[hidden]right- JobGeneration
+JobGeneration -[hidden]right- RevueFichier
+
+' Bande 3 — catalogue
+CategorieActivite -[hidden]right- TypePaquet
+TypePaquet -[hidden]right- PackageBundle
+PackageBundle -[hidden]right- PackageTemplate
+PackageTemplate -[hidden]right- JeuCertificats
+
+Utilisateur -[hidden]down- ImportAnnuel
+Evenement -[hidden]down- CategorieActivite
+
+Utilisateur "1" -down-> "0..*" Role : possède
+Utilisateur "1" -down-> "0..*" Notification : reçoit
+Utilisateur "1" -down-> "0..*" Evenement : organise
+ImportAnnuel "1" -down-> "0..*" Evenement : alimente
+Evenement "1" -down-> "1..*" Participant : contient
+Evenement "1" -right-> "0..*" JobGeneration : produit
+JobGeneration "1" -down-> "0..*" RevueFichier : contrôle
+CategorieActivite "1" -down-> "1..*" TypePaquet : regroupe
+PackageBundle "1" -down-> "1..*" PackageTemplate : contient
+TypePaquet -down-> PackageBundle : <<type>>
+Evenement -down-> JeuCertificats : <<utilise>>
+
+@enduml

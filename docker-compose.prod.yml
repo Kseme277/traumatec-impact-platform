@@ -12,12 +12,22 @@ services:
 
   minio:
     ports: !reset []
+    environment:
+      MINIO_BROWSER_REDIRECT_URL: ${APP_PUBLIC_URL}/infra/minio/
 
   prometheus:
     ports: !reset []
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --web.enable-lifecycle
+      - --web.external-url=${APP_PUBLIC_URL}/infra/prometheus/
 
   grafana:
     ports: !reset []
+    environment:
+      GF_SERVER_ROOT_URL: ${APP_PUBLIC_URL}/infra/grafana/
+      GF_SERVER_SERVE_FROM_SUB_PATH: "true"
 
   cadvisor:
     ports: !reset []

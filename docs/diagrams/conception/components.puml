@@ -1,0 +1,89 @@
+@startuml tip-components
+!include ../_common.puml
+skinparam componentStyle rectangle
+top to bottom direction
+skinparam nodesep 40
+skinparam ranksep 45
+
+cloud "Services externes" as EXT {
+  [Clerk] as CLERK
+  [GuideHub] as GH
+  [Mistral API] as MISTRAL
+  CLERK -[hidden]right- GH
+  GH -[hidden]right- MISTRAL
+}
+
+rectangle "Traumatec Impact Platform" as TIP {
+
+  [Frontend React] as FE
+  [Nginx] as NGX
+
+  together {
+    [identity-service] as ID
+    [events-service] as EV
+    [catalog-service] as CA
+    [docgen-service] as DG
+    [analytics-service] as AN
+    ID -[hidden]right- EV
+    EV -[hidden]right- CA
+    CA -[hidden]right- DG
+    DG -[hidden]right- AN
+  }
+
+  [tip-common] as TC
+  [docgen-worker] as WORKER
+  [docgen-gc] as GC
+  [ONLYOFFICE] as OO
+
+  together {
+    database "base de données" as PG
+    database "Redis" as REDIS
+    database "MinIO" as MINIO
+    PG -[hidden]right- REDIS
+    REDIS -[hidden]right- MINIO
+  }
+
+  FE -[hidden]down- NGX
+  NGX -[hidden]down- ID
+  ID -[hidden]down- TC
+  TC -[hidden]down- WORKER
+  WORKER -[hidden]down- PG
+}
+
+FE --> NGX
+NGX --> ID
+NGX --> EV
+NGX --> CA
+NGX --> DG
+NGX --> AN
+NGX --> OO
+NGX ..> GH
+
+ID --> TC
+EV --> TC
+CA --> TC
+DG --> TC
+AN --> TC
+
+ID --> PG
+EV --> PG
+CA --> PG
+DG --> PG
+
+DG --> REDIS
+WORKER --> REDIS
+WORKER --> MINIO
+CA --> MINIO
+DG --> MINIO
+GC --> MINIO
+
+ID --> CLERK
+EV ..> MISTRAL
+CA ..> MISTRAL
+
+DG ..> EV
+DG ..> CA
+AN ..> EV
+DG --> WORKER
+
+@enduml

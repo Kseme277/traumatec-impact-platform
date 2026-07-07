@@ -292,10 +292,20 @@ class ClerkClient:
                 response.text,
             )
             return None
-        token = response.json().get("token")
-        if isinstance(token, str) and token.strip():
-            return self._accept_invitation_url_with_ticket(token.strip())
-        return response.json().get("url")
+        try:
+            payload = response.json()
+        except ValueError:
+            logger.error("Réponse Clerk sign_in_tokens invalide pour %s", clerk_id)
+            return None
+        if not isinstance(payload, dict):
+            return None
+        clerk_url = payload.get("url")
+        if isinstance(clerk_url, str) and clerk_url.strip():
+            return clerk_url.strip()
+        ticket = payload.get("token")
+        if isinstance(ticket, str) and ticket.strip():
+            return self._accept_invitation_url_with_ticket(ticket.strip())
+        return None
 
     async def _create_invitation(
         self,

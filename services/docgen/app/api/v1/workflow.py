@@ -45,6 +45,7 @@ from tip_common.security import (
     require_can_submit,
     require_can_validate_final,
 )
+from tip_common.upload_validation import read_upload_bounded
 
 router = APIRouter()
 stats_router = APIRouter()
@@ -360,14 +361,9 @@ async def package_file_upload_correction(
             detail=f"Extension attendue : {expected_ext or 'inconnue'}",
         )
 
-    raw = await file.read()
+    raw = await read_upload_bounded(file, max_bytes=_MAX_CORRECTION_UPLOAD_BYTES)
     if not raw:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Fichier vide.")
-    if len(raw) > _MAX_CORRECTION_UPLOAD_BYTES:
-        raise HTTPException(
-            status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
-            detail="Fichier trop volumineux (max 50 Mo).",
-        )
 
     trace = await replace_package_file_bytes(
         db,

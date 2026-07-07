@@ -14,6 +14,7 @@ from app.services.excel_import import build_annual_plan_template_xlsx
 from app.services.import_jobs import import_job_store
 from tip_common.audit import record_audit_event
 from tip_common.security import AuthenticatedUser, require_admin
+from tip_common.upload_validation import read_validated_excel
 
 router = APIRouter()
 
@@ -46,7 +47,7 @@ async def import_annual_plan(
             detail="Fichier Excel requis (.xlsx)",
         )
 
-    content = await file.read()
+    content = await read_validated_excel(file)
     await record_audit_event(
         db,
         actor_id=user.id,

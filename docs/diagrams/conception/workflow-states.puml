@@ -1,0 +1,26 @@
+@startuml tip-workflow-states
+!include ../_common.puml
+skinparam state {
+  BackgroundColor #EEF2FF
+  BorderColor #334155
+  ArrowColor #334155
+}
+
+[*] --> generated : DocGen terminé
+
+generated --> submitted : Support soumet
+procedure_rejected --> submitted : Resoumission
+validator_rejected --> submitted : Resoumission
+
+submitted --> under_procedure_review : Contrôleur prend en charge
+
+under_procedure_review --> procedure_approved : Contrôle OK
+under_procedure_review --> procedure_rejected : Rejet
+
+procedure_approved --> under_final_validation : Passage validateur
+
+under_final_validation --> approved : Validation OK
+under_final_validation --> validator_rejected : Rejet
+
+approved --> [*]
+@enduml

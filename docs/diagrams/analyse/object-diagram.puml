@@ -1,0 +1,84 @@
+@startuml tip-object-diagram
+!include ../_common.puml
+skinparam object {
+  BackgroundColor #F8FAFC
+  BorderColor #334155
+  FontSize 11
+}
+skinparam nodesep 85
+skinparam ranksep 75
+
+object "u1 : Utilisateur" as u1 {
+  prenom = Eric
+  nom = Seme
+  role = support_administratif
+}
+
+object "bundle1 : PackageBundle" as bundle1 {
+  packageType = OP_S
+  version = 2
+  isActive = true
+}
+
+object "evt1 : Evenement" as evt1 {
+  title = "Séminaire Op S — Douala"
+  projectNumber = "AOA-2026-014"
+  preparationTheme = operatory
+  packageType = OP_S
+  status = ready
+}
+
+object "job1 : JobGeneration" as job1 {
+  status = completed
+  workflowStatus = submitted
+  zipFilename = "AOA-2026-014_...zip"
+  certificateCount = 12
+}
+
+object "part1 : Participant" as part1 {
+  fullName = "Dr. Marie Nguema"
+  hospital = "Hôpital Central"
+}
+
+object "part2 : Participant" as part2 {
+  fullName = "Dr. Paul Owona"
+  hospital = "CHU"
+}
+
+object "rev1 : RevueFichier" as rev1 {
+  templateCode = 01_Accord
+  status = approved
+}
+
+object "u2 : Utilisateur" as u2 {
+  prenom = Prospère
+  nom = Magloire
+  role = controle_procedure
+}
+
+' Ligne 1
+u1 -[hidden]right- evt1
+evt1 -[hidden]right- job1
+
+' Ligne 2
+bundle1 -[hidden]right- part1
+part1 -[hidden]right- part2
+part2 -[hidden]right- rev1
+
+' Ligne 3
+u2 -[hidden]right- rev1
+
+u1 -[hidden]down- bundle1
+evt1 -[hidden]down- part1
+job1 -[hidden]down- rev1
+
+u1 "1" -right-> "1" evt1 : organise
+bundle1 "1" -right-> "1" evt1 : modèle actif
+evt1 "1" -right-> "1" job1 : génère
+u1 "1" -down-> "1" job1 : demande
+u2 "1" -up-> "1" job1 : contrôle
+evt1 "1" -down-> "1" part1 : contient
+evt1 "1" -down-> "1" part2 : contient
+job1 "1" -down-> "1" rev1 : contrôle
+
+@enduml

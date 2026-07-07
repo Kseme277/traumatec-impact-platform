@@ -55,6 +55,17 @@ if [ ! -f .env ]; then
   exit 1
 fi
 
+# shellcheck disable=SC1091
+set -a
+source .env
+set +a
+
+if [ -n "${INFRA_BASIC_AUTH_PASSWORD:-}" ]; then
+  INFRA_USER="${INFRA_BASIC_AUTH_USER:-infra}"
+  htpasswd -nbB "$INFRA_USER" "$INFRA_BASIC_AUTH_PASSWORD" > infra/nginx/snippets/.htpasswd-infra
+  echo "==> Auth infra nginx mise à jour ($INFRA_USER)"
+fi
+
 echo "==> Build & démarrage"
 $COMPOSE pull --ignore-buildable 2>/dev/null || true
 $COMPOSE build --pull

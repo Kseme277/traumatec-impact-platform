@@ -1,0 +1,14 @@
+@startuml tip-seq-utilisateur
+!include ../_common.puml
+actor Administrateur
+participant "Système TIP" as SYS
+
+Administrateur -> SYS : Ouvrir la gestion des utilisateurs
+Administrateur -> SYS : Inviter un utilisateur (email, rôles)
+SYS -> SYS : Créer le compte et enregistrer le profil
+alt Invitation envoyée
+  SYS --> Administrateur : Confirmation (compte en attente)
+else Données invalides
+  SYS --> Administrateur : Message d'erreur
+end
+@enduml

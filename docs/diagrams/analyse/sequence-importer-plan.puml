@@ -1,0 +1,16 @@
+@startuml tip-seq-import-plan
+!include ../_common.puml
+actor Administrateur
+participant "Système TIP" as SYS
+
+Administrateur -> SYS : Télécharger le modèle d'import
+SYS --> Administrateur : Fichier modèle événements
+Administrateur -> SYS : Importer le plan annuel rempli
+SYS -> SYS : Valider format et lignes du fichier
+alt Import valide
+  SYS -> SYS : Enregistrer les événements en BD
+  SYS --> Administrateur : Rapport (lignes importées / erreurs)
+else Fichier invalide
+  SYS --> Administrateur : Rapport d'erreurs détaillé
+end
+@enduml

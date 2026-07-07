@@ -1,0 +1,69 @@
+@startuml tip-deployment
+!include ../_common.puml
+skinparam componentStyle rectangle
+top to bottom direction
+skinparam nodesep 40
+skinparam ranksep 45
+
+actor Utilisateur
+
+cloud "Environnement externe" as EXT {
+  node "Clerk" as CLERK
+  node "GuideHub" as GH
+  CLERK -[hidden]right- GH
+}
+
+node "Serveur de production" as SERVEUR {
+
+  [Nginx] as NGX
+  [Frontend React] as FE
+  NGX -[hidden]right- FE
+
+  together {
+    [identity-service] as ID
+    [events-service] as EV
+    [catalog-service] as CA
+    [docgen-service] as DG
+    [docgen-worker] as WORKER
+    [ONLYOFFICE] as OO
+    ID -[hidden]right- EV
+    EV -[hidden]right- CA
+    CA -[hidden]right- DG
+    DG -[hidden]right- WORKER
+    WORKER -[hidden]right- OO
+  }
+
+  together {
+    database "base de données" as PG
+    database "Redis" as REDIS
+    database "MinIO" as MINIO
+    PG -[hidden]right- REDIS
+    REDIS -[hidden]right- MINIO
+  }
+
+  NGX -[hidden]down- ID
+  ID -[hidden]down- PG
+}
+
+Utilisateur --> NGX
+NGX --> FE
+NGX --> ID
+NGX --> EV
+NGX --> CA
+NGX --> DG
+NGX --> OO
+NGX ..> GH
+
+ID --> CLERK
+ID --> PG
+EV --> PG
+CA --> PG
+CA --> MINIO
+DG --> PG
+DG --> REDIS
+DG --> MINIO
+DG --> WORKER
+WORKER --> REDIS
+WORKER --> MINIO
+
+@enduml

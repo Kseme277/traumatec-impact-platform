@@ -1,0 +1,24 @@
+@startuml tip-seq-workflow
+!include ../_common.puml
+actor "Support administratif" as SA
+participant "Système TIP" as SYS
+actor "Contrôleur de procédure" as CP
+actor Validateur as VAL
+
+SA -> SYS : Soumettre le paquet généré
+SYS -> SYS : Mettre à jour l'état (soumis)
+SYS --> CP : Notifier nouvelle soumission
+
+CP -> SYS : Consulter la file de contrôle
+CP -> SYS : Revue fichier par fichier
+alt Contrôle approuvé
+  SYS -> SYS : Mettre à jour l'état (procédure approuvée)
+  SYS --> VAL : Notifier validation finale
+  VAL -> SYS : Approuver le paquet
+  SYS -> SYS : Mettre à jour l'état (approuvé)
+  SYS --> VAL : Confirmer la validation
+else Contrôle rejeté
+  SYS -> SYS : Mettre à jour l'état (procédure rejetée)
+  SYS --> SA : Notifier le rejet
+end
+@enduml

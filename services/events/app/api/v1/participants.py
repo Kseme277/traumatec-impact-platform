@@ -28,6 +28,7 @@ from tip_common.audit import record_audit_event
 from tip_common.participant_identity import dedupe_participant_records, participant_identity_key
 from tip_common.redis_cache import invalidate_prefix
 from tip_common.security import AuthenticatedUser, get_current_user
+from tip_common.upload_validation import read_validated_excel
 
 router = APIRouter()
 
@@ -233,7 +234,7 @@ async def import_participants(
             detail=f"Format Excel (.xlsx) requis. {REGISTRATION_COLUMNS_HELP}",
         )
 
-    content = await file.read()
+    content = await read_validated_excel(file)
     try:
         parsed_rows, warnings, source_event_title = parse_registration_workbook(
             content,

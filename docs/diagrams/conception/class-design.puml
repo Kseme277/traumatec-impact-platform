@@ -1,0 +1,163 @@
+@startuml tip-class-design
+!include ../_common.puml
+skinparam nodesep 55
+skinparam ranksep 55
+top to bottom direction
+
+class Utilisateur {
+  +id: int
+  +identifiant_externe: str
+  +email: str
+  +nom: str
+  +prenom: str
+  +role: str
+  +est_actif: bool
+  +is_admin(): bool
+  +possede_role(role: str): bool
+}
+
+class Notification {
+  +id: UUID
+  +type: str
+  +title: str
+  +body: str
+  +read_at: datetime
+  +marquer_lue(): void
+}
+
+class ServiceAuthentification {
+  +verifier_jeton(jeton: str): str
+  +decoder_profil(jeton: str): dict
+}
+
+class AnnualImport {
+  +id: UUID
+  +year: int
+  +filename: str
+  +row_count: int
+  +valider_lignes(): list[str]
+}
+
+class Event {
+  +id: UUID
+  +project_number: str
+  +title: str
+  +preparation_theme: str
+  +package_type: str
+  +status: str
+  +start_date: date
+  +end_date: date
+  +metadata_json: dict
+  +budget_json: dict
+  +est_pret_pour_generation(): bool
+}
+
+class Participant {
+  +id: UUID
+  +event_id: UUID
+  +full_name: str
+  +hospital: str
+  +email: str
+  +statut: str
+}
+
+class PackageBundle {
+  +id: UUID
+  +package_type: str
+  +version: int
+  +is_active: bool
+  +zip_path: str
+  +activer(): void
+  +desactiver(): void
+}
+
+class PackageTemplate {
+  +id: UUID
+  +code: str
+  +name: str
+  +document_type: str
+  +file_path: str
+  +remplacer_fichier(data: bytes): void
+}
+
+class CertificateTemplateSet {
+  +id: UUID
+  +code: str
+  +name: str
+  +preparation_theme: str
+}
+
+class GenerationJob {
+  +id: UUID
+  +event_id: UUID
+  +status: str
+  +workflow_status: str
+  +zip_path: str
+  +certificate_count: int
+  +soumettre(reviewer_id: int): void
+  +telecharger(): bytes
+}
+
+class PackageFileReview {
+  +id: UUID
+  +generation_job_id: UUID
+  +template_code: str
+  +status: str
+  +comment: str
+  +approuver(comment: str): void
+  +rejeter(comment: str): void
+}
+
+class PackageWorkflowStep {
+  +id: UUID
+  +generation_job_id: UUID
+  +step: str
+  +action: str
+  +actor_id: int
+  +created_at: datetime
+}
+
+class PipelineGeneration {
+  +generer_paquet(job_id: UUID, event_id: UUID): tuple
+  +executer_job(job_id: str): void
+  +rendre_document(modele: bytes, contexte: dict): bytes
+}
+
+class ServiceWorkflow {
+  +soumettre(job_id: UUID, reviewer_id: int): dict
+  +reviser_fichier(job_id: UUID, code: str, statut: str): dict
+  +valider_procedure(job_id: UUID, validator_id: int): dict
+  +approuver_final(job_id: UUID): dict
+  +etat_workflow(job_id: UUID): dict
+}
+
+Utilisateur -[hidden]right- Notification
+Notification -[hidden]right- ServiceAuthentification
+AnnualImport -[hidden]right- Event
+Event -[hidden]right- Participant
+PackageBundle -[hidden]right- PackageTemplate
+PackageTemplate -[hidden]right- CertificateTemplateSet
+GenerationJob -[hidden]right- PackageFileReview
+PackageFileReview -[hidden]right- PackageWorkflowStep
+PackageWorkflowStep -[hidden]right- PipelineGeneration
+PipelineGeneration -[hidden]right- ServiceWorkflow
+
+Utilisateur -[hidden]down- AnnualImport
+Event -[hidden]down- PackageBundle
+PackageBundle -[hidden]down- GenerationJob
+
+Utilisateur "1" -down-> "0..*" Notification : reçoit
+Utilisateur "1" -down-> "0..*" Event : organise
+Utilisateur "1" -down-> "0..*" GenerationJob : demande
+AnnualImport "1" -down-> "0..*" Event : alimente
+Event "1" -down-> "1..*" Participant : contient
+Event "1" -right-> "0..*" GenerationJob : produit
+Event ..> CertificateTemplateSet : <<utilise>>
+PackageBundle "1" -down-> "1..*" PackageTemplate : contient
+GenerationJob "1" -down-> "0..*" PackageFileReview : contrôle
+GenerationJob "1" -down-> "1..*" PackageWorkflowStep : historise
+PipelineGeneration ..> GenerationJob : <<exécute>>
+ServiceWorkflow ..> GenerationJob : <<pilote>>
+ServiceAuthentification ..> Utilisateur : <<authentifie>>
+
+@enduml

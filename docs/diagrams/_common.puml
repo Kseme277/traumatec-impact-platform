@@ -1,0 +1,24 @@
+' Styles communs TIP — lignes droites (orthogonales), pas de courbes
+skinparam linetype ortho
+skinparam shadowing false
+skinparam roundcorner 4
+skinparam ArrowColor #334155
+skinparam LineColor #334155
+skinparam BackgroundColor white
+skinparam nodesep 50
+skinparam ranksep 50
+skinparam classAttributeIconSize 0
+skinparam classBackgroundColor #F8FAFC
+skinparam classBorderColor #334155
+skinparam componentBackgroundColor #F8FAFC
+skinparam componentBorderColor #334155
+skinparam packageBackgroundColor #FFFFFF
+skinparam packageBorderColor #64748B
+skinparam usecaseBackgroundColor #EEF2FF
+skinparam usecaseBorderColor #334155
+skinparam actorStyle awesome
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+skinparam SequenceLifeLineBackgroundColor #F8FAFC
+skinparam ParticipantPadding 24
+skinparam BoxPadding 12

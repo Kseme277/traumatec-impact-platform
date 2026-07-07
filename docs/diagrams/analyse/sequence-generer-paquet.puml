@@ -1,0 +1,19 @@
+@startuml tip-seq-generer-paquet
+!include ../_common.puml
+actor "Support administratif" as SA
+participant "Système TIP" as SYS
+
+SA -> SYS : Ouvrir la fiche événement
+SA -> SYS : Vérifier participants et modèles
+SA -> SYS : Lancer la génération du paquet
+SYS -> SYS : Vérifier les prérequis
+alt Prérequis satisfaits
+  SYS -> SYS : Traiter la génération en arrière-plan
+  SYS --> SA : Afficher la progression
+  SYS --> SA : Notifier la fin de génération
+  SA -> SYS : Télécharger le paquet
+  SYS --> SA : Fichier ZIP conforme
+else Prérequis manquants
+  SYS --> SA : Message d'erreur explicite
+end
+@enduml

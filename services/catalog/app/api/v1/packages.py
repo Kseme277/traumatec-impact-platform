@@ -43,6 +43,7 @@ from app.services.package_type_catalog import (
 )
 from tip_common.package_types import PACKAGE_TYPE_SPECS
 from tip_common.security import AuthenticatedUser, get_current_user, require_admin
+from tip_common.upload_validation import read_validated_zip
 
 router = APIRouter()
 
@@ -270,9 +271,7 @@ async def upload_package_zip(
             detail="Fichier ZIP requis (.zip).",
         )
 
-    raw = await file.read()
-    if not raw:
-        raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="Fichier ZIP vide.")
+    raw = await read_validated_zip(file)
 
     use_ai = use_ai or _upload_scan_use_ai()
     job = await package_import_job_store.create(

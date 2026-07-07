@@ -11,6 +11,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import Settings
 from app.models.catalog import PackageTemplate
 from tip_common.storage import get_object_storage
+from tip_common.upload_validation import (
+    read_validated_document,
+)
 
 ALLOWED_SUFFIXES = {".docx", ".doc", ".odt"}
 
@@ -46,15 +49,8 @@ async def replace_template_file(
     file: UploadFile,
 ) -> PackageTemplate:
     template = await get_template_or_404(db, template_id)
-    raw_name = file.filename or "template.docx"
+    data, raw_name = await read_validated_document(file, allowed_suffixes=ALLOWED_SUFFIXES)
     path = Path(raw_name)
-    if path.suffix.lower() not in ALLOWED_SUFFIXES:
-        raise ValueError("Format accepté : .docx, .doc ou .odt")
-
-    data = await file.read()
-    if not data:
-        raise ValueError("Fichier vide")
-
     ext = path.suffix.lower()
     storage = get_object_storage(settings)
     storage.upload_bytes(template.file_path, data, content_type=_content_type(path))

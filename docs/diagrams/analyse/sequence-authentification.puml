@@ -1,0 +1,15 @@
+@startuml tip-seq-auth
+!include ../_common.puml
+actor Utilisateur
+participant "Système TIP" as SYS
+
+Utilisateur -> SYS : Ouvrir l'application
+SYS --> Utilisateur : Afficher page de connexion
+Utilisateur -> SYS : Saisir identifiants
+SYS -> SYS : Vérifier identité et charger profil + rôles
+alt Authentification réussie
+  SYS --> Utilisateur : Accéder au tableau de bord (selon rôle)
+else Échec authentification
+  SYS --> Utilisateur : Afficher message d'erreur
+end
+@enduml
