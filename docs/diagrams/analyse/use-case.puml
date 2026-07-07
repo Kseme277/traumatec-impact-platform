@@ -1,8 +1,8 @@
 @startuml tip-use-case
 !include ../_common.puml
 left to right direction
-skinparam nodesep 35
-skinparam ranksep 35
+skinparam nodesep 80
+skinparam ranksep 75
 skinparam usecase {
   BackgroundColor #EEF2FF
   BorderColor #334155
@@ -20,35 +20,44 @@ USER <|-- CP
 USER <|-- VAL
 USER <|-- ADM
 
-rectangle "Traumatec Impact Platform (TIP)" as TIP {
+USER -[hidden]down- SA
+SA -[hidden]down- CP
+CP -[hidden]down- VAL
+VAL -[hidden]down- ADM
 
-  usecase "S'authentifier" as UC00
+rectangle "Traumatec Impact Platform (TIP)" as TIP {
 
   usecase "Consulter le\ntableau de bord" as UC01
   usecase "Gérer les\névénements" as UC02
   usecase "Importer le\nplan annuel" as UC03
   usecase "Importer les\nparticipants" as UC04
+
+  usecase "S'authentifier" as UC00
   usecase "Générer le paquet\ndocumentaire" as UC05
   usecase "Télécharger\nle ZIP" as UC06
   usecase "Soumettre\nau contrôle" as UC07
   usecase "Contrôler le paquet" as UC08
   usecase "Valider\nle paquet" as UC09
+
   usecase "Gérer les templates\net types de paquet" as UC10
   usecase "Gérer les\nutilisateurs" as UC11
   usecase "Consulter\nl'audit" as UC12
 
-  UC01 -[hidden]up- UC00
-  UC02 -[hidden]left- UC00
-  UC03 -[hidden]left- UC02
-  UC04 -[hidden]down- UC02
-  UC05 -[hidden]down- UC00
-  UC06 -[hidden]right- UC05
-  UC07 -[hidden]down- UC05
-  UC08 -[hidden]right- UC07
-  UC09 -[hidden]down- UC08
-  UC10 -[hidden]up- UC00
-  UC11 -[hidden]up- UC10
-  UC12 -[hidden]right- UC11
+  UC01 -[hidden]down- UC02
+  UC02 -[hidden]down- UC03
+  UC03 -[hidden]down- UC04
+
+  UC01 -[hidden]right- UC00
+  UC00 -[hidden]down- UC05
+  UC05 -[hidden]down- UC07
+  UC07 -[hidden]down- UC08
+  UC08 -[hidden]down- UC09
+
+  UC01 -[hidden]right- UC10
+  UC10 -[hidden]down- UC11
+  UC11 -[hidden]down- UC12
+
+  UC05 -[hidden]right- UC06
 }
 
 USER --> UC00
@@ -67,18 +76,10 @@ ADM --> UC10
 ADM --> UC11
 ADM --> UC12
 
-UC01 ..> UC00 : <<include>>
-UC02 ..> UC00 : <<include>>
-UC03 ..> UC00 : <<include>>
-UC04 ..> UC00 : <<include>>
-UC05 ..> UC00 : <<include>>
-UC06 ..> UC00 : <<include>>
-UC07 ..> UC00 : <<include>>
-UC08 ..> UC00 : <<include>>
-UC09 ..> UC00 : <<include>>
-UC10 ..> UC00 : <<include>>
-UC11 ..> UC00 : <<include>>
-UC12 ..> UC00 : <<include>>
+note top of UC00
+  Tous les cas métier
+  **<<include>>** S'authentifier
+end note
 
 UC05 ..> UC06 : <<include>>
 UC03 ..> UC02 : <<extend>>
