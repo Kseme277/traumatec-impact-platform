@@ -55,13 +55,22 @@ if [ ! -f .env ]; then
   exit 1
 fi
 
-# shellcheck disable=SC1091
-set -a
-source .env
-set +a
+_env_get() {
+  local key="$1"
+  if grep -q "^${key}=" .env 2>/dev/null; then
+    grep "^${key}=" .env | tail -1 | cut -d= -f2- | sed -e 's/^"\(.*\)"$/\1/' -e "s/^'\(.*\)'$/\1/"
+  fi
+}
+
+INFRA_BASIC_AUTH_PASSWORD="$(_env_get INFRA_BASIC_AUTH_PASSWORD)"
+INFRA_BASIC_AUTH_USER="$(_env_get INFRA_BASIC_AUTH_USER)"
 
 if [ -n "${INFRA_BASIC_AUTH_PASSWORD:-}" ]; then
   INFRA_USER="${INFRA_BASIC_AUTH_USER:-infra}"
+  if ! command -v htpasswd >/dev/null 2>&1; then
+    sudo apt-get update -qq
+    sudo apt-get install -y apache2-utils
+  fi
   htpasswd -nbB "$INFRA_USER" "$INFRA_BASIC_AUTH_PASSWORD" > infra/nginx/snippets/.htpasswd-infra
   echo "==> Auth infra nginx mise à jour ($INFRA_USER)"
 fi
