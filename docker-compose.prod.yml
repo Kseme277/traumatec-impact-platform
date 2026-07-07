@@ -14,7 +14,6 @@ services:
     ports: !reset []
     environment:
       MINIO_BROWSER_REDIRECT_URL: ${APP_PUBLIC_URL}/infra/minio/
-      MINIO_SERVER_URL: ${APP_PUBLIC_URL}/infra/minio-api
 
   prometheus:
     ports: !reset []
