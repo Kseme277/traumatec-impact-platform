@@ -17,11 +17,6 @@ services:
 
   prometheus:
     ports: !reset []
-    command:
-      - --config.file=/etc/prometheus/prometheus.yml
-      - --storage.tsdb.path=/prometheus
-      - --web.enable-lifecycle
-      - --web.external-url=${APP_PUBLIC_URL}/infra/prometheus/
 
   grafana:
     ports: !reset []
