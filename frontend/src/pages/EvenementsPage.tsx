@@ -46,20 +46,6 @@ export default function EvenementsPage() {
   const { isAdmin, scopesEventsToOrganizer } = useTipAuth();
   const [searchParams] = useSearchParams();
   const importModal = useModal();
-  const {
-    events,
-    total,
-    stats,
-    isLoading,
-    isStatsLoading,
-    isSubmitting,
-    importProgress,
-    loadEvents,
-    loadStats,
-    close,
-    remove,
-    importExcel,
-  } = useEvents();
   const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
   const [projectStatus, setProjectStatus] = useState("");
@@ -93,6 +79,19 @@ export default function EvenementsPage() {
     [search, projectStatus, country, sortBy, sortDir],
   );
 
+  const {
+    events,
+    total,
+    stats,
+    isLoading,
+    isStatsLoading,
+    isSubmitting,
+    importProgress,
+    close,
+    remove,
+    importExcel,
+  } = useEvents({ filters, withStats: true });
+
   const handleSort = useCallback((field: EventSortField) => {
     setSortDir((prevDir) => nextSortDir(sortBy, field, prevDir));
     setSortBy(field);
@@ -103,14 +102,6 @@ export default function EvenementsPage() {
     setSortBy(parsed.field);
     setSortDir(parsed.dir);
   }, []);
-
-  useEffect(() => {
-    void loadEvents(filters);
-  }, [loadEvents, filters]);
-
-  useEffect(() => {
-    void loadStats();
-  }, [loadStats]);
 
   const paginationKey = `${search}|${projectStatus}|${country}|${sortBy}|${sortDir}|${events.length}`;
   const {
@@ -136,7 +127,6 @@ export default function EvenementsPage() {
     const result = await importExcel(file);
     importModal.closeModal();
     if (result) {
-      await loadEvents(filters);
       await showSuccess(
         t("events.importDone"),
         `${result.imported_count.toLocaleString(localeTag)} ${t("events.importDoneDesc")}`,
@@ -145,13 +135,11 @@ export default function EvenementsPage() {
   };
 
   const handleClose = async (event: Parameters<typeof close>[0]) => {
-    const ok = await close(event);
-    if (ok) await loadEvents(filters);
+    await close(event);
   };
 
   const handleDelete = async (event: Parameters<typeof remove>[0]) => {
-    const ok = await remove(event);
-    if (ok) await loadEvents(filters);
+    await remove(event);
   };
 
   return (

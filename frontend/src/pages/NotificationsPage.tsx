@@ -1,6 +1,6 @@
 import { useAuth } from "@clerk/clerk-react";
 import { Bell } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { useState } from "react";
 import { Link } from "react-router";
 import AdminBreadcrumb from "../components/common/AdminBreadcrumb";
 import ComponentCard from "../components/common/ComponentCard";
@@ -13,7 +13,6 @@ import {
   fetchUnreadCount,
   markAllNotificationsRead,
   markNotificationRead,
-  type TipNotification,
 } from "../api/notifications";
 import { ApiError } from "../api/client";
 import { getApiToken } from "../lib/clerkToken";
@@ -21,47 +20,41 @@ import { formatRelativeTime } from "../lib/formatRelativeTime";
 import { notificationVisual } from "../features/notifications/notificationVisual";
 import { useTranslation } from "../i18n/useTranslation";
 import { confirmAction, showError } from "../lib/swal";
+import { revalidateTipKeys, useTipSWR } from "../lib/swr";
 
 const POLL_MS = 30_000;
 
 export default function NotificationsPage() {
   const { getToken } = useAuth();
   const { t, localeTag } = useTranslation();
-  const [items, setItems] = useState<TipNotification[]>([]);
-  const [unreadTotal, setUnreadTotal] = useState(0);
   const [filter, setFilter] = useState<"all" | "unread">("all");
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
 
-  const load = useCallback(async () => {
-    try {
-      const token = await getApiToken(getToken);
-      const [data, countRes] = await Promise.all([
+  const { data, isLoading, error, mutate } = useTipSWR(
+    ["notifications", filter] as const,
+    async (token) => {
+      const [list, countRes] = await Promise.all([
         fetchNotifications(token, filter === "unread", 100),
         fetchUnreadCount(token),
       ]);
-      setItems(data);
-      setUnreadTotal(countRes.count);
-      setError(null);
-    } catch (err: unknown) {
-      setError(err instanceof ApiError ? err.message : t("notifications.loadError"));
-    } finally {
-      setIsLoading(false);
-    }
-  }, [filter, getToken, t]);
+      return { items: list, unreadTotal: countRes.count };
+    },
+    { refreshInterval: POLL_MS },
+  );
 
-  useEffect(() => {
-    void load();
-    const timer = window.setInterval(() => void load(), POLL_MS);
-    return () => window.clearInterval(timer);
-  }, [load]);
-
-  const unreadCount = unreadTotal;
+  const items = data?.items ?? [];
+  const unreadCount = data?.unreadTotal ?? 0;
+  const showLoading = isLoading && !data;
+  const errorMessage = error
+    ? error instanceof ApiError
+      ? error.message
+      : t("notifications.loadError")
+    : null;
 
   async function handleRead(id: string) {
     const token = await getApiToken(getToken);
     await markNotificationRead(token, id);
-    await load();
+    await mutate();
+    await revalidateTipKeys("notifications-dropdown");
   }
 
   async function handleReadAll() {
@@ -75,7 +68,8 @@ export default function NotificationsPage() {
     try {
       const token = await getApiToken(getToken);
       await markAllNotificationsRead(token);
-      await load();
+      await mutate();
+      await revalidateTipKeys("notifications-dropdown");
     } catch (err: unknown) {
       await showError(t("common.error"), err instanceof ApiError ? err.message : t("notifications.loadError"));
     }
@@ -137,12 +131,12 @@ export default function NotificationsPage() {
       </div>
 
       <ComponentCard>
-        {isLoading && items.length === 0 ? (
+        {showLoading ? (
           <SpinnerLoader message={t("common.loading")} />
         ) : null}
-        {error ? <p className="mb-4 text-sm text-error-600 dark:text-error-400">{error}</p> : null}
+        {errorMessage ? <p className="mb-4 text-sm text-error-600 dark:text-error-400">{errorMessage}</p> : null}
 
-        {items.length === 0 && !isLoading ? (
+        {items.length === 0 && !showLoading ? (
           <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-gray-200 px-6 py-16 text-center dark:border-gray-700">
             <span className="mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-gray-100 text-gray-400 dark:bg-gray-800 dark:text-gray-500">
               <Bell className="h-6 w-6" strokeWidth={1.75} />

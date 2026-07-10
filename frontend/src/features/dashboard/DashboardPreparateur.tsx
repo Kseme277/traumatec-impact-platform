@@ -1,4 +1,3 @@
-import { useEffect } from "react";
 import { Link } from "react-router";
 import PageMeta from "../../components/common/PageMeta";
 import Button from "../../components/ui/button/Button";
@@ -14,11 +13,7 @@ import RecentGenerationsPanel from "./RecentGenerationsPanel";
 export default function DashboardPreparateur() {
   const { t } = useTranslation();
   const { tipUser } = useTipAuth();
-  const { stats, loadStats, isStatsLoading } = useEvents();
-
-  useEffect(() => {
-    void loadStats();
-  }, [loadStats]);
+  const { stats, isStatsLoading } = useEvents({ withStats: true });
 
   return (
     <>

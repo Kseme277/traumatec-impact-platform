@@ -1,6 +1,6 @@
 import { useAuth } from "@clerk/clerk-react";
 import { Plug, RefreshCw } from "lucide-react";
-import { FormEvent, useCallback, useEffect, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import AdminBreadcrumb from "../../components/common/AdminBreadcrumb";
 import ComponentCard from "../../components/common/ComponentCard";
 import HelpTipAlert from "../../components/common/HelpTipAlert";
@@ -14,56 +14,57 @@ import {
   fetchGuidesBridgeConfig,
   testGuidesBridgeConfig,
   updateGuidesBridgeConfig,
-  type GuidesBridgeConfig,
 } from "../../api/guidesBridge";
 import { getApiToken } from "../../lib/clerkToken";
 import { showError, showSuccess } from "../../lib/swal";
+import { useTipSWR } from "../../lib/swr";
 import { useTranslation } from "../../i18n/useTranslation";
 
 export default function ParametresGuideHubPage() {
   const { getToken } = useAuth();
   const { t } = useTranslation();
-  const [config, setConfig] = useState<GuidesBridgeConfig | null>(null);
   const [companySlug, setCompanySlug] = useState("");
   const [bridgeEmail, setBridgeEmail] = useState("");
   const [password, setPassword] = useState("");
-  const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [isTesting, setIsTesting] = useState(false);
 
-  const load = useCallback(async () => {
-    setIsLoading(true);
-    try {
-      const token = await getApiToken(getToken);
-      const data = await fetchGuidesBridgeConfig(token);
-      setConfig(data);
-      setCompanySlug(data.company_slug);
-      setBridgeEmail(data.bridge_email);
-      setPassword("");
-    } catch (err) {
-      const message = err instanceof ApiError ? err.message : t("guidesBridge.loadFailed");
-      await showError(t("common.error"), message);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [getToken, t]);
+  const { data: config, isLoading, mutate } = useTipSWR(
+    ["guides-bridge-config"] as const,
+    async (token) => {
+      if (!token) throw new ApiError(t("guidesBridge.loadFailed"), 401);
+      return fetchGuidesBridgeConfig(token);
+    },
+    {
+      onError: async (err) => {
+        const message = err instanceof ApiError ? err.message : t("guidesBridge.loadFailed");
+        await showError(t("common.error"), message);
+      },
+    },
+  );
+
+  const loading = isLoading && !config;
 
   useEffect(() => {
-    void load();
-  }, [load]);
+    if (!config) return;
+    setCompanySlug(config.company_slug);
+    setBridgeEmail(config.bridge_email);
+    setPassword("");
+  }, [config]);
 
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault();
     setIsSaving(true);
     try {
       const token = await getApiToken(getToken);
+      if (!token) throw new ApiError(t("guidesBridge.saveFailed"), 401);
       const payload = {
         company_slug: companySlug.trim(),
         bridge_email: bridgeEmail.trim(),
         ...(password.trim() ? { password: password.trim() } : {}),
       };
       const updated = await updateGuidesBridgeConfig(token, payload);
-      setConfig(updated);
+      await mutate(updated, { revalidate: false });
       setPassword("");
       await showSuccess(t("guidesBridge.saved"), t("guidesBridge.savedDesc"));
     } catch (err) {
@@ -78,6 +79,7 @@ export default function ParametresGuideHubPage() {
     setIsTesting(true);
     try {
       const token = await getApiToken(getToken);
+      if (!token) throw new ApiError(t("guidesBridge.testFailed"), 401);
       const result = await testGuidesBridgeConfig(token);
       if (result.success) {
         await showSuccess(
@@ -115,7 +117,7 @@ export default function ParametresGuideHubPage() {
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
         <ComponentCard title={t("guidesBridge.formTitle")} desc={t("guidesBridge.formDesc")}>
-          {isLoading ? (
+          {loading ? (
             <p className="text-sm text-gray-500 dark:text-gray-400">{t("common.loading")}</p>
           ) : (
             <form className="space-y-5" onSubmit={(e) => void handleSubmit(e)}>
@@ -126,7 +128,6 @@ export default function ParametresGuideHubPage() {
                   value={companySlug}
                   onChange={(e) => setCompanySlug(e.target.value)}
                   placeholder="traumatec-cm"
-                  required
                 />
                 <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">{t("guidesBridge.companySlugHint")}</p>
               </div>
@@ -139,7 +140,6 @@ export default function ParametresGuideHubPage() {
                   value={bridgeEmail}
                   onChange={(e) => setBridgeEmail(e.target.value)}
                   placeholder="admin@traumatec.cm"
-                  required
                 />
               </div>
 
@@ -155,7 +155,6 @@ export default function ParametresGuideHubPage() {
                       ? t("guidesBridge.passwordPlaceholder")
                       : t("guidesBridge.passwordRequired")
                   }
-                  autoComplete="new-password"
                 />
                 <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">{t("guidesBridge.passwordHint")}</p>
               </div>
@@ -179,8 +178,8 @@ export default function ParametresGuideHubPage() {
                   size="sm"
                   variant="outline"
                   startIcon={<RefreshCw className="size-4" />}
-                  disabled={isLoading}
-                  onClick={() => void load()}
+                  disabled={loading}
+                  onClick={() => void mutate()}
                 >
                   {t("common.refresh")}
                 </Button>

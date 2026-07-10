@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { Navigate, useNavigate, useSearchParams } from "react-router";
 import AdminBreadcrumb from "../components/common/AdminBreadcrumb";
 import ComponentCard from "../components/common/ComponentCard";
@@ -28,7 +28,6 @@ export default function DocumentsGenerationPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const legacyEventId = searchParams.get("event");
-  const { events, isLoading, loadEvents } = useEvents();
   const [eventSearchQuery, setEventSearchQuery] = useState("");
   const [eventTypeFilter, setEventTypeFilter] = useState("");
 
@@ -37,9 +36,7 @@ export default function DocumentsGenerationPage() {
     [],
   );
 
-  useEffect(() => {
-    void loadEvents(generationEventFilters);
-  }, [generationEventFilters, loadEvents]);
+  const { events, isLoading } = useEvents({ filters: generationEventFilters });
 
   const selectableEvents = useMemo(
     () =>
@@ -107,7 +104,7 @@ export default function DocumentsGenerationPage() {
       <PackageDueEventsPanel events={packageDueEvents} className="mb-6" />
 
       <ComponentCard className="mb-6" desc={t("documents.generationListDesc")}>
-        <GenerationProcessGuide hasEvent={false} eventReady={false} hasCompletedJob={false} />
+        <GenerationProcessGuide hasEvent={false} eventReady={false} hasCompletedJob={false} workflowStatus={null} />
       </ComponentCard>
 
       <ComponentCard title={t("documents.chooseEvent")} desc={t("documents.launchGenerationDesc")}>

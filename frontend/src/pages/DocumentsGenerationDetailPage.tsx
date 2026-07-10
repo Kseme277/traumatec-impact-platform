@@ -79,7 +79,6 @@ export default function DocumentsGenerationDetailPage() {
   const { eventId: selectedEventId = "" } = useParams();
   const navigate = useNavigate();
   const { getToken, isLoaded, isSignedIn } = useAuth();
-  const { events, isLoading, loadEvents, update, isSubmitting } = useEvents();
   const [themeDraft, setThemeDraft] = useState<PreparationTheme | "">("");
   const [isGenerating, setIsGenerating] = useState(false);
   const [activeJob, setActiveJob] = useState<GenerationJob | null>(null);
@@ -100,9 +99,9 @@ export default function DocumentsGenerationDetailPage() {
     [],
   );
 
-  useEffect(() => {
-    void loadEvents(generationEventFilters);
-  }, [generationEventFilters, loadEvents]);
+  const { events, isLoading, loadEvents, update, isSubmitting } = useEvents({
+    filters: generationEventFilters,
+  });
 
   useEffect(() => {
     if (!isLoaded || !isSignedIn) return;

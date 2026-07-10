@@ -1,5 +1,3 @@
-import { useAuth } from "@clerk/clerk-react";
-import { useEffect, useState } from "react";
 import { Link } from "react-router";
 import Button from "../../components/ui/button/Button";
 import EventStatCard from "../events/EventStatCard";
@@ -7,23 +5,17 @@ import RecentGenerationsPanel from "./RecentGenerationsPanel";
 import RecentWorkflowHistoryPanel from "./RecentWorkflowHistoryPanel";
 import { useTipAuth } from "../../context/TipAuthContext";
 import { fetchWorkflowStats } from "../../api/workflow";
-import { getApiToken } from "../../lib/clerkToken";
 import { TaskIcon } from "../../icons";
 import { workflowStatusLabel } from "../auth/types";
 import { useTranslation } from "../../i18n/useTranslation";
+import { useTipSWR } from "../../lib/swr";
 
 function useWorkflowStats(role: "support" | "controle" | "validateur" | "admin") {
-  const { getToken } = useAuth();
-  const [stats, setStats] = useState<Awaited<ReturnType<typeof fetchWorkflowStats>> | null>(null);
-
-  useEffect(() => {
-    void (async () => {
-      const token = await getApiToken(getToken);
-      setStats(await fetchWorkflowStats(token, role));
-    })();
-  }, [getToken, role]);
-
-  return stats;
+  const { data } = useTipSWR(
+    ["workflow-stats", role] as const,
+    (token) => fetchWorkflowStats(token, role),
+  );
+  return data ?? null;
 }
 
 export function DashboardSupportAdmin() {

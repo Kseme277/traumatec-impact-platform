@@ -7,6 +7,7 @@ import { useTipAuth } from "../../context/TipAuthContext";
 import { isGuidesConfigured, openGuides } from "../../config/guides";
 import { resolveClerkAvatar } from "../../lib/clerkAvatar";
 import { useTranslation } from "../../i18n/useTranslation";
+import { clearTipSwrCache } from "../../lib/swr";
 import { normalizeRoles, roleLabel } from "./types";
 import { confirmAction } from "../../lib/swal";
 
@@ -38,6 +39,7 @@ export default function UserDropdown() {
     });
     if (!confirmed.isConfirmed) return;
     closeDropdown();
+    await clearTipSwrCache();
     await signOut({ redirectUrl: "/signin" });
   };
 

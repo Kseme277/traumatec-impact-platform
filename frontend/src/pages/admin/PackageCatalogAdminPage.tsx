@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link } from "react-router";
 import { useAuth } from "@clerk/clerk-react";
 import AdminBreadcrumb from "../../components/common/AdminBreadcrumb";
@@ -20,13 +20,13 @@ import {
 import { getApiToken } from "../../lib/clerkToken";
 import { useTranslation } from "../../i18n/useTranslation";
 import { confirmAction, showError, showSuccess } from "../../lib/swal";
+import { useTipSWR } from "../../lib/swr";
 import {
   activityKindsFromCatalog,
   categoryLabelForKind,
   mergePackageCatalog,
-  type EventPackageTypeCatalog,
 } from "../../features/documents/eventPackageTypes";
-import type { PackageActivityCategoryRecord, PackageTypeDefinitionRecord } from "../../features/documents/types";
+import type { PackageTypeDefinitionRecord } from "../../features/documents/types";
 
 type Tab = "categories" | "types";
 
@@ -40,11 +40,7 @@ export default function PackageCatalogAdminPage() {
   const { t } = useTranslation();
   const { getToken } = useAuth();
   const [tab, setTab] = useState<Tab>("categories");
-  const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
-  const [categories, setCategories] = useState<PackageActivityCategoryRecord[]>([]);
-  const [catalog, setCatalog] = useState<EventPackageTypeCatalog>({});
-  const [customTypes, setCustomTypes] = useState<PackageTypeDefinitionRecord[]>([]);
 
   const [categoryCode, setCategoryCode] = useState("");
   const [categoryLabel, setCategoryLabel] = useState("");
@@ -58,38 +54,37 @@ export default function PackageCatalogAdminPage() {
   const [preparationTheme, setPreparationTheme] = useState("operatory");
   const [durationDays, setDurationDays] = useState("3");
 
+  const { data, isLoading, mutate } = useTipSWR(
+    ["package-catalog"] as const,
+    async (token) => {
+      try {
+        return await fetchPackageCatalog(token);
+      } catch {
+        return { categories: [], types: {} };
+      }
+    },
+  );
+
+  const categories = data?.categories ?? [];
+  const catalog = useMemo(() => mergePackageCatalog(data ?? {}), [data]);
+  const customTypes = useMemo(
+    () =>
+      Object.values(catalog)
+        .flat()
+        .filter((item) => item.is_custom) as PackageTypeDefinitionRecord[],
+    [catalog],
+  );
+
   const activityKinds = useMemo(
     () => (categories.length ? categories.map((item) => item.code) : activityKindsFromCatalog(catalog)),
     [categories, catalog],
   );
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    try {
-      const token = await getApiToken(getToken);
-      const data = await fetchPackageCatalog(token);
-      setCategories(data.categories);
-      setCatalog(mergePackageCatalog(data));
-      setCustomTypes(
-        Object.values(mergePackageCatalog(data))
-          .flat()
-          .filter((item) => item.is_custom) as PackageTypeDefinitionRecord[],
-      );
-      if (data.categories.length && !data.categories.some((item) => item.code === activityKind)) {
-        setActivityKind(data.categories[0]?.code ?? "cours");
-      }
-    } catch {
-      setCategories([]);
-      setCatalog({});
-      setCustomTypes([]);
-    } finally {
-      setLoading(false);
-    }
-  }, [activityKind, getToken]);
-
   useEffect(() => {
-    void load();
-  }, [load]);
+    if (categories.length && !categories.some((item) => item.code === activityKind)) {
+      setActivityKind(categories[0]?.code ?? "cours");
+    }
+  }, [categories, activityKind]);
 
   const handleCreateCategory = async () => {
     if (!categoryCode.trim() || !categoryLabel.trim()) {
@@ -107,7 +102,7 @@ export default function PackageCatalogAdminPage() {
       await showSuccess(t("documents.categoryCreated"));
       setCategoryCode("");
       setCategoryLabel("");
-      await load();
+      await mutate();
     } catch (err) {
       await showError(t("common.error"), err instanceof Error ? err.message : t("common.error"));
     } finally {
@@ -121,12 +116,12 @@ export default function PackageCatalogAdminPage() {
       text: t("documents.categoryDeleteConfirm"),
       confirmText: t("common.delete"),
     });
-    if (!confirmed) return;
+    if (!confirmed.isConfirmed) return;
     try {
       const token = await getApiToken(getToken);
       await deletePackageActivityCategory(token, code);
       await showSuccess(t("documents.categoryDeleted"));
-      await load();
+      await mutate();
     } catch (err) {
       await showError(t("common.error"), err instanceof Error ? err.message : t("common.error"));
     }
@@ -155,7 +150,7 @@ export default function PackageCatalogAdminPage() {
       setTypeLabel("");
       setTypeTitle("");
       setTypeDescription("");
-      await load();
+      await mutate();
     } catch (err) {
       await showError(t("common.error"), err instanceof Error ? err.message : t("documents.typeCreateFailed"));
     } finally {
@@ -169,12 +164,12 @@ export default function PackageCatalogAdminPage() {
       text: t("documents.typeDeleteConfirm"),
       confirmText: t("common.delete"),
     });
-    if (!confirmed) return;
+    if (!confirmed.isConfirmed) return;
     try {
       const token = await getApiToken(getToken);
       await deletePackageTypeDefinition(token, code);
       await showSuccess(t("documents.typeDeleted"));
-      await load();
+      await mutate();
     } catch (err) {
       await showError(t("common.error"), err instanceof Error ? err.message : t("common.error"));
     }
@@ -187,6 +182,8 @@ export default function PackageCatalogAdminPage() {
     }
     return grouped;
   }, [activityKinds, catalog]);
+
+  const loading = isLoading && !data;
 
   return (
     <>

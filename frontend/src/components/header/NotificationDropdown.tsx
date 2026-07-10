@@ -1,5 +1,5 @@
 import { useAuth } from "@clerk/clerk-react";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useState } from "react";
 import { Link, useNavigate } from "react-router";
 import { Dropdown } from "../ui/dropdown/Dropdown";
 import {
@@ -12,34 +12,28 @@ import { getApiToken } from "../../lib/clerkToken";
 import { formatRelativeTime } from "../../lib/formatRelativeTime";
 import { notificationVisual } from "../../features/notifications/notificationVisual";
 import { useTranslation } from "../../i18n/useTranslation";
+import { revalidateTipKeys, useTipSWR } from "../../lib/swr";
 
 export default function NotificationDropdown() {
   const { getToken } = useAuth();
   const navigate = useNavigate();
   const { t, localeTag } = useTranslation();
   const [isOpen, setIsOpen] = useState(false);
-  const [items, setItems] = useState<TipNotification[]>([]);
-  const [unread, setUnread] = useState(0);
 
-  const load = useCallback(async () => {
-    try {
-      const token = await getApiToken(getToken);
+  const { data, mutate } = useTipSWR(
+    ["notifications-dropdown"] as const,
+    async (token) => {
       const [list, count] = await Promise.all([
         fetchNotifications(token, true, 6),
         fetchUnreadCount(token),
       ]);
-      setItems(list);
-      setUnread(count.count);
-    } catch {
-      /* silencieux dans le header */
-    }
-  }, [getToken]);
+      return { items: list, unread: count.count };
+    },
+    { refreshInterval: 30_000 },
+  );
 
-  useEffect(() => {
-    void load();
-    const timer = window.setInterval(() => void load(), 30_000);
-    return () => window.clearInterval(timer);
-  }, [load]);
+  const items = data?.items ?? [];
+  const unread = data?.unread ?? 0;
 
   const clearUnread = useCallback(async () => {
     try {
@@ -48,16 +42,16 @@ export default function NotificationDropdown() {
     } catch {
       /* ignore */
     } finally {
-      setItems([]);
-      setUnread(0);
+      await mutate({ items: [], unread: 0 }, { revalidate: false });
+      await revalidateTipKeys("notifications");
     }
-  }, [getToken]);
+  }, [getToken, mutate]);
 
   async function handleToggle() {
     const next = !isOpen;
     if (next) {
       setIsOpen(true);
-      await load();
+      await mutate();
       return;
     }
     setIsOpen(false);

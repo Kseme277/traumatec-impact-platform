@@ -1,50 +1,27 @@
-import { useAuth } from "@clerk/clerk-react";
-import { ArrowLeft, Calendar, Loader2, Users } from "lucide-react";
-import { useEffect, useState } from "react";
+import { Loader2, ArrowLeft, Calendar, Users } from "lucide-react";
 import { Link, useParams, useSearchParams } from "react-router";
 import AdminBreadcrumb from "../components/common/AdminBreadcrumb";
 import ComponentCard from "../components/common/ComponentCard";
 import PageMeta from "../components/common/PageMeta";
 import Badge from "../components/ui/badge/Badge";
-import {
-  type ParticipantDetail,
-  fetchParticipantDetail,
-} from "../api/participants";
+import { fetchParticipantDetail } from "../api/participants";
 import { formatEventDateRange } from "../features/events/eventDates";
 import { ApiError } from "../api/client";
-import { getApiToken } from "../lib/clerkToken";
 import { useTranslation } from "../i18n/useTranslation";
 import { showError } from "../lib/swal";
+import { useTipSWR } from "../lib/swr";
 
 export default function ParticipantDetailPage() {
   const { participantId } = useParams();
   const [searchParams] = useSearchParams();
   const eventId = searchParams.get("event") ?? "";
-  const { getToken, isLoaded, isSignedIn } = useAuth();
   const { t } = useTranslation();
 
-  const [detail, setDetail] = useState<ParticipantDetail | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-
-  useEffect(() => {
-    if (!participantId || !isLoaded || !isSignedIn) {
-      setDetail(null);
-      setIsLoading(false);
-      return;
-    }
-
-    let cancelled = false;
-    void (async () => {
-      setIsLoading(true);
-      try {
-        const token = await getApiToken(getToken);
-        if (!token) {
-          throw new ApiError(t("documents.sessionExpired"), 401);
-        }
-        const data = await fetchParticipantDetail(token, participantId);
-        if (!cancelled) setDetail(data);
-      } catch (err) {
-        if (!cancelled) setDetail(null);
+  const { data: detail, isLoading: detailLoading, error } = useTipSWR(
+    participantId ? (["participant-detail", participantId] as const) : null,
+    (token) => fetchParticipantDetail(token, participantId!),
+    {
+      onError: async (err) => {
         const message =
           err instanceof ApiError
             ? err.message
@@ -52,16 +29,11 @@ export default function ParticipantDetailPage() {
               ? err.message
               : t("participants.detailLoadError");
         await showError(t("participants.detailLoadError"), message);
-      } finally {
-        if (!cancelled) setIsLoading(false);
-      }
-    })();
+      },
+    },
+  );
 
-    return () => {
-      cancelled = true;
-    };
-  }, [getToken, isLoaded, isSignedIn, participantId, t]);
-
+  const isLoading = detailLoading && !detail && !error;
   const participant = detail?.participant;
   const backHref = eventId ? `/certificats?event=${eventId}` : "/certificats";
 
@@ -160,9 +132,9 @@ export default function ParticipantDetailPage() {
                           <span className="inline-flex items-center gap-1">
                             <Calendar className="size-3.5 opacity-50" />
                             {formatEventDateRange({
-                              start_date: event.start_date,
-                              end_date: event.end_date,
-                            } as { start_date?: string | null; end_date?: string | null })}
+                              start_date: event.start_date ?? null,
+                              end_date: event.end_date ?? null,
+                            })}
                           </span>
                         </td>
                         <td className="px-3 py-2 text-gray-600 dark:text-gray-400">

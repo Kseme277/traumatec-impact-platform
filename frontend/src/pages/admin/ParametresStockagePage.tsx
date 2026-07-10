@@ -1,6 +1,6 @@
 import { useAuth } from "@clerk/clerk-react";
 import { Play, Trash2 } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import AdminBreadcrumb from "../../components/common/AdminBreadcrumb";
 import ComponentCard from "../../components/common/ComponentCard";
 import PageMeta from "../../components/common/PageMeta";
@@ -12,25 +12,21 @@ import {
   fetchStorageGcConfig,
   runStorageGc,
   updateStorageGcConfig,
-  type StorageGcAnalytics,
-  type StorageGcConfig,
   type StorageGcStats,
 } from "../../api/storageGc";
 import StorageGcCharts from "../../features/admin/StorageGcCharts";
 import { ApiError } from "../../api/client";
 import { useTranslation } from "../../i18n/useTranslation";
 import { confirmAction, showError, showSuccess } from "../../lib/swal";
+import { useTipSWR } from "../../lib/swr";
 
 const RETENTION_OPTIONS = [7, 14, 30, 60, 90];
 
 export default function ParametresStockagePage() {
   const { getToken } = useAuth();
   const { t, localeTag } = useTranslation();
-  const [config, setConfig] = useState<StorageGcConfig | null>(null);
-  const [analytics, setAnalytics] = useState<StorageGcAnalytics | null>(null);
   const [enabled, setEnabled] = useState(true);
   const [retentionDays, setRetentionDays] = useState(14);
-  const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [isRunning, setIsRunning] = useState(false);
 
@@ -43,29 +39,33 @@ export default function ParametresStockagePage() {
     [t],
   );
 
-  const load = useCallback(async () => {
-    setIsLoading(true);
-    try {
-      const token = await getToken();
+  const { data, isLoading, mutate } = useTipSWR(
+    ["storage-gc"] as const,
+    async (token) => {
       const [cfg, stats] = await Promise.all([
         fetchStorageGcConfig(token),
         fetchStorageGcAnalytics(token),
       ]);
-      setConfig(cfg);
-      setAnalytics(stats);
-      setEnabled(cfg.enabled);
-      setRetentionDays(cfg.retention_days);
-    } catch (err) {
-      const message = err instanceof ApiError ? err.message : t("storageGc.loadFailed");
-      await showError(t("common.error"), message);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [getToken, t]);
+      return { config: cfg, analytics: stats };
+    },
+    {
+      onError: async (err) => {
+        const message = err instanceof ApiError ? err.message : t("storageGc.loadFailed");
+        await showError(t("common.error"), message);
+      },
+    },
+  );
+
+  const config = data?.config ?? null;
+  const analytics = data?.analytics ?? null;
+  const loading = isLoading && !data;
 
   useEffect(() => {
-    void load();
-  }, [load]);
+    if (config) {
+      setEnabled(config.enabled);
+      setRetentionDays(config.retention_days);
+    }
+  }, [config]);
 
   const handleSave = async () => {
     setIsSaving(true);
@@ -75,7 +75,10 @@ export default function ParametresStockagePage() {
         enabled,
         retention_days: retentionDays,
       });
-      setConfig(cfg);
+      await mutate(
+        (prev) => (prev ? { ...prev, config: cfg } : undefined),
+        { revalidate: false },
+      );
       await showSuccess(t("storageGc.saved"), t("storageGc.savedDesc"));
     } catch (err) {
       const message = err instanceof ApiError ? err.message : t("storageGc.saveFailed");
@@ -120,7 +123,7 @@ export default function ParametresStockagePage() {
       const token = await getToken();
       const result = await runStorageGc(token, { purgeAll });
       await showSuccess(t("storageGc.runDone"), buildRunMessage(result.stats));
-      await load();
+      await mutate();
     } catch (err) {
       const message = err instanceof ApiError ? err.message : t("storageGc.runFailed");
       await showError(t("common.error"), message);
@@ -143,7 +146,7 @@ export default function ParametresStockagePage() {
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-2 xl:grid-cols-3">
         <ComponentCard title={t("storageGc.configTitle")} desc={t("storageGc.configDesc")}>
-          {isLoading ? (
+          {loading ? (
             <p className="text-sm text-gray-500">{t("common.loading")}</p>
           ) : (
             <div className="space-y-5">
@@ -186,7 +189,7 @@ export default function ParametresStockagePage() {
         </ComponentCard>
 
         <ComponentCard title={t("storageGc.inventoryTitle")} desc={t("storageGc.inventoryDesc")}>
-          {isLoading ? (
+          {loading ? (
             <p className="text-sm text-gray-500">{t("common.loading")}</p>
           ) : (
             <ul className="list-inside list-disc space-y-1 text-sm text-gray-600 dark:text-gray-300">
@@ -238,7 +241,7 @@ export default function ParametresStockagePage() {
         </ComponentCard>
       </div>
 
-      {!isLoading && analytics && (
+      {!loading && analytics && (
         <div className="mt-8">
           <h2 className="mb-4 text-lg font-semibold text-gray-800 dark:text-white/90">
             {t("storageGc.chartsSectionTitle")}

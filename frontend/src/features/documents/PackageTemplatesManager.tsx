@@ -43,12 +43,11 @@ import {
   findPackageType,
   mergePackageCatalog,
   type ActivityKind,
-  type EventPackageTypeCatalog,
 } from "./eventPackageTypes";
-import type { PackageActivityCategoryRecord } from "./types";
 import { documentRoleLabel } from "./documentRoleLabel";
 import { themeLabel, type PreparationTheme } from "../events/types";
 import { confirmAction, showError, showSuccess } from "../../lib/swal";
+import { revalidateTipKeys, useTipSWR } from "../../lib/swr";
 import OnlyOfficeEditor from "./OnlyOfficeEditor";
 import TemplateFileFieldsPanel from "./TemplateFileFieldsPanel";
 import { isOnlyofficeEditable, templateFileExtension } from "./templateFileExtension";
@@ -63,23 +62,16 @@ interface PackageTemplatesManagerProps {
 
 export default function PackageTemplatesManager({ isAdmin }: PackageTemplatesManagerProps) {
   const { t, localeTag } = useTranslation();
-  const { getToken, isLoaded, isSignedIn } = useAuth();
+  const { getToken } = useAuth();
   const [searchParams] = useSearchParams();
   const zipInputRef = useRef<HTMLInputElement>(null);
   const replaceInputRef = useRef<HTMLInputElement>(null);
 
-  const [catalog, setCatalog] = useState<EventPackageTypeCatalog>(FALLBACK_PACKAGE_TYPES);
-  const [categories, setCategories] = useState<PackageActivityCategoryRecord[]>([]);
   const [activityTab, setActivityTab] = useState<ActivityKind>("cours");
   const [selectedType, setSelectedType] = useState("OP_C");
-  const [bundles, setBundles] = useState<PackageBundle[]>([]);
-  const [templates, setTemplates] = useState<PackageTemplate[]>([]);
   const [openedTemplateId, setOpenedTemplateId] = useState<string | null>(null);
   const [editorConfig, setEditorConfig] = useState<TemplateEditorConfig | null>(null);
   const [editorNote, setEditorNote] = useState<string | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isTemplatesLoading, setIsTemplatesLoading] = useState(false);
-  const [loadError, setLoadError] = useState<string | null>(null);
   const [isUploading, setIsUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<PackageImportProgress | null>(null);
   const [isBootstrapping, setIsBootstrapping] = useState(false);
@@ -87,6 +79,33 @@ export default function PackageTemplatesManager({ isAdmin }: PackageTemplatesMan
   const [isDownloadingZip, setIsDownloadingZip] = useState(false);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [importUseAi, setImportUseAi] = useState(false);
+
+  const {
+    data: catalogData,
+    isLoading: catalogLoading,
+    error: catalogError,
+    mutate: mutateCatalog,
+  } = useTipSWR(["package-catalog"] as const, async (token) => {
+    try {
+      return await fetchPackageCatalog(token);
+    } catch {
+      return { categories: [], types: {} };
+    }
+  });
+
+  const {
+    data: bundlesData,
+    isLoading: bundlesLoading,
+    error: bundlesError,
+    mutate: mutateBundles,
+  } = useTipSWR(["package-bundles"] as const, (token) => fetchPackageBundles(token));
+
+  const catalog = useMemo(
+    () => (catalogData ? mergePackageCatalog(catalogData) : FALLBACK_PACKAGE_TYPES),
+    [catalogData],
+  );
+  const categories = catalogData?.categories ?? [];
+  const bundles = bundlesData ?? [];
 
   const typesInTab = catalog[activityTab] ?? [];
   const activityKinds = useMemo(
@@ -123,6 +142,43 @@ export default function PackageTemplatesManager({ isAdmin }: PackageTemplatesMan
     setEditorNote(null);
   }, []);
 
+  const typeBundles = useMemo(
+    () => bundles.filter((b) => canonicalPackageType(b.package_type) === selectedType),
+    [bundles, selectedType],
+  );
+  const activeBundle = typeBundles.find((b) => b.is_active) ?? null;
+
+  const {
+    data: templatesData,
+    isLoading: templatesLoading,
+    error: templatesError,
+    mutate: mutateTemplates,
+  } = useTipSWR(
+    ["package-templates", selectedType, activeBundle?.id ?? null] as const,
+    async (token) => {
+      try {
+        return await fetchTemplates(
+          token,
+          activeBundle ? { bundleId: activeBundle.id } : { packageType: selectedType },
+        );
+      } catch (err) {
+        if (err instanceof ApiError && (err.status === 404 || err.status === 403)) {
+          return [];
+        }
+        throw err;
+      }
+    },
+  );
+
+  const templates = templatesData ?? [];
+
+  useEffect(() => {
+    setOpenedTemplateId((prev) => {
+      if (prev && templates.some((row) => row.id === prev)) return prev;
+      return null;
+    });
+  }, [templates]);
+
   const typeInfo = findPackageType(catalog, selectedType);
   const visibleTemplates = useMemo(
     () => filterTemplatesByPackageDuration(templates, typeInfo?.duration_days ?? 3),
@@ -145,91 +201,21 @@ export default function PackageTemplatesManager({ isAdmin }: PackageTemplatesMan
       })),
     [visibleTemplates, openedTemplateId, t],
   );
-  const typeBundles = useMemo(
-    () => bundles.filter((b) => canonicalPackageType(b.package_type) === selectedType),
-    [bundles, selectedType],
-  );
-  const activeBundle = typeBundles.find((b) => b.is_active) ?? null;
 
-  const loadBundles = useCallback(async (token: string | null) => {
-    const data = await fetchPackageBundles(token);
-    setBundles(data);
-    return data;
-  }, []);
-
-  const loadTemplatesForType = useCallback(
-    async (token: string | null, bundle: PackageBundle | null, packageType: string) => {
-      setIsTemplatesLoading(true);
-      try {
-        const data = await fetchTemplates(
-          token,
-          bundle ? { bundleId: bundle.id } : { packageType },
-        );
-        setTemplates(data);
-        setOpenedTemplateId((prev) => {
-          if (prev && data.some((row) => row.id === prev)) return prev;
-          return null;
-        });
-        return data;
-      } catch (err) {
-        if (err instanceof ApiError && (err.status === 404 || err.status === 403)) {
-          setTemplates([]);
-          return [];
-        }
-        throw err;
-      } finally {
-        setIsTemplatesLoading(false);
-      }
-    },
-    [],
-  );
-
-  const syncTypeData = useCallback(
-    async (token: string | null, packageType: string, bundlesList: PackageBundle[]) => {
-      const active =
-        bundlesList.find((b) => canonicalPackageType(b.package_type) === packageType && b.is_active) ?? null;
-      const files = await loadTemplatesForType(token, active, packageType);
-      return { bundlesList, files };
-    },
-    [loadTemplatesForType],
-  );
+  const isLoading = (catalogLoading && !catalogData) || (bundlesLoading && !bundlesData);
+  const isTemplatesLoading = templatesLoading && !templatesData;
+  const loadError = (() => {
+    const err = catalogError ?? bundlesError ?? templatesError;
+    if (!err) return null;
+    if (err instanceof ApiError) return err.message;
+    if (err instanceof TypeError) return t("documents.catalogUnavailable");
+    if (err instanceof DOMException && err.name === "AbortError") return t("documents.catalogTimeout");
+    return t("documents.loadTemplatesFailed");
+  })();
 
   const refreshAll = useCallback(async () => {
-    if (!isLoaded || !isSignedIn) return;
-
-    setIsLoading(true);
-    setLoadError(null);
-    try {
-      const token = await getApiToken(getToken);
-      const catalogData = await fetchPackageCatalog(token).catch(() => ({
-        categories: [],
-        types: {} as Partial<EventPackageTypeCatalog>,
-      }));
-      setCategories(catalogData.categories ?? []);
-      setCatalog(mergePackageCatalog(catalogData.types ?? {}));
-
-      const bundlesData = await loadBundles(token).catch(() => [] as PackageBundle[]);
-      await syncTypeData(token, selectedType, bundlesData);
-    } catch (err) {
-      const message =
-        err instanceof ApiError
-          ? err.message
-          : err instanceof TypeError
-            ? t("documents.catalogUnavailable")
-            : err instanceof DOMException && err.name === "AbortError"
-              ? t("documents.catalogTimeout")
-              : t("documents.loadTemplatesFailed");
-      setLoadError(message);
-      setTemplates([]);
-      setBundles([]);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [getToken, isLoaded, isSignedIn, loadBundles, selectedType, syncTypeData, t]);
-
-  useEffect(() => {
-    void refreshAll();
-  }, [refreshAll]);
+    await Promise.all([mutateCatalog(), mutateBundles(), mutateTemplates()]);
+  }, [mutateBundles, mutateCatalog, mutateTemplates]);
 
   const openedTemplate = templates.find((row) => row.id === openedTemplateId) ?? null;
   const isEditorOpen = openedTemplateId !== null;
@@ -281,15 +267,7 @@ export default function PackageTemplatesManager({ isAdmin }: PackageTemplatesMan
         onProgress: setUploadProgress,
       });
       await showSuccess(t("documents.packageUploadDone"), result.message);
-      try {
-        const freshToken = await getApiToken(getToken);
-        const updatedBundles = await loadBundles(freshToken);
-        const newActive =
-          updatedBundles.find((b) => canonicalPackageType(b.package_type) === selectedType && b.is_active) ?? null;
-        await loadTemplatesForType(freshToken, newActive, selectedType);
-      } catch {
-        void refreshAll();
-      }
+      await revalidateTipKeys("package-bundles", "package-templates");
     } catch (err) {
       await showError(t("common.error"), err instanceof ApiError ? err.message : t("documents.packageUploadFailed"));
     } finally {
@@ -305,10 +283,7 @@ export default function PackageTemplatesManager({ isAdmin }: PackageTemplatesMan
       const token = await getApiToken(getToken);
       await activatePackageBundle(token, bundle.id);
       await showSuccess(t("documents.packageActivated"), bundle.label);
-      const updatedBundles = await loadBundles(token);
-      const newActive =
-        updatedBundles.find((b) => canonicalPackageType(b.package_type) === selectedType && b.is_active) ?? null;
-      await loadTemplatesForType(token, newActive, selectedType);
+      await revalidateTipKeys("package-bundles", "package-templates");
     } catch (err) {
       await showError(t("common.error"), err instanceof ApiError ? err.message : t("documents.packageActivateFailed"));
     } finally {
@@ -329,10 +304,7 @@ export default function PackageTemplatesManager({ isAdmin }: PackageTemplatesMan
       const token = await getApiToken(getToken);
       await deletePackageBundle(token, bundle.id);
       await showSuccess(t("documents.bundleDeleted"), bundle.label);
-      const updatedBundles = await loadBundles(token);
-      const newActive =
-        updatedBundles.find((b) => canonicalPackageType(b.package_type) === selectedType && b.is_active) ?? null;
-      await loadTemplatesForType(token, newActive, selectedType);
+      await revalidateTipKeys("package-bundles", "package-templates");
     } catch (err) {
       await showError(t("common.error"), err instanceof ApiError ? err.message : t("documents.bundleDeleteFailed"));
     } finally {
@@ -357,7 +329,7 @@ export default function PackageTemplatesManager({ isAdmin }: PackageTemplatesMan
         setOpenedTemplateId(null);
         setEditorConfig(null);
       }
-      await loadTemplatesForType(token, activeBundle, selectedType);
+      await mutateTemplates();
     } catch (err) {
       await showError(t("common.error"), err instanceof ApiError ? err.message : t("documents.fileDeleteFailed"));
     } finally {
@@ -371,8 +343,7 @@ export default function PackageTemplatesManager({ isAdmin }: PackageTemplatesMan
     try {
       const result = await replaceTemplateFile(getToken, openedTemplate.id, file);
       await showSuccess(t("documents.templateUpdated"), result.message);
-      const token = await getApiToken(getToken);
-      await loadTemplatesForType(token, activeBundle, selectedType);
+      await mutateTemplates();
       await openTemplate(result.template);
     } catch (err) {
       await showError(t("common.error"), err instanceof ApiError ? err.message : t("documents.replaceFailed"));
@@ -427,8 +398,7 @@ export default function PackageTemplatesManager({ isAdmin }: PackageTemplatesMan
       const token = await getApiToken(getToken);
       const result = await bootstrapSystemPackages(token, true);
       await showSuccess(t("documents.bootstrapDone"), result.message);
-      await loadBundles(token);
-      await loadTemplatesForType(token, activeBundle, selectedType);
+      await revalidateTipKeys("package-bundles", "package-templates");
     } catch (err) {
       const message =
         err instanceof ApiError
@@ -445,14 +415,13 @@ export default function PackageTemplatesManager({ isAdmin }: PackageTemplatesMan
   const handleDocumentSaved = useCallback(async () => {
     if (!openedTemplateId) return;
     try {
-      const token = await getApiToken(getToken);
-      const data = await loadTemplatesForType(token, activeBundle, selectedType);
-      const refreshed = data.find((row) => row.id === openedTemplateId);
+      const data = await mutateTemplates();
+      const refreshed = data?.find((row) => row.id === openedTemplateId);
       if (refreshed) await openTemplate(refreshed);
     } catch {
       /* le rechargement échoue silencieusement — l'éditeur reste ouvert */
     }
-  }, [activeBundle, getToken, loadTemplatesForType, openTemplate, openedTemplateId, selectedType]);
+  }, [mutateTemplates, openTemplate, openedTemplateId]);
 
   return (
     <div className="space-y-6">

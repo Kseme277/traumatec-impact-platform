@@ -1,5 +1,4 @@
 import { useAuth } from "@clerk/clerk-react";
-import { useCallback, useEffect, useState } from "react";
 import { Link, Navigate, useParams } from "react-router";
 import { ArrowLeft } from "lucide-react";
 import PageMeta from "../components/common/PageMeta";
@@ -19,37 +18,30 @@ import { ApiError } from "../api/client";
 import { confirmAction, promptComment, showError, showSuccess } from "../lib/swal";
 import { useTranslation } from "../i18n/useTranslation";
 import { formatWorkflowPackageTitle } from "../features/workflow/workflowPackageTitle";
+import { revalidateTipKeys, useTipSWR } from "../lib/swr";
 
 export default function WorkflowValidationDetailPage() {
   const { jobId } = useParams();
   const { getToken } = useAuth();
   const { t } = useTranslation();
-  const [state, setState] = useState<WorkflowState | null>(null);
-  const [loading, setLoading] = useState(true);
-  const [notFound, setNotFound] = useState(false);
 
-  const load = useCallback(async () => {
-    if (!jobId) return;
-    setLoading(true);
-    setNotFound(false);
-    try {
-      const token = await getApiToken(getToken);
-      setState(await fetchWorkflowState(token, jobId));
-    } catch (err) {
-      setState(null);
-      if (err instanceof ApiError && err.status === 404) {
-        setNotFound(true);
-      } else {
+  const { data: state, isLoading, error, mutate } = useTipSWR(
+    jobId ? (["workflow-state", jobId, "validation"] as const) : null,
+    (token) => fetchWorkflowState(token, jobId!),
+    {
+      onError: async (err) => {
+        if (err instanceof ApiError && err.status === 404) return;
         await showError(t("common.error"), err instanceof ApiError ? err.message : t("common.error"));
-      }
-    } finally {
-      setLoading(false);
-    }
-  }, [getToken, jobId, t]);
+      },
+    },
+  );
 
-  useEffect(() => {
-    void load();
-  }, [load]);
+  const loading = isLoading && !state;
+  const notFound = Boolean(error instanceof ApiError && error.status === 404);
+
+  const patchState = (next: WorkflowState) => {
+    void mutate(next, { revalidate: false });
+  };
 
   if (!jobId) {
     return <Navigate to="/workflow/validation" replace />;
@@ -79,7 +71,9 @@ export default function WorkflowValidationDetailPage() {
     if (!confirmed.isConfirmed) return;
     try {
       const token = await getApiToken(getToken);
-      setState(await approveValidator(token, jobId!));
+      const next = await approveValidator(token, jobId!);
+      patchState(next);
+      await revalidateTipKeys("workflow-queue", "workflow-stats");
       showSuccess(t("workflow.packageApproved"));
     } catch (err) {
       showError(err instanceof ApiError ? err.message : t("common.error"));
@@ -97,7 +91,9 @@ export default function WorkflowValidationDetailPage() {
     if (!prompt.isConfirmed || !prompt.value) return;
     try {
       const token = await getApiToken(getToken);
-      setState(await rejectValidator(token, jobId!, prompt.value));
+      const next = await rejectValidator(token, jobId!, prompt.value);
+      patchState(next);
+      await revalidateTipKeys("workflow-queue", "workflow-stats");
       showSuccess(t("workflow.packageRejected"));
     } catch (err) {
       showError(err instanceof ApiError ? err.message : t("common.error"));
@@ -150,7 +146,7 @@ export default function WorkflowValidationDetailPage() {
         onApprove={() => void handleApprove()}
         onReject={() => void handleReject()}
         onMailto={() => void handleMailto()}
-        onUpdated={setState}
+        onUpdated={patchState}
         t={t}
       />
     </>

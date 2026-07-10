@@ -2,6 +2,7 @@ import { useClerk } from "@clerk/clerk-react";
 import GridShape from "../common/GridShape";
 import PageMeta from "../common/PageMeta";
 import { useTranslation } from "../../i18n/useTranslation";
+import { clearTipSwrCache } from "../../lib/swr";
 import { confirmAction } from "../../lib/swal";
 import { LockIcon } from "../../icons";
 
@@ -83,6 +84,7 @@ export default function AuthErrorScreen({
       icon: "question",
     });
     if (!confirmed.isConfirmed) return;
+    await clearTipSwrCache();
     await signOut({ redirectUrl: "/signin" });
   };
 

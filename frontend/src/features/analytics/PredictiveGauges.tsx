@@ -1,6 +1,5 @@
-import { useAuth } from "@clerk/clerk-react";
+import { useEffect, useMemo, useState } from "react";
 import { Loader2, TrendingUp, AlertTriangle, Search } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
 import { predictEvent } from "../../api/analytics";
 import { ApiError } from "../../api/client";
 import { fetchEvents } from "../../api/events";
@@ -15,7 +14,7 @@ import {
   type EventSortField,
 } from "../events/eventSort";
 import { useTranslation } from "../../i18n/useTranslation";
-import type { Evenement } from "../events/types";
+import { useTipSWR } from "../../lib/swr";
 
 const STORAGE_KEY = "tip.dashboard.eventId";
 
@@ -71,88 +70,64 @@ export default function PredictiveGauges({
   selectedEventId: controlledId,
   onSelectedEventIdChange,
 }: PredictiveGaugesProps = {}) {
-  const { getToken } = useAuth();
   const { t } = useTranslation();
-  const [events, setEvents] = useState<Evenement[]>([]);
   const [internalId, setInternalId] = useState<string>(() => localStorage.getItem(STORAGE_KEY) ?? "");
   const selectedId = controlledId !== undefined ? controlledId : internalId;
   const setSelectedId = (id: string) => {
     if (onSelectedEventIdChange) onSelectedEventIdChange(id);
     else setInternalId(id);
   };
-  const [riskScore, setRiskScore] = useState<number | null>(null);
-  const [participants, setParticipants] = useState<number | null>(null);
   const [searchInput, setSearchInput] = useState("");
   const [search, setSearch] = useState("");
   const [sortBy, setSortBy] = useState<EventSortField>(DEFAULT_EVENT_SORT);
   const [sortDir, setSortDir] = useState(DEFAULT_EVENT_SORT_DIR);
-  const [isLoadingEvents, setIsLoadingEvents] = useState(true);
-  const [isPredicting, setIsPredicting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const timer = window.setTimeout(() => setSearch(searchInput.trim()), 300);
     return () => window.clearTimeout(timer);
   }, [searchInput]);
 
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      setIsLoadingEvents(true);
-      try {
-        const token = await getToken();
-        const response = await fetchEvents(token, {
-          sort_by: sortBy,
-          sort_dir: sortDir,
-          ...(search ? { q: search } : {}),
-        });
-        if (cancelled) return;
-        const items = response.items;
-        setEvents(items);
-        const stored = localStorage.getItem(STORAGE_KEY);
-        const pick =
-          (stored && items.some((e) => e.id === stored) ? stored : null) ??
-          (controlledId && items.some((e) => e.id === controlledId) ? controlledId : null) ??
-          (items.length > 0 ? items[0].id : "");
-        if (pick) setSelectedId(pick);
-      } catch {
-        if (!cancelled) setError(t("analytics.loadEventsError"));
-      } finally {
-        if (!cancelled) setIsLoadingEvents(false);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [controlledId, getToken, search, sortBy, sortDir, t]);
+  const {
+    data: eventsData,
+    isLoading: eventsLoading,
+    error: eventsError,
+  } = useTipSWR(
+    ["analytics-events", sortBy, sortDir, search] as const,
+    async (token) =>
+      fetchEvents(token, {
+        sort_by: sortBy,
+        sort_dir: sortDir,
+        ...(search ? { q: search } : {}),
+      }),
+  );
 
-  const runPrediction = useCallback(
-    async (eventId: string) => {
-      if (!eventId) return;
-      setIsPredicting(true);
-      setError(null);
-      try {
-        const token = await getToken();
-        const result = await predictEvent(token, { event_id: eventId });
-        setRiskScore(result.risk_score);
-        setParticipants(result.predicted_participants);
-      } catch (err) {
-        const message = err instanceof ApiError ? err.message : t("analytics.predictError");
-        setError(message);
-        setRiskScore(null);
-        setParticipants(null);
-      } finally {
-        setIsPredicting(false);
-      }
-    },
-    [getToken, t],
+  const events = eventsData?.items ?? [];
+  const isLoadingEvents = eventsLoading && !eventsData;
+
+  useEffect(() => {
+    if (!eventsData) return;
+    const items = eventsData.items;
+    const stored = localStorage.getItem(STORAGE_KEY);
+    const pick =
+      (stored && items.some((e) => e.id === stored) ? stored : null) ??
+      (controlledId && items.some((e) => e.id === controlledId) ? controlledId : null) ??
+      (items.length > 0 ? items[0].id : "");
+    if (pick) setSelectedId(pick);
+  }, [eventsData, controlledId]);
+
+  const {
+    data: prediction,
+    isLoading: isPredicting,
+    error: predictError,
+  } = useTipSWR(
+    selectedId ? (["analytics-predict", selectedId] as const) : null,
+    (token) => predictEvent(token, { event_id: selectedId }),
   );
 
   useEffect(() => {
     if (!selectedId) return;
     localStorage.setItem(STORAGE_KEY, selectedId);
-    void runPrediction(selectedId);
-  }, [selectedId, runPrediction]);
+  }, [selectedId]);
 
   const sortOptions = useMemo(() => buildSortSelectOptions(t), [t]);
 
@@ -171,6 +146,16 @@ export default function PredictiveGauges({
     if (!selectedId || filteredEvents.some((e) => e.id === selectedId)) return;
     if (filteredEvents.length > 0) setSelectedId(filteredEvents[0].id);
   }, [filteredEvents, selectedId]);
+
+  const riskScore = prediction?.risk_score ?? null;
+  const participants = prediction?.predicted_participants ?? null;
+  const error = eventsError
+    ? t("analytics.loadEventsError")
+    : predictError
+      ? predictError instanceof ApiError
+        ? predictError.message
+        : t("analytics.predictError")
+      : null;
 
   const level = riskScore !== null ? riskLevel(riskScore) : null;
   const riskLabel =
@@ -195,7 +180,7 @@ export default function PredictiveGauges({
           </h2>
           <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">{t("analytics.subtitle")}</p>
         </div>
-        {isPredicting && <Loader2 className="size-5 animate-spin text-brand-500" />}
+        {isPredicting && !prediction && <Loader2 className="size-5 animate-spin text-brand-500" />}
       </div>
 
       <div className="mb-5 grid max-w-3xl grid-cols-1 gap-3 sm:grid-cols-2">

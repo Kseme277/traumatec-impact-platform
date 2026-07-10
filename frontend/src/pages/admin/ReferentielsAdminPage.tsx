@@ -1,5 +1,5 @@
 import { useAuth } from "@clerk/clerk-react";
-import { FormEvent, useCallback, useEffect, useState } from "react";
+import { FormEvent, useState } from "react";
 import { Link } from "react-router";
 import AdminBreadcrumb from "../../components/common/AdminBreadcrumb";
 import ComponentCard from "../../components/common/ComponentCard";
@@ -36,6 +36,7 @@ import {
 } from "../../api/teachers";
 import { getApiToken } from "../../lib/clerkToken";
 import { confirmAction, showError, showSuccess } from "../../lib/swal";
+import { useTipSWR } from "../../lib/swr";
 import { usePagination } from "../../hooks/usePagination";
 import { useTranslation } from "../../i18n/useTranslation";
 
@@ -62,9 +63,6 @@ export default function ReferentielsAdminPage() {
   const { getToken } = useAuth();
   const { t } = useTranslation();
   const [tab, setTab] = useState<Tab>("nationals");
-  const [loading, setLoading] = useState(true);
-  const [nationals, setNationals] = useState<NationalContact[]>([]);
-  const [teachers, setTeachers] = useState<Teacher[]>([]);
   const [editingNationalId, setEditingNationalId] = useState<string | null>(null);
   const [editingTeacherId, setEditingTeacherId] = useState<string | null>(null);
   const [nationalForm, setNationalForm] = useState<NationalContactPayload>(emptyNational);
@@ -72,29 +70,28 @@ export default function ReferentielsAdminPage() {
   const [saving, setSaving] = useState(false);
   const [syncingTeachers, setSyncingTeachers] = useState(false);
 
-  const nationalsPagination = usePagination(nationals, REFERENTIALS_PAGE_SIZE, `nationals-${nationals.length}`);
-  const teachersPagination = usePagination(teachers, REFERENTIALS_PAGE_SIZE, `teachers-${teachers.length}`);
-
-  const load = useCallback(async () => {
-    setLoading(true);
-    try {
-      const token = await getApiToken(getToken);
+  const { data, isLoading, mutate } = useTipSWR(
+    ["referentiels"] as const,
+    async (token) => {
       const [nationalRes, teacherRes] = await Promise.all([
         fetchNationalContacts(token, { activeOnly: false }),
         fetchTeachers(token, { activeOnly: false }),
       ]);
-      setNationals(nationalRes.items);
-      setTeachers(teacherRes.items);
-    } catch (err) {
-      showError(t("common.error"), err instanceof ApiError ? err.message : t("common.error"));
-    } finally {
-      setLoading(false);
-    }
-  }, [getToken, t]);
+      return { nationals: nationalRes.items, teachers: teacherRes.items };
+    },
+    {
+      onError: (err) => {
+        void showError(t("common.error"), err instanceof ApiError ? err.message : t("common.error"));
+      },
+    },
+  );
 
-  useEffect(() => {
-    void load();
-  }, [load]);
+  const nationals = data?.nationals ?? [];
+  const teachers = data?.teachers ?? [];
+  const loading = isLoading && !data;
+
+  const nationalsPagination = usePagination(nationals, REFERENTIALS_PAGE_SIZE, `nationals-${nationals.length}`);
+  const teachersPagination = usePagination(teachers, REFERENTIALS_PAGE_SIZE, `teachers-${teachers.length}`);
 
   function resetNationalForm() {
     setEditingNationalId(null);
@@ -148,7 +145,7 @@ export default function ReferentielsAdminPage() {
         showSuccess("Responsable national ajouté");
       }
       resetNationalForm();
-      await load();
+      await mutate();
     } catch (err) {
       showError(t("common.error"), err instanceof ApiError ? err.message : t("common.error"));
     } finally {
@@ -177,7 +174,7 @@ export default function ReferentielsAdminPage() {
         showSuccess("Enseignant ajouté");
       }
       resetTeacherForm();
-      await load();
+      await mutate();
     } catch (err) {
       showError(t("common.error"), err instanceof ApiError ? err.message : t("common.error"));
     } finally {
@@ -197,7 +194,7 @@ export default function ReferentielsAdminPage() {
     try {
       const token = await getApiToken(getToken);
       const result = await syncTeachersFromParticipants(token);
-      await load();
+      await mutate();
       await showSuccess(
         "Synchronisation terminée",
         `${result.processed} enseignant(s) traité(s) — ${result.teachers_created} créé(s), ${result.event_links_created} lien(s) événement ajouté(s).`,

@@ -16,8 +16,6 @@ import {
   type CertificateEditorConfig,
   type CertificateGeneration,
   type CertificateRoleFilter,
-  type Participant,
-  type ParticipantStats,
   downloadCertificateGeneration,
   downloadParticipantImportTemplate,
   fetchCertificateEditorConfig,
@@ -38,7 +36,6 @@ import {
   FALLBACK_PACKAGE_TYPES,
   mergePackageCatalog,
   packageTypeFilterOptions,
-  type EventPackageTypeCatalog,
 } from "../features/documents/eventPackageTypes";
 import { eventMatchesSearch, formatEventDateRange } from "../features/events/eventDates";
 import { isEventOpen } from "../features/events/projectStatus";
@@ -48,6 +45,7 @@ import { ApiError } from "../api/client";
 import { getApiToken } from "../lib/clerkToken";
 import { useTranslation } from "../i18n/useTranslation";
 import { showError, showSuccess, showWarning } from "../lib/swal";
+import { useTipSWR } from "../lib/swr";
 
 function eventOptionLabel(event: Evenement): string {
   const dates = formatEventDateRange(event);
@@ -57,8 +55,7 @@ function eventOptionLabel(event: Evenement): string {
 
 export default function CertificatesPage() {
   const { getToken, isLoaded, isSignedIn } = useAuth();
-  const { t, localeTag } = useTranslation();
-  const { events, loadEvents, loadEvent } = useEvents();
+  const { t } = useTranslation();
   const [searchParams, setSearchParams] = useSearchParams();
   const fileRef = useRef<HTMLInputElement>(null);
 
@@ -67,16 +64,10 @@ export default function CertificatesPage() {
   const [pinnedEvent, setPinnedEvent] = useState<Evenement | null>(null);
   const [eventSearchQuery, setEventSearchQuery] = useState("");
   const [eventTypeFilter, setEventTypeFilter] = useState("");
-  const [packageCatalog, setPackageCatalog] = useState<EventPackageTypeCatalog>(FALLBACK_PACKAGE_TYPES);
-  const [participants, setParticipants] = useState<Participant[]>([]);
-  const [listTotal, setListTotal] = useState(0);
   const [listPage, setListPage] = useState(1);
-  const [listTotalPages, setListTotalPages] = useState(1);
   const [participantSearchInput, setParticipantSearchInput] = useState("");
   const [participantSearch, setParticipantSearch] = useState("");
   const LIST_PAGE_SIZE = 10;
-  const [stats, setStats] = useState<ParticipantStats | null>(null);
-  const [isLoading, setIsLoading] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
   const [isGenerating, setIsGenerating] = useState(false);
   const [genProgress, setGenProgress] = useState<CertificateGenerationProgress | null>(null);
@@ -84,7 +75,6 @@ export default function CertificatesPage() {
   const [certificateTitle, setCertificateTitle] = useState("");
   const [isTitleLoading, setIsTitleLoading] = useState(false);
   const [roleFilter, setRoleFilter] = useState<CertificateRoleFilter>("all");
-  const [generations, setGenerations] = useState<CertificateGeneration[]>([]);
   const [previewId, setPreviewId] = useState<string | null>(null);
   const [editorConfig, setEditorConfig] = useState<CertificateEditorConfig | null>(null);
   const [isEditorLoading, setIsEditorLoading] = useState(false);
@@ -93,10 +83,7 @@ export default function CertificatesPage() {
     () => ({ project_status: "Open" }),
     [],
   );
-
-  useEffect(() => {
-    void loadEvents(certificateEventFilters);
-  }, [certificateEventFilters, loadEvents]);
+  const { events, loadEvent } = useEvents({ filters: certificateEventFilters });
 
   useEffect(() => {
     if (!urlEventId) {
@@ -126,17 +113,17 @@ export default function CertificatesPage() {
     [events],
   );
 
-  useEffect(() => {
-    void (async () => {
-      try {
-        const token = await getApiToken(getToken);
-        const types = await fetchPackageTypes(token);
-        setPackageCatalog(mergePackageCatalog(types));
-      } catch {
-        setPackageCatalog(FALLBACK_PACKAGE_TYPES);
-      }
-    })();
-  }, [getToken]);
+  const { data: catalogData } = useTipSWR(["package-catalog"] as const, async (token) => {
+    try {
+      return await fetchPackageTypes(token);
+    } catch {
+      return null;
+    }
+  });
+  const packageCatalog = useMemo(
+    () => (catalogData ? mergePackageCatalog(catalogData) : FALLBACK_PACKAGE_TYPES),
+    [catalogData],
+  );
 
   const eventTypeOptions = useMemo(
     () => packageTypeFilterOptions(packageCatalog, t),
@@ -185,8 +172,63 @@ export default function CertificatesPage() {
     setCertificateTitle("");
   }, [selectedEventId]);
 
+  useEffect(() => {
+    const timer = window.setTimeout(() => setParticipantSearch(participantSearchInput), 300);
+    return () => window.clearTimeout(timer);
+  }, [participantSearchInput]);
+
+  const participantsKey = selectedEventId
+    ? (["participants", selectedEventId, listPage, participantSearch] as const)
+    : null;
+  const statsKey = selectedEventId ? (["participant-stats", selectedEventId] as const) : null;
+  const generationsKey = selectedEventId
+    ? (["certificate-generations", selectedEventId] as const)
+    : null;
+
+  const {
+    data: listData,
+    isLoading: listLoading,
+    error: listError,
+    mutate: mutateList,
+  } = useTipSWR(participantsKey, (token) =>
+    fetchParticipants(token, selectedEventId, {
+      page: listPage,
+      page_size: LIST_PAGE_SIZE,
+      q: participantSearch,
+    }),
+  );
+
+  const { data: stats, mutate: mutateStats } = useTipSWR(statsKey, (token) =>
+    fetchParticipantStats(token, selectedEventId),
+  );
+
+  const { data: generationsData, mutate: mutateGenerations } = useTipSWR(generationsKey, (token) =>
+    fetchCertificateGenerations(token, selectedEventId),
+  );
+
+  const participants = listData?.items ?? [];
+  const listTotal = listData?.total ?? 0;
+  const listTotalPages = listData?.total_pages ?? 1;
+  const generations = generationsData?.items ?? [];
+  const isLoading = listLoading && !listData;
+
+  useEffect(() => {
+    if (!listError) return;
+    const message =
+      listError instanceof ApiError
+        ? listError.message
+        : listError instanceof Error
+          ? listError.message
+          : t("participants.loadError");
+    void showError(t("participants.loadError"), message);
+  }, [listError, t]);
+
+  const refresh = useCallback(async () => {
+    await Promise.all([mutateList(), mutateStats(), mutateGenerations()]);
+  }, [mutateGenerations, mutateList, mutateStats]);
+
   const loadCertificateTitle = useCallback(
-    async (refresh = false) => {
+    async (refreshTitle = false) => {
       if (!selectedEventId || !isLoaded || !isSignedIn) return;
       if (!stats?.source_event_title) {
         setCertificateTitle("");
@@ -196,7 +238,7 @@ export default function CertificatesPage() {
       try {
         const token = await getApiToken(getToken);
         if (!token) return;
-        const suggestion = await fetchCertificateTitleSuggestion(token, selectedEventId, refresh);
+        const suggestion = await fetchCertificateTitleSuggestion(token, selectedEventId, refreshTitle);
         setCertificateTitle(suggestion.title_suggested);
       } catch (err) {
         const fallback =
@@ -204,7 +246,7 @@ export default function CertificatesPage() {
           stats.source_event_title?.trim() ||
           "";
         if (fallback) setCertificateTitle(fallback);
-        if (refresh) {
+        if (refreshTitle) {
           await showError(
             t("participants.titleFormatError"),
             err instanceof Error ? err.message : "",
@@ -229,83 +271,6 @@ export default function CertificatesPage() {
     }
     setCertificateTitle(stats.source_event_title.trim());
   }, [stats?.source_event_title, stats?.certificate_title_formatted]);
-
-  useEffect(() => {
-    const timer = window.setTimeout(() => setParticipantSearch(participantSearchInput), 300);
-    return () => window.clearTimeout(timer);
-  }, [participantSearchInput]);
-
-  const refresh = useCallback(
-    async (options?: { silent?: boolean }) => {
-    if (!selectedEventId || !isLoaded || !isSignedIn) {
-      setParticipants([]);
-      setListTotal(0);
-      setListTotalPages(1);
-      setStats(null);
-      setGenerations([]);
-      return;
-    }
-    setIsLoading(true);
-    try {
-      const token = await getApiToken(getToken);
-      if (!token) {
-        if (options?.silent) return;
-        throw new ApiError(t("documents.sessionExpired"), 401);
-      }
-
-      const [listResult, statsResult, generationsResult] = await Promise.allSettled([
-        fetchParticipants(token, selectedEventId, {
-          page: listPage,
-          page_size: LIST_PAGE_SIZE,
-          q: participantSearch,
-        }),
-        fetchParticipantStats(token, selectedEventId),
-        fetchCertificateGenerations(token, selectedEventId),
-      ]);
-
-      if (listResult.status === "fulfilled") {
-        setParticipants(listResult.value.items);
-        setListTotal(listResult.value.total);
-        setListTotalPages(listResult.value.total_pages);
-      } else {
-        setParticipants([]);
-        setListTotal(0);
-        setListTotalPages(1);
-        if (!options?.silent) {
-          throw listResult.reason;
-        }
-      }
-
-      if (statsResult.status === "fulfilled") {
-        setStats(statsResult.value);
-      } else {
-        setStats(null);
-      }
-
-      if (generationsResult.status === "fulfilled") {
-        setGenerations(generationsResult.value.items);
-      } else {
-        setGenerations([]);
-      }
-    } catch (err) {
-      if (options?.silent) return;
-      const message =
-        err instanceof ApiError
-          ? err.message
-          : err instanceof Error
-            ? err.message
-            : t("participants.loadError");
-      await showError(t("participants.loadError"), message);
-    } finally {
-      setIsLoading(false);
-    }
-    },
-    [getToken, isLoaded, isSignedIn, listPage, participantSearch, selectedEventId, t],
-  );
-
-  useEffect(() => {
-    void refresh();
-  }, [refresh]);
 
   const handleImport = async (file: File) => {
     if (!selectedEventId) return;
@@ -432,7 +397,7 @@ export default function CertificatesPage() {
         t("participants.generateSuccess"),
         `${result.certificate_count} ${t("participants.certificatesLabel")}`,
       );
-      void refresh({ silent: true });
+      void refresh();
     } catch (err) {
       stopGenProgressTimer();
       setGenProgress({

@@ -1,6 +1,6 @@
 import { useAuth } from "@clerk/clerk-react";
 import { Download, Play, Search } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import AdminBreadcrumb from "../../components/common/AdminBreadcrumb";
 import ComponentCard from "../../components/common/ComponentCard";
 import DataTablePagination from "../../components/common/DataTablePagination";
@@ -17,12 +17,12 @@ import {
   updateAuditConfig,
   type AuditExportConfig,
   type AuditExportFile,
-  type AuditLog,
 } from "../../api/audit";
 import { ApiError } from "../../api/client";
 import { useTranslation } from "../../i18n/useTranslation";
 import { usePagination } from "../../hooks/usePagination";
 import { showError, showSuccess } from "../../lib/swal";
+import { useTipSWR } from "../../lib/swr";
 
 const EXPORTS_PAGE_SIZE = 5;
 const EVENTS_PAGE_SIZE = 15;
@@ -36,17 +36,60 @@ function formatBytes(size: number): string {
 export default function AuditPage() {
   const { getToken } = useAuth();
   const { t, localeTag } = useTranslation();
-  const [config, setConfig] = useState<AuditExportConfig | null>(null);
-  const [exports, setExports] = useState<AuditExportFile[]>([]);
-  const [events, setEvents] = useState<AuditLog[]>([]);
-  const [eventsTotal, setEventsTotal] = useState(0);
+  const [configDraft, setConfigDraft] = useState<AuditExportConfig | null>(null);
   const [eventsPage, setEventsPage] = useState(1);
   const [searchQuery, setSearchQuery] = useState("");
   const [appliedQuery, setAppliedQuery] = useState("");
-  const [isLoading, setIsLoading] = useState(true);
-  const [isEventsLoading, setIsEventsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [isRunning, setIsRunning] = useState(false);
+
+  const {
+    data: configData,
+    isLoading: configLoading,
+    mutate: mutateConfig,
+  } = useTipSWR(
+    ["audit-config-exports"] as const,
+    async (token) => {
+      const [cfg, files] = await Promise.all([fetchAuditConfig(token), fetchAuditExports(token)]);
+      return { config: cfg, exports: files };
+    },
+    {
+      onError: async (err) => {
+        await showError("Audit", err instanceof ApiError ? err.message : "Chargement impossible");
+      },
+    },
+  );
+
+  const {
+    data: eventsData,
+    isLoading: eventsLoading,
+  } = useTipSWR(
+    ["audit-events", appliedQuery, eventsPage] as const,
+    async (token) =>
+      fetchAuditEvents(token, {
+        q: appliedQuery || undefined,
+        page: eventsPage,
+        page_size: EVENTS_PAGE_SIZE,
+      }),
+    {
+      onError: async (err) => {
+        await showError(t("audit.eventsTitle"), err instanceof ApiError ? err.message : "Chargement impossible");
+      },
+    },
+  );
+
+  useEffect(() => {
+    if (configData?.config) {
+      setConfigDraft(configData.config);
+    }
+  }, [configData?.config]);
+
+  const config = configDraft;
+  const exports = configData?.exports ?? [];
+  const events = eventsData?.items ?? [];
+  const eventsTotal = eventsData?.total ?? 0;
+  const isLoading = configLoading && !configData;
+  const isEventsLoading = eventsLoading && !eventsData;
 
   const {
     paginatedItems: paginatedExports,
@@ -62,46 +105,6 @@ export default function AuditPage() {
   const eventsRangeStart = eventsTotal === 0 ? 0 : (eventsPage - 1) * EVENTS_PAGE_SIZE + 1;
   const eventsRangeEnd = Math.min(eventsPage * EVENTS_PAGE_SIZE, eventsTotal);
 
-  const loadConfigAndExports = useCallback(async () => {
-    setIsLoading(true);
-    try {
-      const token = await getToken();
-      const [cfg, files] = await Promise.all([fetchAuditConfig(token), fetchAuditExports(token)]);
-      setConfig(cfg);
-      setExports(files);
-    } catch (err) {
-      await showError("Audit", err instanceof ApiError ? err.message : "Chargement impossible");
-    } finally {
-      setIsLoading(false);
-    }
-  }, [getToken]);
-
-  const loadEvents = useCallback(async () => {
-    setIsEventsLoading(true);
-    try {
-      const token = await getToken();
-      const response = await fetchAuditEvents(token, {
-        q: appliedQuery || undefined,
-        page: eventsPage,
-        page_size: EVENTS_PAGE_SIZE,
-      });
-      setEvents(response.items);
-      setEventsTotal(response.total);
-    } catch (err) {
-      await showError(t("audit.eventsTitle"), err instanceof ApiError ? err.message : "Chargement impossible");
-    } finally {
-      setIsEventsLoading(false);
-    }
-  }, [appliedQuery, eventsPage, getToken, t]);
-
-  useEffect(() => {
-    void loadConfigAndExports();
-  }, [loadConfigAndExports]);
-
-  useEffect(() => {
-    void loadEvents();
-  }, [loadEvents]);
-
   const handleSearch = () => {
     setEventsPage(1);
     setAppliedQuery(searchQuery.trim());
@@ -116,7 +119,11 @@ export default function AuditPage() {
         interval_hours: config.interval_hours,
         enabled: config.enabled,
       });
-      setConfig(updated);
+      setConfigDraft(updated);
+      await mutateConfig(
+        (prev) => (prev ? { ...prev, config: updated } : { config: updated, exports: [] }),
+        { revalidate: false },
+      );
       await showSuccess(t("common.save"), "");
     } catch (err) {
       await showError(t("common.save"), err instanceof ApiError ? err.message : "Erreur");
@@ -131,7 +138,7 @@ export default function AuditPage() {
       const token = await getToken();
       await runAuditExport(token);
       await showSuccess(t("audit.runNow"), "");
-      await loadConfigAndExports();
+      await mutateConfig();
     } catch (err) {
       await showError(t("audit.runNow"), err instanceof ApiError ? err.message : "Erreur");
     } finally {
@@ -171,11 +178,11 @@ export default function AuditPage() {
                 </label>
                 <Input
                   type="number"
-                  min={1}
-                  max={720}
+                  min="1"
+                  max="720"
                   value={String(config.interval_hours)}
                   onChange={(e) =>
-                    setConfig({ ...config, interval_hours: Number(e.target.value) || 24 })
+                    setConfigDraft({ ...config, interval_hours: Number(e.target.value) || 24 })
                   }
                 />
               </div>
@@ -185,7 +192,7 @@ export default function AuditPage() {
                 </span>
                 <Switch
                   checked={config.enabled}
-                  onChange={(checked) => setConfig({ ...config, enabled: checked })}
+                  onChange={(checked) => setConfigDraft({ ...config, enabled: checked })}
                   aria-label="Activer exports planifiés"
                 />
               </div>
@@ -253,20 +260,25 @@ export default function AuditPage() {
       <div className="mt-6">
         <ComponentCard title={t("audit.eventsTitle")} desc={t("audit.eventsDesc")}>
           <div className="mb-4 flex flex-wrap gap-3">
-            <div className="min-w-[220px] flex-1">
-              <Input
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder={t("audit.searchPlaceholder")}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter") handleSearch();
-                }}
-              />
-            </div>
-            <Button size="sm" variant="outline" onClick={() => handleSearch()}>
-              <Search className="mr-2 size-4" />
-              {t("common.search")}
-            </Button>
+            <form
+              className="flex min-w-[220px] flex-1 flex-wrap gap-3"
+              onSubmit={(e) => {
+                e.preventDefault();
+                handleSearch();
+              }}
+            >
+              <div className="min-w-[220px] flex-1">
+                <Input
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  placeholder={t("audit.searchPlaceholder")}
+                />
+              </div>
+              <Button size="sm" variant="outline" type="submit">
+                <Search className="mr-2 size-4" />
+                {t("common.search")}
+              </Button>
+            </form>
           </div>
 
           {isEventsLoading ? (

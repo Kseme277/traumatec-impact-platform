@@ -1,6 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router";
-import { useAuth } from "@clerk/clerk-react";
 import { Sparkles } from "lucide-react";
 import { fetchAuditEvents } from "../../api/audit";
 import { fetchEvents } from "../../api/events";
@@ -9,6 +8,7 @@ import { filterSearchEntries, SEARCH_ENTRIES, type SearchEntry } from "../../con
 import { useCommandAssistant } from "../../context/CommandAssistantContext";
 import { useTipAuth } from "../../context/TipAuthContext";
 import { useTranslation } from "../../i18n/useTranslation";
+import { useTipSWR } from "../../lib/swr";
 
 interface SearchResult extends SearchEntry {
   kind: "page" | "event" | "user" | "audit";
@@ -20,7 +20,6 @@ function isMacPlatform() {
 
 export default function GlobalSearch() {
   const navigate = useNavigate();
-  const { getToken } = useAuth();
   const { isAdmin, hasRole } = useTipAuth();
   const { openWithMessage } = useCommandAssistant();
   const { t } = useTranslation();
@@ -28,9 +27,8 @@ export default function GlobalSearch() {
 
   const [isOpen, setIsOpen] = useState(false);
   const [query, setQuery] = useState("");
-  const [dynamicResults, setDynamicResults] = useState<SearchResult[]>([]);
+  const [debouncedQuery, setDebouncedQuery] = useState("");
   const [selectedIndex, setSelectedIndex] = useState(0);
-  const [isSearching, setIsSearching] = useState(false);
 
   const pageResults = useMemo(
     () =>
@@ -39,6 +37,77 @@ export default function GlobalSearch() {
         kind: "page" as const,
       })),
     [query, isAdmin, hasRole],
+  );
+
+  useEffect(() => {
+    const trimmed = query.trim();
+    if (!isOpen || trimmed.length < 2) {
+      setDebouncedQuery("");
+      return;
+    }
+    const timeout = window.setTimeout(() => setDebouncedQuery(trimmed), 250);
+    return () => window.clearTimeout(timeout);
+  }, [isOpen, query]);
+
+  const searchKey =
+    isOpen && debouncedQuery.length >= 2
+      ? (["global-search", debouncedQuery, isAdmin] as const)
+      : null;
+
+  const { data: dynamicResults = [], isLoading: isSearching } = useTipSWR(
+    searchKey,
+    async (token) => {
+      const needle = debouncedQuery.toLowerCase();
+      const next: SearchResult[] = [];
+
+      const eventsResponse = await fetchEvents(token, { q: debouncedQuery });
+      for (const event of eventsResponse.items.slice(0, 5)) {
+        next.push({
+          id: `event-${event.id}`,
+          title: event.title,
+          subtitle: `${event.project_number} · ${event.city ?? ""} ${event.country ?? ""}`.trim(),
+          path: `/evenements/${event.id}`,
+          category: t("search.categoryEvent"),
+          keywords: [],
+          kind: "event",
+        });
+      }
+
+      if (isAdmin && token) {
+        const users = await fetchAllUsers(token);
+        for (const user of users) {
+          const haystack = `${user.prenom} ${user.nom} ${user.email} ${user.role}`.toLowerCase();
+          if (!haystack.includes(needle)) continue;
+          next.push({
+            id: `user-${user.id}`,
+            title: `${user.prenom} ${user.nom}`,
+            subtitle: `${user.email} · ${user.role}`,
+            path: `/admin/utilisateurs/${user.id}`,
+            category: t("search.categoryUser"),
+            keywords: [],
+            kind: "user",
+          });
+          if (next.filter((r) => r.kind === "user").length >= 5) break;
+        }
+
+        const logsResponse = await fetchAuditEvents(token, { q: debouncedQuery, page_size: 5 });
+        for (const log of logsResponse.items) {
+          next.push({
+            id: `audit-${log.id}`,
+            title: log.action,
+            subtitle:
+              [log.actor_name, log.entity_type, log.entity_id].filter(Boolean).join(" · ") ||
+              log.created_at,
+            path: "/admin/audit",
+            category: t("search.categoryAudit"),
+            keywords: [],
+            kind: "audit",
+          });
+        }
+      }
+
+      return next;
+    },
   );
 
   const results = useMemo(() => [...pageResults, ...dynamicResults], [pageResults, dynamicResults]);
@@ -52,7 +121,7 @@ export default function GlobalSearch() {
   const closePalette = useCallback(() => {
     setIsOpen(false);
     setQuery("");
-    setDynamicResults([]);
+    setDebouncedQuery("");
     setSelectedIndex(0);
   }, []);
 
@@ -107,84 +176,11 @@ export default function GlobalSearch() {
   }, [closePalette, goTo, isOpen, openPalette, results, selectedIndex]);
 
   useEffect(() => {
-    const trimmed = query.trim();
-    if (!isOpen || trimmed.length < 2) {
-      setDynamicResults([]);
-      return;
-    }
-
-    const timeout = window.setTimeout(async () => {
-      setIsSearching(true);
-      const needle = trimmed.toLowerCase();
-      const next: SearchResult[] = [];
-
-      try {
-        const token = await getToken();
-
-        const eventsResponse = await fetchEvents(token, { q: trimmed });
-        for (const event of eventsResponse.items.slice(0, 5)) {
-          next.push({
-            id: `event-${event.id}`,
-            title: event.title,
-            subtitle: `${event.project_number} · ${event.city ?? ""} ${event.country ?? ""}`.trim(),
-            path: `/evenements/${event.id}`,
-            category: t("search.categoryEvent"),
-            keywords: [],
-            kind: "event",
-          });
-        }
-
-        if (isAdmin && token) {
-          const users = await fetchAllUsers(token);
-          for (const user of users) {
-            const haystack = `${user.prenom} ${user.nom} ${user.email} ${user.role}`.toLowerCase();
-            if (!haystack.includes(needle)) continue;
-            next.push({
-              id: `user-${user.id}`,
-              title: `${user.prenom} ${user.nom}`,
-              subtitle: `${user.email} · ${user.role}`,
-              path: `/admin/utilisateurs/${user.id}`,
-              category: t("search.categoryUser"),
-              keywords: [],
-              kind: "user",
-            });
-            if (next.filter((r) => r.kind === "user").length >= 5) break;
-          }
-
-          const logsResponse = await fetchAuditEvents(token, { q: trimmed, page_size: 5 });
-          for (const log of logsResponse.items) {
-            next.push({
-              id: `audit-${log.id}`,
-              title: log.action,
-              subtitle: [
-                log.actor_name,
-                log.entity_type,
-                log.entity_id,
-              ].filter(Boolean).join(" · ") || log.created_at,
-              path: "/admin/audit",
-              category: t("search.categoryAudit"),
-              keywords: [],
-              kind: "audit",
-            });
-          }
-        }
-
-        setDynamicResults(next);
-      } catch {
-        setDynamicResults([]);
-      } finally {
-        setIsSearching(false);
-      }
-    }, 250);
-
-    return () => window.clearTimeout(timeout);
-  }, [getToken, isAdmin, isOpen, query, t]);
-
-  useEffect(() => {
     setSelectedIndex(0);
   }, [query, results.length]);
 
   const shortcutLabel = isMacPlatform() ? "⌘K" : "Ctrl+K";
+  const showSearching = Boolean(searchKey) && isSearching && dynamicResults.length === 0;
 
   return (
     <>
@@ -252,7 +248,7 @@ export default function GlobalSearch() {
 
               {results.length === 0 ? (
                 <p className="px-4 py-8 text-center text-sm text-gray-500 dark:text-gray-400">
-                  {isSearching ? t("search.loading") : t("search.noResults")}
+                  {showSearching ? t("search.loading") : t("search.noResults")}
                 </p>
               ) : (
                 <ul className="space-y-1">

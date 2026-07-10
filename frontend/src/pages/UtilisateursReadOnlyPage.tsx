@@ -10,25 +10,19 @@ import {
 } from "../components/ui/table";
 import UserProfileCell from "../features/admin/users/UserProfileCell";
 import { fetchUsersDirectory } from "../api/workflow";
-import { getApiToken } from "../lib/clerkToken";
-import type { Utilisateur } from "../features/auth/types";
 import { useTranslation } from "../i18n/useTranslation";
-import { useAuth } from "@clerk/clerk-react";
-import { useEffect, useState } from "react";
+import { useTipSWR } from "../lib/swr";
 
 export default function UtilisateursReadOnlyPage() {
-  const { getToken } = useAuth();
   const { t } = useTranslation();
-  const [users, setUsers] = useState<Utilisateur[]>([]);
-  const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    void (async () => {
-      const token = await getApiToken(getToken);
-      setUsers(await fetchUsersDirectory(token));
-      setLoading(false);
-    })();
-  }, [getToken]);
+  const { data, isLoading } = useTipSWR(
+    ["users-directory"] as const,
+    (token) => fetchUsersDirectory(token),
+  );
+
+  const users = data ?? [];
+  const loading = isLoading && !data;
 
   return (
     <>

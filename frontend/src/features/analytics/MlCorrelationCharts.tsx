@@ -1,14 +1,14 @@
-import { useAuth } from "@clerk/clerk-react";
 import Chart from "react-apexcharts";
 import type { ApexOptions } from "apexcharts";
-import { useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 import { Loader2 } from "lucide-react";
 import ComponentCard from "../../components/common/ComponentCard";
-import { fetchCorrelationDataset, type CorrelationDataset } from "../../api/analytics";
+import { fetchCorrelationDataset } from "../../api/analytics";
 import { ApiError } from "../../api/client";
 import { useTheme } from "../../context/ThemeContext";
 import { useTranslation } from "../../i18n/useTranslation";
 import { apexThemeOptions, chartMutedTextColor, chartPrimaryTextColor } from "../../lib/chartTheme";
+import { useTipSWR } from "../../lib/swr";
 import { formatChfCompact } from "./chartFormat";
 import MlEventsTable from "./MlEventsTable";
 
@@ -36,38 +36,23 @@ function rTone(value: number | null | undefined): string {
 const SCATTER_HEIGHT = 380;
 
 export default function MlCorrelationCharts({ highlightEventId, onSelectEvent }: MlCorrelationChartsProps) {
-  const { getToken } = useAuth();
   const { t, localeTag } = useTranslation();
   const { theme } = useTheme();
   const isDark = theme === "dark";
 
-  const [dataset, setDataset] = useState<CorrelationDataset | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
+  const {
+    data: dataset,
+    isLoading,
+    error: swrError,
+  } = useTipSWR(["analytics-correlation"] as const, (token) => fetchCorrelationDataset(token));
 
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      setIsLoading(true);
-      try {
-        const token = await getToken();
-        const data = await fetchCorrelationDataset(token);
-        if (!cancelled) {
-          setDataset(data);
-          setError(null);
-        }
-      } catch (err) {
-        if (!cancelled) {
-          setError(err instanceof ApiError ? err.message : t("analytics.correlationLoadError"));
-        }
-      } finally {
-        if (!cancelled) setIsLoading(false);
-      }
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [getToken, t]);
+  const error = swrError
+    ? swrError instanceof ApiError
+      ? swrError.message
+      : t("analytics.correlationLoadError")
+    : null;
+
+  const showLoading = isLoading && !dataset;
 
   const baseChart = useMemo(
     () => ({
@@ -329,7 +314,7 @@ export default function MlCorrelationCharts({ highlightEventId, onSelectEvent }:
     [baseChart, localeTag, monthSeries.months, t],
   );
 
-  if (isLoading) {
+  if (showLoading) {
     return (
       <div className="flex items-center justify-center gap-2 py-16 text-sm text-gray-500">
         <Loader2 className="size-5 animate-spin text-brand-500" />

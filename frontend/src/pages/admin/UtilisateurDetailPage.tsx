@@ -13,7 +13,7 @@ export default function UtilisateurDetailPage() {
   const { id } = useParams();
   const userId = Number(id);
   const location = useLocation();
-  const { users, isLoading, loadUsers, toggleStatus, resendInvite, generateActivationLink } =
+  const { users, isLoading, toggleStatus, resendInvite, generateActivationLink } =
     useAdminUsers();
   const [user, setUser] = useState<Utilisateur | null>(null);
   const [isToggling, setIsToggling] = useState(false);
@@ -24,10 +24,6 @@ export default function UtilisateurDetailPage() {
   const [activationHint, setActivationHint] = useState<string | null>(
     (location.state as { invitationHint?: string } | null)?.invitationHint ?? null,
   );
-
-  useEffect(() => {
-    void loadUsers();
-  }, [loadUsers]);
 
   useEffect(() => {
     if (!Number.isFinite(userId)) {

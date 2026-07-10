@@ -4,15 +4,14 @@ import {
   useContext,
   useEffect,
   useMemo,
-  useState,
   type ReactNode,
 } from "react";
 import { useAuth } from "@clerk/clerk-react";
 import { fetchMe } from "../api/users";
 import { ApiError } from "../api/client";
-import { getApiToken } from "../lib/clerkToken";
 import type { RoleUtilisateur, Utilisateur } from "../features/auth/types";
 import { hasAnyRole, hasRole, normalizeRoles } from "../features/auth/types";
+import { clearTipSwrCache, useTipSWR } from "../lib/swr";
 
 interface TipAuthContextValue {
   tipUser: Utilisateur | null;
@@ -50,88 +49,93 @@ function isInvalidTokenStatus(status: number): boolean {
   return status === 401;
 }
 
+function profileErrorMessage(err: unknown): { message: string | null; status: number | null } {
+  if (err instanceof ApiError) {
+    if (isInvalidTokenStatus(err.status)) {
+      return { message: null, status: err.status };
+    }
+    return { message: err.message, status: err.status };
+  }
+  if (err instanceof DOMException && err.name === "AbortError") {
+    return {
+      message:
+        "Délai dépassé lors du chargement du profil. Vérifiez que l'API TIP est démarrée (docker compose up -d).",
+      status: 0,
+    };
+  }
+  return {
+    message:
+      "Impossible de contacter l'API (port 8080 / nginx). Lancez « docker compose up -d » puis vérifiez que le conteneur nginx est bien démarré.",
+    status: 0,
+  };
+}
+
 export function TipAuthProvider({ children }: { children: ReactNode }) {
-  const { isLoaded, isSignedIn, getToken, signOut } = useAuth();
-  const [tipUser, setTipUser] = useState<Utilisateur | null>(null);
-  const [profileLoading, setProfileLoading] = useState(false);
-  const [error, setError] = useState<string | null>(null);
-  const [errorStatus, setErrorStatus] = useState<number | null>(null);
+  const { isLoaded, isSignedIn, signOut } = useAuth();
 
-  const isLoading = !isLoaded || profileLoading;
-
-  const refreshProfile = useCallback(async () => {
-    if (!isLoaded) return;
-
-    if (!isSignedIn) {
-      setTipUser(null);
-      setError(null);
-      setErrorStatus(null);
-      setProfileLoading(false);
-      return;
-    }
-
-    setError(null);
-    setErrorStatus(null);
-
-    setProfileLoading(true);
-    try {
-      const token = await getApiToken(getToken);
-      const profile = await fetchMeWithTimeout(token);
-      setTipUser(profile);
-      setError(null);
-      setErrorStatus(null);
-    } catch (err) {
-      setTipUser(null);
-      if (err instanceof ApiError) {
-        if (isInvalidTokenStatus(err.status)) {
-          setError(null);
-          setErrorStatus(err.status);
-          try {
-            await signOut();
-          } catch {
-            /* session déjà invalide */
-          }
-        } else {
-          setError(err.message);
-          setErrorStatus(err.status);
-        }
-      } else if (err instanceof DOMException && err.name === "AbortError") {
-        setError(
-          "Délai dépassé lors du chargement du profil. Vérifiez que l'API TIP est démarrée (docker compose up -d).",
-        );
-        setErrorStatus(0);
-      } else {
-        setError(
-          "Impossible de contacter l'API (port 8080 / nginx). Lancez « docker compose up -d » puis vérifiez que le conteneur nginx est bien démarré.",
-        );
-        setErrorStatus(0);
-      }
-    } finally {
-      setProfileLoading(false);
-    }
-  }, [getToken, isLoaded, isSignedIn, signOut]);
+  const {
+    data: tipUser,
+    error: swrError,
+    isLoading: profileLoading,
+    mutate,
+  } = useTipSWR<Utilisateur>(isSignedIn ? ["me"] : null, fetchMeWithTimeout, {
+    shouldRetryOnError: false,
+    revalidateOnFocus: true,
+  });
 
   useEffect(() => {
-    void refreshProfile();
-  }, [refreshProfile]);
+    if (!(swrError instanceof ApiError) || !isInvalidTokenStatus(swrError.status)) {
+      return;
+    }
+    void (async () => {
+      await clearTipSwrCache();
+      try {
+        await signOut();
+      } catch {
+        /* session déjà invalide */
+      }
+    })();
+  }, [swrError, signOut]);
 
-  const roles = useMemo(() => normalizeRoles(tipUser?.roles, tipUser?.role), [tipUser]);
+  useEffect(() => {
+    if (isLoaded && !isSignedIn) {
+      void clearTipSwrCache();
+    }
+  }, [isLoaded, isSignedIn]);
+
+  const refreshProfile = useCallback(async () => {
+    if (!isLoaded || !isSignedIn) return;
+    await mutate();
+  }, [isLoaded, isSignedIn, mutate]);
+
+  const parsedError = swrError ? profileErrorMessage(swrError) : null;
+  const error = parsedError?.message ?? null;
+  const errorStatus = parsedError?.status ?? null;
+
+  const isLoading = !isLoaded || (Boolean(isSignedIn) && profileLoading && !tipUser);
+
+  const roles = useMemo(
+    () => normalizeRoles(tipUser?.roles, tipUser?.role),
+    [tipUser],
+  );
   const scopesEventsToOrganizer = useMemo(
-    () => hasRole(tipUser, "support_administratif") && !hasRole(tipUser, "administrateur"),
+    () =>
+      hasRole(tipUser ?? null, "support_administratif") &&
+      !hasRole(tipUser ?? null, "administrateur"),
     [tipUser],
   );
 
   const value = useMemo(
     () => ({
-      tipUser,
+      tipUser: tipUser ?? null,
       isLoading,
       error,
       errorStatus,
-      isAdmin: hasRole(tipUser, "administrateur"),
+      isAdmin: hasRole(tipUser ?? null, "administrateur"),
       scopesEventsToOrganizer,
       roles,
-      hasRole: (role: RoleUtilisateur) => hasRole(tipUser, role),
-      hasAnyRole: (...required: RoleUtilisateur[]) => hasAnyRole(tipUser, ...required),
+      hasRole: (role: RoleUtilisateur) => hasRole(tipUser ?? null, role),
+      hasAnyRole: (...required: RoleUtilisateur[]) => hasAnyRole(tipUser ?? null, ...required),
       refreshProfile,
     }),
     [tipUser, isLoading, error, errorStatus, roles, scopesEventsToOrganizer, refreshProfile],

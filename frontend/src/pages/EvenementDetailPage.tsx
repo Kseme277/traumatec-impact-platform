@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 import { Link, useNavigate, useParams } from "react-router";
 import { useAuth } from "@clerk/clerk-react";
 import AdminBreadcrumb from "../components/common/AdminBreadcrumb";
@@ -8,7 +8,6 @@ import SpinnerLoader from "../components/common/SpinnerLoader";
 import Button from "../components/ui/button/Button";
 import Badge from "../components/ui/badge/Badge";
 import { useEvents } from "../features/events/useEvents";
-import type { Evenement } from "../features/events/types";
 import type { PackageCandidate, PreparationTheme } from "../features/events/types";
 import { themeLabel } from "../features/events/types";
 import { packageTypeLabel } from "../features/events/themeOptions";
@@ -17,6 +16,7 @@ import ProjectStatusBadge from "../features/events/ProjectStatusBadge";
 import { isEventFinished, isEventOpen } from "../features/events/projectStatus";
 import { useTipAuth } from "../context/TipAuthContext";
 import { useTranslation } from "../i18n/useTranslation";
+import { fetchEvent } from "../api/events";
 import { fetchGenerationHistory, downloadGenerationZip } from "../api/docgen";
 import { getApiToken } from "../lib/clerkToken";
 import GenerationHistoryPanel from "../features/documents/GenerationHistoryPanel";
@@ -25,6 +25,7 @@ import { isEventPackageApproved } from "../features/documents/eventWorkflowUi";
 import type { GenerationJob } from "../features/documents/types";
 import { ApiError } from "../api/client";
 import { showError } from "../lib/swal";
+import { useTipSWR } from "../lib/swr";
 
 function DetailRow({
   label,
@@ -55,35 +56,28 @@ export default function EvenementDetailPage() {
   const { getToken } = useAuth();
   const { isAdmin } = useTipAuth();
   const { t } = useTranslation();
-  const { loadEvent, close, remove, update } = useEvents();
-  const [event, setEvent] = useState<Evenement | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [generationHistory, setGenerationHistory] = useState<GenerationJob[]>([]);
-  const [historyLoading, setHistoryLoading] = useState(false);
+  const { close, remove, update } = useEvents();
 
-  useEffect(() => {
-    if (!id) return;
-    setIsLoading(true);
-    void loadEvent(id)
-      .then(setEvent)
-      .catch(() => setEvent(null))
-      .finally(() => setIsLoading(false));
-  }, [id, loadEvent]);
+  const {
+    data: event,
+    isLoading,
+    mutate: mutateEvent,
+  } = useTipSWR(id ? (["event", id] as const) : null, (token) => fetchEvent(token, id!));
 
-  useEffect(() => {
-    if (!id) return;
-    setHistoryLoading(true);
-    void (async () => {
+  const { data: generationHistoryData, isLoading: historyIsLoading } = useTipSWR(
+    id ? (["generation-history", id] as const) : null,
+    async (token) => {
       try {
-        const token = await getApiToken(getToken);
-        setGenerationHistory(await fetchGenerationHistory(token, id));
+        return await fetchGenerationHistory(token, id!);
       } catch {
-        setGenerationHistory([]);
-      } finally {
-        setHistoryLoading(false);
+        return [];
       }
-    })();
-  }, [getToken, id]);
+    },
+  );
+
+  const generationHistory = generationHistoryData ?? [];
+  const historyLoading = historyIsLoading && !generationHistoryData;
+  const showLoading = isLoading && !event;
 
   const handleDownloadJob = async (job: GenerationJob) => {
     try {
@@ -100,7 +94,7 @@ export default function EvenementDetailPage() {
     [generationHistory],
   );
 
-  if (isLoading) {
+  if (showLoading) {
     return <SpinnerLoader message={t("events.loading")} className="min-h-[50vh]" />;
   }
 
@@ -118,8 +112,7 @@ export default function EvenementDetailPage() {
   const handleClose = async () => {
     const ok = await close(event);
     if (ok) {
-      const refreshed = await loadEvent(event.id);
-      setEvent(refreshed);
+      await mutateEvent();
     }
   };
 
@@ -200,7 +193,9 @@ export default function EvenementDetailPage() {
                       void update(event.id, {
                         preparation_theme: (candidate.preparation_theme as PreparationTheme | null) || null,
                         package_type_override: override,
-                      }).then((updated) => updated && setEvent(updated));
+                      }).then((updated) => {
+                        if (updated) void mutateEvent(updated, { revalidate: false });
+                      });
                     }}
                   >
                     {packageTypeLabel(candidate.package_type, t)}

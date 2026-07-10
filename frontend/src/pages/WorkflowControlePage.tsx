@@ -1,5 +1,4 @@
-import { useAuth } from "@clerk/clerk-react";
-import { useCallback, useEffect, useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, Navigate, useSearchParams } from "react-router";
 import PageMeta from "../components/common/PageMeta";
 import AdminBreadcrumb from "../components/common/AdminBreadcrumb";
@@ -9,42 +8,32 @@ import Button from "../components/ui/button/Button";
 import WorkflowProcessGuide from "../features/workflow/WorkflowProcessGuide";
 import WorkflowQueueList from "../features/workflow/WorkflowQueueList";
 import { fetchWorkflowQueue } from "../api/workflow";
-import { getApiToken } from "../lib/clerkToken";
-import type { WorkflowQueueItem } from "../api/workflow";
 import { ApiError } from "../api/client";
 import { usePagination } from "../hooks/usePagination";
 import { useTranslation } from "../i18n/useTranslation";
+import { useTipSWR } from "../lib/swr";
 
 const WORKFLOW_QUEUE_PAGE_SIZE = 8;
 
 export default function WorkflowControlePage() {
-  const { getToken } = useAuth();
   const { t } = useTranslation();
   const [searchParams] = useSearchParams();
   const legacyJobId = searchParams.get("job");
-  const [queue, setQueue] = useState<WorkflowQueueItem[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
   const initialScope = searchParams.get("scope") === "history" ? "history" : "pending";
   const [queueScope, setQueueScope] = useState<"pending" | "history">(initialScope);
 
-  const loadQueue = useCallback(async () => {
-    setLoading(true);
-    setError(null);
-    try {
-      const token = await getApiToken(getToken);
-      setQueue(await fetchWorkflowQueue(token, "controle", 50, queueScope));
-    } catch (err) {
-      setError(err instanceof ApiError ? err.message : t("common.error"));
-      setQueue([]);
-    } finally {
-      setLoading(false);
-    }
-  }, [getToken, queueScope, t]);
+  const { data, isLoading, error } = useTipSWR(
+    ["workflow-queue", "controle", queueScope] as const,
+    (token) => fetchWorkflowQueue(token, "controle", 50, queueScope),
+  );
 
-  useEffect(() => {
-    void loadQueue();
-  }, [loadQueue]);
+  const queue = data ?? [];
+  const loading = isLoading && !data;
+  const errorMessage = error
+    ? error instanceof ApiError
+      ? error.message
+      : t("common.error")
+    : null;
 
   useEffect(() => {
     setQueueScope(searchParams.get("scope") === "history" ? "history" : "pending");
@@ -65,9 +54,9 @@ export default function WorkflowControlePage() {
         <WorkflowProcessGuide role="controle" />
       </ComponentCard>
 
-      {error ? (
+      {errorMessage ? (
         <div className="mb-6">
-          <HelpTipAlert variant="error" title={t("common.error")} message={error} />
+          <HelpTipAlert variant="error" title={t("common.error")} message={errorMessage} />
         </div>
       ) : null}
 

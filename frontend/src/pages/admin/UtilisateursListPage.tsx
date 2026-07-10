@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Link } from "react-router";
 import AdminBreadcrumb from "../../components/common/AdminBreadcrumb";
 import ComponentCard from "../../components/common/ComponentCard";
@@ -16,7 +16,7 @@ import { usePagination } from "../../hooks/usePagination";
 
 export default function UtilisateursListPage() {
   const { t } = useTranslation();
-  const { users, isLoading, loadUsers, toggleStatus, removeUser, resendInvite } = useAdminUsers();
+  const { users, isLoading, toggleStatus, removeUser, resendInvite } = useAdminUsers();
   const [togglingId, setTogglingId] = useState<number | null>(null);
   const [deletingId, setDeletingId] = useState<number | null>(null);
   const [resendingId, setResendingId] = useState<number | null>(null);
@@ -30,10 +30,6 @@ export default function UtilisateursListPage() {
     rangeStart,
     rangeEnd,
   } = usePagination(users, 10, String(users.length));
-
-  useEffect(() => {
-    void loadUsers();
-  }, [loadUsers]);
 
   const handleToggle = async (user: Utilisateur) => {
     setTogglingId(user.id);

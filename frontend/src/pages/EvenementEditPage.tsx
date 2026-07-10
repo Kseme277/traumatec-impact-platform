@@ -1,4 +1,3 @@
-import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router";
 import AdminBreadcrumb from "../components/common/AdminBreadcrumb";
 import ComponentCard from "../components/common/ComponentCard";
@@ -7,24 +6,22 @@ import SpinnerLoader from "../components/common/SpinnerLoader";
 import EvenementForm from "../features/events/EvenementForm";
 import { useEvents } from "../features/events/useEvents";
 import { useTranslation } from "../i18n/useTranslation";
-import type { Evenement, EvenementPayload } from "../features/events/types";
+import type { EvenementPayload } from "../features/events/types";
+import { fetchEvent } from "../api/events";
+import { useTipSWR } from "../lib/swr";
 
 export default function EvenementEditPage() {
   const { t } = useTranslation();
   const { id } = useParams();
   const navigate = useNavigate();
-  const { loadEvent, update, isSubmitting } = useEvents();
-  const [event, setEvent] = useState<Evenement | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const { update, isSubmitting } = useEvents();
 
-  useEffect(() => {
-    if (!id) return;
-    setIsLoading(true);
-    void loadEvent(id)
-      .then(setEvent)
-      .catch(() => setEvent(null))
-      .finally(() => setIsLoading(false));
-  }, [id, loadEvent]);
+  const { data: event, isLoading } = useTipSWR(
+    id ? (["event", id] as const) : null,
+    (token) => fetchEvent(token, id!),
+  );
+
+  const showLoading = isLoading && !event;
 
   const handleSubmit = async (payload: EvenementPayload) => {
     if (!id) return;
@@ -34,7 +31,7 @@ export default function EvenementEditPage() {
     }
   };
 
-  if (isLoading) {
+  if (showLoading) {
     return <SpinnerLoader message={t("common.loading")} className="min-h-[50vh]" />;
   }
 

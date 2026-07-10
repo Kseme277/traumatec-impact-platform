@@ -1,5 +1,5 @@
 import { useAuth } from "@clerk/clerk-react";
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useState } from "react";
 import { getApiToken } from "../../lib/clerkToken";
 import {
   closeEvent,
@@ -21,71 +21,65 @@ import type {
   ImportResult,
 } from "./types";
 import { confirmAction, showError, showSuccess } from "../../lib/swal";
+import { revalidateTipKeys, useTipSWR } from "../../lib/swr";
 
-export function useEvents() {
+export type UseEventsOptions = {
+  /** Active le chargement SWR de la liste (clé = filters). */
+  filters?: EvenementFilters;
+  /** Charge les stats dashboard. */
+  withStats?: boolean;
+};
+
+export function useEvents(options: UseEventsOptions = {}) {
   const { getToken } = useAuth();
-  const [events, setEvents] = useState<Evenement[]>([]);
-  const [total, setTotal] = useState(0);
-  const [stats, setStats] = useState<DashboardEventStats | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isStatsLoading, setIsStatsLoading] = useState(true);
+  const { filters, withStats = false } = options;
+  const withList = filters !== undefined;
+
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [importProgress, setImportProgress] = useState<ImportJobProgress | null>(null);
-  const statsRequestId = useRef(0);
 
-  const loadEvents = useCallback(
-    async (filters: EvenementFilters = {}) => {
-      setIsLoading(true);
-      try {
-        const token = await getApiToken(getToken);
-        const response = await fetchEvents(token, filters);
-        setEvents(response.items);
-        setTotal(response.total);
-      } catch (err) {
-        setEvents([]);
-        setTotal(0);
+  const listQuery = useTipSWR(
+    withList ? (["events", filters] as const) : null,
+    async (token) => fetchEvents(token, filters ?? {}),
+    {
+      onError: async (err) => {
         await showError(
           "Chargement impossible",
           err instanceof ApiError ? err.message : "Erreur réseau",
         );
-      } finally {
-        setIsLoading(false);
-      }
+      },
     },
-    [getToken],
   );
 
-  const loadStats = useCallback(async () => {
-    const requestId = ++statsRequestId.current;
-    setIsStatsLoading(true);
-    try {
-      const token = await getApiToken(getToken);
-      if (!token) {
-        if (requestId === statsRequestId.current) {
-          setStats(null);
-        }
-        return;
-      }
-      const response = await fetchEventStats(token);
-      if (requestId === statsRequestId.current) {
-        setStats(response);
-      }
-    } catch (err) {
-      if (requestId === statsRequestId.current) {
-        setStats(null);
-      }
-      await showError(
-        "Statistiques indisponibles",
-        err instanceof ApiError
-          ? err.message
-          : "Impossible de charger le tableau de bord. Vérifiez le service events.",
-      );
-    } finally {
-      if (requestId === statsRequestId.current) {
-        setIsStatsLoading(false);
-      }
+  const statsQuery = useTipSWR(
+    withStats ? (["event-stats"] as const) : null,
+    async (token) => {
+      if (!token) return null;
+      return fetchEventStats(token);
+    },
+    {
+      onError: async (err) => {
+        await showError(
+          "Statistiques indisponibles",
+          err instanceof ApiError
+            ? err.message
+            : "Impossible de charger le tableau de bord. Vérifiez le service events.",
+        );
+      },
+    },
+  );
+
+  const loadEvents = useCallback(async (_filters?: EvenementFilters) => {
+    if (_filters !== undefined) {
+      await revalidateTipKeys("events");
+      return;
     }
-  }, [getToken]);
+    await listQuery.mutate();
+  }, [listQuery]);
+
+  const loadStats = useCallback(async () => {
+    await statsQuery.mutate();
+  }, [statsQuery]);
 
   const loadEvent = useCallback(
     async (eventId: string) => {
@@ -95,6 +89,10 @@ export function useEvents() {
     [getToken],
   );
 
+  const invalidateEvents = useCallback(async () => {
+    await revalidateTipKeys("events", "event-stats", "event");
+  }, []);
+
   const create = useCallback(
     async (payload: EvenementPayload) => {
       setIsSubmitting(true);
@@ -102,6 +100,7 @@ export function useEvents() {
         const token = await getApiToken(getToken);
         const event = await createEvent(token, payload);
         await showSuccess("Événement créé");
+        await invalidateEvents();
         return event;
       } catch (err) {
         await showError(
@@ -113,7 +112,7 @@ export function useEvents() {
         setIsSubmitting(false);
       }
     },
-    [getToken],
+    [getToken, invalidateEvents],
   );
 
   const update = useCallback(
@@ -123,6 +122,7 @@ export function useEvents() {
         const token = await getApiToken(getToken);
         const event = await updateEvent(token, eventId, payload);
         await showSuccess("Événement mis à jour");
+        await invalidateEvents();
         return event;
       } catch (err) {
         await showError(
@@ -134,7 +134,7 @@ export function useEvents() {
         setIsSubmitting(false);
       }
     },
-    [getToken],
+    [getToken, invalidateEvents],
   );
 
   const close = useCallback(
@@ -151,6 +151,7 @@ export function useEvents() {
         const token = await getApiToken(getToken);
         await closeEvent(token, event.id);
         await showSuccess("Événement clôturé");
+        await invalidateEvents();
         return true;
       } catch (err) {
         await showError(
@@ -160,7 +161,7 @@ export function useEvents() {
         return false;
       }
     },
-    [getToken],
+    [getToken, invalidateEvents],
   );
 
   const remove = useCallback(
@@ -177,6 +178,7 @@ export function useEvents() {
         const token = await getApiToken(getToken);
         await deleteEvent(token, event.id);
         await showSuccess("Événement supprimé");
+        await invalidateEvents();
         return true;
       } catch (err) {
         await showError(
@@ -186,7 +188,7 @@ export function useEvents() {
         return false;
       }
     },
-    [getToken],
+    [getToken, invalidateEvents],
   );
 
   const importExcel = useCallback(
@@ -206,6 +208,7 @@ export function useEvents() {
       });
       try {
         const result = await importAnnualPlan(getToken, file, setImportProgress);
+        await invalidateEvents();
         return result;
       } catch (err) {
         const message =
@@ -223,15 +226,15 @@ export function useEvents() {
         setImportProgress(null);
       }
     },
-    [getToken],
+    [getToken, invalidateEvents],
   );
 
   return {
-    events,
-    total,
-    stats,
-    isLoading,
-    isStatsLoading,
+    events: listQuery.data?.items ?? [],
+    total: listQuery.data?.total ?? 0,
+    stats: (statsQuery.data ?? null) as DashboardEventStats | null,
+    isLoading: withList && listQuery.isLoading && !listQuery.data,
+    isStatsLoading: withStats && statsQuery.isLoading && !statsQuery.data,
     isSubmitting,
     importProgress,
     loadEvents,

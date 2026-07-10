@@ -1,30 +1,36 @@
 import { useAuth } from "@clerk/clerk-react";
-import { useCallback, useState } from "react";
+import { useCallback } from "react";
 import { deleteUser, fetchAllUsers, resendInvitation, toggleUserStatus } from "../../../api/users";
 import { ApiError } from "../../../api/client";
 import type { InvitationActionResponse, Utilisateur } from "../../auth/types";
 import { confirmAction, showError, showSuccess } from "../../../lib/swal";
+import { getApiToken } from "../../../lib/clerkToken";
+import { revalidateTipKeys, useTipSWR } from "../../../lib/swr";
 
-export function useAdminUsers() {
+export function useAdminUsers(options: { enabled?: boolean } = {}) {
+  const { enabled = true } = options;
   const { getToken } = useAuth();
-  const [users, setUsers] = useState<Utilisateur[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+
+  const {
+    data: users = [],
+    isLoading,
+    mutate,
+  } = useTipSWR(
+    enabled ? (["admin-users"] as const) : null,
+    async (token) => fetchAllUsers(token),
+    {
+      onError: async (err) => {
+        await showError(
+          "Chargement impossible",
+          err instanceof ApiError ? err.message : "Une erreur est survenue.",
+        );
+      },
+    },
+  );
 
   const loadUsers = useCallback(async () => {
-    setIsLoading(true);
-    try {
-      const token = await getToken();
-      const data = await fetchAllUsers(token);
-      setUsers(data);
-    } catch (err) {
-      await showError(
-        "Chargement impossible",
-        err instanceof ApiError ? err.message : "Une erreur est survenue.",
-      );
-    } finally {
-      setIsLoading(false);
-    }
-  }, [getToken]);
+    await mutate();
+  }, [mutate]);
 
   const toggleStatus = useCallback(
     async (user: Utilisateur) => {
@@ -41,10 +47,10 @@ export function useAdminUsers() {
       if (!result.isConfirmed) return false;
 
       try {
-        const token = await getToken();
+        const token = await getApiToken(getToken);
         const response = await toggleUserStatus(token, user.id);
         await showSuccess("Statut mis à jour", response.message);
-        await loadUsers();
+        await revalidateTipKeys("admin-users");
         return true;
       } catch (err) {
         await showError(
@@ -54,7 +60,7 @@ export function useAdminUsers() {
         return false;
       }
     },
-    [getToken, loadUsers],
+    [getToken],
   );
 
   const requestActivationLink = useCallback(
@@ -70,7 +76,7 @@ export function useAdminUsers() {
       }
 
       try {
-        const token = await getToken();
+        const token = await getApiToken(getToken);
         const response = await resendInvitation(token, user.id);
         return response;
       } catch (err) {
@@ -113,10 +119,10 @@ export function useAdminUsers() {
       if (!result.isConfirmed) return false;
 
       try {
-        const token = await getToken();
+        const token = await getApiToken(getToken);
         const response = await deleteUser(token, user.id);
         await showSuccess("Utilisateur supprimé", response.message);
-        await loadUsers();
+        await revalidateTipKeys("admin-users");
         return true;
       } catch (err) {
         await showError(
@@ -126,12 +132,12 @@ export function useAdminUsers() {
         return false;
       }
     },
-    [getToken, loadUsers],
+    [getToken],
   );
 
   return {
     users,
-    isLoading,
+    isLoading: enabled && isLoading && users.length === 0,
     loadUsers,
     toggleStatus,
     resendInvite,

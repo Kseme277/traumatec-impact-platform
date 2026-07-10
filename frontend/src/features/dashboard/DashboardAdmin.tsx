@@ -1,6 +1,4 @@
-import { useEffect, useState } from "react";
 import { Link } from "react-router";
-import { useAuth } from "@clerk/clerk-react";
 import PageMeta from "../../components/common/PageMeta";
 import Button from "../../components/ui/button/Button";
 import {
@@ -21,36 +19,21 @@ import { useEvents } from "../events/useEvents";
 import DocumentsModuleCard from "../documents/DocumentsModuleCard";
 import RecentGenerationsPanel from "./RecentGenerationsPanel";
 import { fetchWorkflowStats } from "../../api/workflow";
-import { getApiToken } from "../../lib/clerkToken";
+import { useTipSWR } from "../../lib/swr";
 
 export default function DashboardAdmin() {
   const { t } = useTranslation();
   const { tipUser } = useTipAuth();
-  const { users, loadUsers, isLoading: isUsersLoading } = useAdminUsers();
-  const { stats, loadStats, isStatsLoading } = useEvents();
+  const { users, isLoading: isUsersLoading } = useAdminUsers();
+  const { stats, isStatsLoading } = useEvents({ withStats: true });
 
-  const { getToken } = useAuth();
-  const [wfStats, setWfStats] = useState<Awaited<ReturnType<typeof fetchWorkflowStats>> | null>(null);
-  const [wfStatsLoading, setWfStatsLoading] = useState(true);
-
-  useEffect(() => {
-    void loadUsers();
-    void loadStats();
-    void (async () => {
-      setWfStatsLoading(true);
-      try {
-        const token = await getApiToken(getToken);
-        setWfStats(await fetchWorkflowStats(token, "admin"));
-      } catch {
-        setWfStats(null);
-      } finally {
-        setWfStatsLoading(false);
-      }
-    })();
-  }, [getToken, loadUsers, loadStats]);
+  const { data: wfStats, isLoading: wfStatsLoading } = useTipSWR(
+    ["workflow-stats", "admin"] as const,
+    (token) => fetchWorkflowStats(token, "admin"),
+  );
 
   const wfValue = (key: keyof NonNullable<typeof wfStats>) =>
-    wfStatsLoading ? "—" : (wfStats?.[key] ?? "—");
+    wfStatsLoading && !wfStats ? "—" : (wfStats?.[key] ?? "—");
 
   const activeUsers = users.filter((user) => user.est_actif).length;
 

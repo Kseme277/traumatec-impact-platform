@@ -1,5 +1,5 @@
 import { useAuth } from "@clerk/clerk-react";
-import { useCallback, useEffect, useState } from "react";
+import { useState } from "react";
 import { Link, Navigate, useParams } from "react-router";
 import { ArrowLeft } from "lucide-react";
 import PageMeta from "../components/common/PageMeta";
@@ -15,54 +15,50 @@ import {
   rejectProcedure,
 } from "../api/workflow";
 import { getApiToken } from "../lib/clerkToken";
-import type { Utilisateur } from "../features/auth/types";
 import type { WorkflowState } from "../api/workflow";
 import { ApiError } from "../api/client";
 import { confirmAction, promptComment, showError, showSuccess } from "../lib/swal";
 import { useTranslation } from "../i18n/useTranslation";
 import { formatWorkflowPackageTitle } from "../features/workflow/workflowPackageTitle";
+import { revalidateTipKeys, useTipSWR } from "../lib/swr";
 
 export default function WorkflowControleDetailPage() {
   const { jobId } = useParams();
   const { getToken } = useAuth();
   const { t } = useTranslation();
-  const [state, setState] = useState<WorkflowState | null>(null);
-  const [reviewers, setReviewers] = useState<Utilisateur[]>([]);
-  const [validators, setValidators] = useState<Utilisateur[]>([]);
   const [assigneeId, setAssigneeId] = useState("");
   const [validatorId, setValidatorId] = useState("");
-  const [loading, setLoading] = useState(true);
-  const [notFound, setNotFound] = useState(false);
 
-  const load = useCallback(async () => {
-    if (!jobId) return;
-    setLoading(true);
-    setNotFound(false);
-    try {
-      const token = await getApiToken(getToken);
+  const { data, isLoading, error, mutate } = useTipSWR(
+    jobId ? (["workflow-state", jobId, "controle"] as const) : null,
+    async (token) => {
       const [jobState, users, validatorUsers] = await Promise.all([
-        fetchWorkflowState(token, jobId),
+        fetchWorkflowState(token, jobId!),
         fetchUsersByRole(token, "controle_procedure"),
         fetchUsersByRole(token, "validateur"),
       ]);
-      setState(jobState);
-      setReviewers(users);
-      setValidators(validatorUsers);
-    } catch (err) {
-      setState(null);
-      if (err instanceof ApiError && err.status === 404) {
-        setNotFound(true);
-      } else {
+      return { state: jobState, reviewers: users, validators: validatorUsers };
+    },
+    {
+      onError: async (err) => {
+        if (err instanceof ApiError && err.status === 404) return;
         await showError(t("common.error"), err instanceof ApiError ? err.message : t("common.error"));
-      }
-    } finally {
-      setLoading(false);
-    }
-  }, [getToken, jobId, t]);
+      },
+    },
+  );
 
-  useEffect(() => {
-    void load();
-  }, [load]);
+  const loading = isLoading && !data;
+  const notFound = Boolean(error instanceof ApiError && error.status === 404);
+  const state = data?.state ?? null;
+  const reviewers = data?.reviewers ?? [];
+  const validators = data?.validators ?? [];
+
+  const patchState = (next: WorkflowState) => {
+    void mutate(
+      (current) => (current ? { ...current, state: next } : current),
+      { revalidate: false },
+    );
+  };
 
   if (!jobId) {
     return <Navigate to="/workflow/controle" replace />;
@@ -92,7 +88,9 @@ export default function WorkflowControleDetailPage() {
     if (!confirmed.isConfirmed) return;
     try {
       const token = await getApiToken(getToken);
-      setState(await assignReviewer(token, jobId!, assigneeId ? Number(assigneeId) : undefined));
+      const next = await assignReviewer(token, jobId!, assigneeId ? Number(assigneeId) : undefined);
+      patchState(next);
+      await revalidateTipKeys("workflow-queue", "workflow-stats");
       showSuccess(t("workflow.assigned"));
     } catch (err) {
       showError(err instanceof ApiError ? err.message : t("common.error"));
@@ -113,7 +111,9 @@ export default function WorkflowControleDetailPage() {
     if (!confirmed.isConfirmed) return;
     try {
       const token = await getApiToken(getToken);
-      setState(await completeProcedure(token, jobId!, Number(validatorId)));
+      const next = await completeProcedure(token, jobId!, Number(validatorId));
+      patchState(next);
+      await revalidateTipKeys("workflow-queue", "workflow-stats");
       showSuccess(t("workflow.procedureComplete"));
     } catch (err) {
       showError(err instanceof ApiError ? err.message : t("common.error"));
@@ -131,7 +131,9 @@ export default function WorkflowControleDetailPage() {
     if (!prompt.isConfirmed || !prompt.value) return;
     try {
       const token = await getApiToken(getToken);
-      setState(await rejectProcedure(token, jobId!, prompt.value));
+      const next = await rejectProcedure(token, jobId!, prompt.value);
+      patchState(next);
+      await revalidateTipKeys("workflow-queue", "workflow-stats");
       showSuccess(t("workflow.packageRejected"));
     } catch (err) {
       showError(err instanceof ApiError ? err.message : t("common.error"));
@@ -172,7 +174,7 @@ export default function WorkflowControleDetailPage() {
         onAssign={() => void handleAssign()}
         onComplete={() => void handleComplete()}
         onReject={() => void handleReject()}
-        onUpdated={setState}
+        onUpdated={patchState}
         t={t}
       />
     </>

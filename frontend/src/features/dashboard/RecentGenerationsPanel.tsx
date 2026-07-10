@@ -1,16 +1,14 @@
-import { useEffect, useState } from "react";
 import { Link } from "react-router";
-import { useAuth } from "@clerk/clerk-react";
 import { ArrowRight, FileArchive } from "lucide-react";
 import Badge from "../../components/ui/badge/Badge";
 import SpinnerLoader from "../../components/common/SpinnerLoader";
-import { fetchRecentGenerationJobs, type GenerationNotification } from "../../api/docgen";
-import { getApiToken } from "../../lib/clerkToken";
+import { fetchRecentGenerationJobs } from "../../api/docgen";
 import { jobStatusColor, jobStatusLabel } from "../documents/types";
 import { workflowStatusLabel } from "../auth/types";
 import { workflowStatusBadgeColor } from "../documents/workflowStatusVisual";
 import { useTranslation } from "../../i18n/useTranslation";
 import type { WorkflowStatus } from "../documents/types";
+import { useTipSWR } from "../../lib/swr";
 
 interface RecentGenerationsPanelProps {
   scope?: "mine" | "platform";
@@ -18,25 +16,21 @@ interface RecentGenerationsPanelProps {
 }
 
 export default function RecentGenerationsPanel({ scope = "platform", limit = 8 }: RecentGenerationsPanelProps) {
-  const { getToken } = useAuth();
   const { t, localeTag } = useTranslation();
-  const [items, setItems] = useState<GenerationNotification[]>([]);
-  const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    void (async () => {
-      setLoading(true);
+  const { data, isLoading } = useTipSWR(
+    ["recent-generations", scope, limit] as const,
+    async (token) => {
       try {
-        const token = await getApiToken(getToken);
-        const rows = await fetchRecentGenerationJobs(token, limit, scope === "platform");
-        setItems(rows);
+        return await fetchRecentGenerationJobs(token, limit, scope === "platform");
       } catch {
-        setItems([]);
-      } finally {
-        setLoading(false);
+        return [];
       }
-    })();
-  }, [getToken, limit, scope]);
+    },
+  );
+
+  const items = data ?? [];
+  const loading = isLoading && !data;
 
   return (
     <div className="rounded-2xl border border-gray-200 bg-white p-6 dark:border-gray-800 dark:bg-white/[0.03]">

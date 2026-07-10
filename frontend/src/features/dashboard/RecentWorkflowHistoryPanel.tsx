@@ -1,15 +1,13 @@
-import { useEffect, useState } from "react";
 import { Link } from "react-router";
-import { useAuth } from "@clerk/clerk-react";
 import { ArrowRight, History } from "lucide-react";
 import Badge from "../../components/ui/badge/Badge";
-import { fetchWorkflowQueue, type WorkflowQueueItem } from "../../api/workflow";
-import { getApiToken } from "../../lib/clerkToken";
+import { fetchWorkflowQueue } from "../../api/workflow";
 import { workflowStatusLabel } from "../auth/types";
 import { workflowStatusBadgeColor } from "../documents/workflowStatusVisual";
 import { formatWorkflowPackageTitle } from "../workflow/workflowPackageTitle";
 import { useTranslation } from "../../i18n/useTranslation";
 import type { WorkflowStatus } from "../documents/types";
+import { useTipSWR } from "../../lib/swr";
 
 interface RecentWorkflowHistoryPanelProps {
   role: "controle" | "validateur";
@@ -20,26 +18,21 @@ export default function RecentWorkflowHistoryPanel({
   role,
   limit = 8,
 }: RecentWorkflowHistoryPanelProps) {
-  const { getToken } = useAuth();
   const { t, localeTag } = useTranslation();
-  const [items, setItems] = useState<WorkflowQueueItem[]>([]);
-  const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    void (async () => {
-      setLoading(true);
+  const { data, isLoading } = useTipSWR(
+    ["workflow-queue", role, "history", limit] as const,
+    async (token) => {
       try {
-        const token = await getApiToken(getToken);
-        const rows = await fetchWorkflowQueue(token, role, limit, "history");
-        setItems(rows);
+        return await fetchWorkflowQueue(token, role, limit, "history");
       } catch {
-        setItems([]);
-      } finally {
-        setLoading(false);
+        return [];
       }
-    })();
-  }, [getToken, limit, role]);
+    },
+  );
 
+  const items = data ?? [];
+  const loading = isLoading && !data;
   const queuePath = role === "validateur" ? "/workflow/validation" : "/workflow/controle";
 
   return (
