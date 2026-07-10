@@ -390,30 +390,74 @@ PARTICIPANT_IMPORT_COLUMNS = (
 
 def build_participant_import_template_xlsx() -> bytes:
     from openpyxl import Workbook
+    from tip_common.excel_template_style import style_import_workbook
 
+    headers = list(PARTICIPANT_IMPORT_COLUMNS)
     wb = Workbook()
     ws = wb.active
     ws.title = "Participants"
-    ws.append(list(PARTICIPANT_IMPORT_COLUMNS))
-    ws.append(
-        [
-            "Dupont",
-            "Marie",
-            "Participant",
-            "702294 - Cours opératoire Yaoundé 10-12 mars 2026",
-            "Hôpital Central",
-            "marie.dupont@example.org",
-            "+237600000000",
-            "Chirurgie",
-            "",
-            "Cameroun",
-        ]
-    )
 
-    help_ws = wb.create_sheet("Aide")
-    help_ws.append(["Colonne", "Description"])
-    for line in REGISTRATION_COLUMNS_HELP.split(" : ", 1)[-1].split(", "):
-        help_ws.append(["", line.strip()])
+    example = [
+        "Dupont",
+        "Marie",
+        "Participant",
+        "702294 - Cours opératoire Yaoundé 10-12 mars 2026",
+        "Hôpital Central de Yaoundé",
+        "marie.dupont@example.org",
+        "+237600000000",
+        "Chirurgie orthopédique",
+        "",
+        "Cameroun",
+    ]
+    example2 = [
+        "Ngono",
+        "Paul",
+        "Enseignant",
+        "702294 - Cours opératoire Yaoundé 10-12 mars 2026",
+        "CHU",
+        "paul.ngono@example.org",
+        "+237670000000",
+        "Traumatologie",
+        "Chef de service",
+        "Cameroun",
+    ]
+
+    help_rows = [
+        ("Nom", "Nom de famille (obligatoire)"),
+        ("prenom", "Prénom (obligatoire)"),
+        ("Statut", "Participant | Enseignant | Observateur…"),
+        ("Nom_evenement", "Libellé événement (n° projet + titre + dates)"),
+        ("Formation_sanitaire", "Établissement / structure de santé"),
+        ("Email", "Adresse e-mail"),
+        ("telephone", "Téléphone international (+237…)"),
+        ("specialite", "Spécialité médicale"),
+        ("autreprofil", "Profil complémentaire (optionnel)"),
+        ("pays_evenement", "Pays de l'événement"),
+    ]
+
+    style_import_workbook(
+        ws,
+        title="TIP — Modèle import participants / certificats",
+        subtitle="Remplissez une ligne par personne · Téléchargez depuis Certificats → Modèle import · Puis importez sur l'événement",
+        headers=headers,
+        example_rows=[example, example2],
+        column_widths={
+            "Nom": 16,
+            "prenom": 14,
+            "Statut": 14,
+            "Nom_evenement": 48,
+            "Formation_sanitaire": 28,
+            "Email": 28,
+            "telephone": 16,
+            "specialite": 22,
+            "autreprofil": 18,
+            "pays_evenement": 14,
+        },
+        validations={
+            "Statut": ["Participant", "Enseignant", "Observateur", "Facilitateur"],
+        },
+        help_rows=help_rows,
+    )
 
     buffer = BytesIO()
     wb.save(buffer)

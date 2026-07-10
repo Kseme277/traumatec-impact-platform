@@ -34,3 +34,8 @@ firebase-service-account.json
 htmlcov/
 .pytest_cache/
 .ruff_cache/
+
+# Paquets générés depuis Template/ (ne pas versionner les binaires dupliqués)
+Packages/*/
+package-zips/
+

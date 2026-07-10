@@ -462,33 +462,108 @@ def parse_projects_workbook(
 
 def build_annual_plan_template_xlsx() -> bytes:
     from openpyxl import Workbook
+    from tip_common.excel_template_style import style_import_workbook
 
+    headers = list(PROJECTS_XLSX_COLUMNS)
     wb = Workbook()
     ws = wb.active
     ws.title = "Projects"
-    ws.append(list(PROJECTS_XLSX_COLUMNS))
-    ws.append(
-        [
-            "Exemple — Cours opératoire Yaoundé",
-            "Course",
-            "702294",
-            "2026-03-10",
-            "2026-03-12",
-            "Open",
-            "Dr Responsable",
-            "Support Admin",
-            "support@example.org",
-            "Yaoundé",
-            "Cameroun",
-            "Centre",
-            "CC-001",
-            24,
-            0,
-            15000,
-            0,
-            0,
-            15000,
-        ]
+
+    example = [
+        "Exemple — Cours opératoire Yaoundé",
+        "Course",
+        "702294",
+        "2026-03-10",
+        "2026-03-12",
+        "Open",
+        "Dr Responsable National",
+        "Support Admin TIP",
+        "support@traumatec.org",
+        "Yaoundé",
+        "Cameroun",
+        "French speaking Africa",
+        "9175-Cameroon Country Initiative",
+        24,
+        0,
+        15000,
+        0,
+        0,
+        15000,
+    ]
+    example2 = [
+        "Exemple — Séminaire PBO Douala",
+        "Seminar",
+        "702295",
+        "2026-04-18",
+        "2026-04-18",
+        "Open",
+        "Dr Coordinateur",
+        "Support Admin TIP",
+        "support@traumatec.org",
+        "Douala",
+        "Cameroun",
+        "French speaking Africa",
+        "9175-Cameroon Country Initiative",
+        18,
+        0,
+        4200.5,
+        0,
+        0,
+        4200.5,
+    ]
+
+    # Remplir d'abord les données brutes (bandeau + header gérés par le style)
+    # style_import_workbook écrit titre/sous-titre/headers/exemples
+    help_rows = [
+        ("Title", "Titre de l'événement (obligatoire)"),
+        ("Activity", "Course | Seminar | Faculty (ou libellé AO)"),
+        ("Project number", "Numéro de projet AO Alliance (obligatoire, unique)"),
+        ("Start date / End date", "Dates au format AAAA-MM-JJ"),
+        ("Status", "Open | Closed | Cancelled"),
+        ("Responsible person", "Responsable national / scientifique"),
+        ("Organizer responsible", "Support administratif TIP (optionnel)"),
+        ("Organizer email", "Email du support (optionnel)"),
+        ("Location / Country / Region", "Lieu, pays et région géographique"),
+        ("Cost center", "Centre de coût AID Impact"),
+        ("Participants (expected/real nb)", "Effectifs prévus / réels"),
+        ("Amount / Payments / % paid / Balance", "Budget et paiements en CHF"),
+    ]
+
+    style_import_workbook(
+        ws,
+        title="TIP — Modèle import événements (Projects.xlsx)",
+        subtitle="Compatible export AID Impact · Remplacez les lignes d'exemple · Importez depuis Événements → Importer Projects.xlsx",
+        headers=headers,
+        example_rows=[example, example2],
+        column_widths={
+            "Title": 42,
+            "Activity": 12,
+            "Project number": 14,
+            "Start date": 12,
+            "End date": 12,
+            "Status": 10,
+            "Responsible person": 22,
+            "Organizer responsible": 20,
+            "Organizer email": 24,
+            "Location": 14,
+            "Country": 14,
+            "Region": 22,
+            "Cost center": 28,
+            "Participants (expected nb)": 14,
+            "Participants (real nb)": 14,
+            "Amount (CHF)": 12,
+            "Payments done (CHF)": 14,
+            "% paid": 10,
+            "Balance to pay (CHF)": 14,
+        },
+        date_columns={"Start date", "End date"},
+        number_columns={"Amount (CHF)", "Payments done (CHF)", "Balance to pay (CHF)"},
+        percent_columns={"% paid"},
+        validations={
+            "Status": ["Open", "Closed", "Cancelled"],
+            "Activity": ["Course", "Seminar", "Faculty"],
+        },
+        help_rows=help_rows,
     )
 
     buffer = BytesIO()

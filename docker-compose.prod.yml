@@ -45,7 +45,10 @@ services:
 
   catalog:
     command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8003", "--workers", "1"]
-    volumes: []
+    volumes:
+      - ./Packages:/app/Packages:ro
+      - ./package-zips:/app/package-zips:ro
+      - ./scripts:/app/scripts:ro
     ports: !reset []
 
   docgen:

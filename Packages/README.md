@@ -1,5 +1,26 @@
 # Paquets AO Alliance — templates versionnés (ZIP)
 
+Les **sources** officielles sont dans [`Template/`](../Template/) (`Paquet_Cours/`, `Paquet_Sem/`).
+Ce dossier `Packages/{TYPE}/` est le format attendu par le service **catalog** (bootstrap MinIO + PostgreSQL).
+
+## Synchronisation
+
+```bash
+python3 scripts/sync_template_to_packages.py
+# ou tout-en-un :
+bash scripts/deploy_templates.sh
+```
+
+| Source `Template/` | Code TIP |
+|--------------------|----------|
+| `Paquet_Sem/Paquet_Op S` | `OP_S` |
+| `Paquet_Sem/Paquet_Sem PBO` | `PBO_S` |
+| `Paquet_Sem/Paquet_Sem IEC` | `IEC_S` |
+| `Paquet_Cours/Paquet Op C` | `OP_C` |
+| `Paquet_Cours/Paquet_ORP C` | `ORP_C` |
+| `Paquet_Cours/Paquet_Nonop C` | `NONOP_C` |
+| (copie de `OP_C`) | `FET` |
+
 ## Types supportés
 
 | Type ZIP / dossier | Format | Durée | Thème TIP |
@@ -18,21 +39,18 @@
 
 ## Import (recommandé)
 
-1. **Admin → Documents → Templates → Charger paquets système**
-2. Ou : `python3 scripts/bootstrap_packages_db.py` (depuis le conteneur catalog ou en local avec BDD)
-3. Chaque import crée une **nouvelle version** (v1, v2, …) ; la version importée devient **active**
+1. Sync : `python3 scripts/sync_template_to_packages.py`
+2. Migrations : `bash scripts/apply_all_migrations.sh`
+3. Bootstrap : `docker compose exec catalog python /app/scripts/bootstrap_packages_db.py --force`
+4. Ou UI : **Admin → Documents → Templates → Charger paquets système**
 
-## Créer des ZIP depuis ces dossiers (optionnel)
+Chaque import crée une **nouvelle version** (v1, v2, …) ; la version importée devient **active**.
+
+## Créer des ZIP (optionnel)
 
 ```bash
 python3 scripts/build_package_zips.py
-# → package-zips/OP_S.zip, PBO_S.zip, IEC_S.zip, OP_C.zip, …
-```
-
-### FET = copie OP_C (listes J1–J2 conservées à l'import)
-
-```bash
-rsync -a --delete Packages/OP_C/ Packages/FET/
+# → package-zips/OP_S.zip, PBO_S.zip, …
 ```
 
 ## API

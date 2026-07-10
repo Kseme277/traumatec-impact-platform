@@ -89,5 +89,12 @@ for i in $(seq 1 12); do
   sleep 5
 done
 
+echo "==> Migrations SQL"
+bash scripts/apply_all_migrations.sh || true
+
+echo "==> Templates AO Alliance (Template → Packages → catalog)"
+python3 scripts/sync_template_to_packages.py || true
+$COMPOSE exec -T catalog python /app/scripts/bootstrap_packages_db.py --force || true
+
 $COMPOSE ps
 echo "==> Déploiement terminé — http://$(curl -sf ifconfig.me 2>/dev/null || hostname -I | awk '{print $1}')"

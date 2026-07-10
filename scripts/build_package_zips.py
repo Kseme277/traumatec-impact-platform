@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
-"""Crée des ZIP à partir de Packages/{TYPE}/ pour import via l'UI ou l'API."""
+"""Crée des ZIP à partir de Packages/{TYPE}/ pour import via l'UI ou l'API.
+
+Synchronise d'abord Template/ → Packages/ si possible.
+"""
 
 from __future__ import annotations
 
@@ -12,10 +15,18 @@ OUT = ROOT / "package-zips"
 
 
 def build_zips() -> list[Path]:
+    try:
+        from sync_template_to_packages import sync
+
+        print("Sync Template/ → Packages/…")
+        sync()
+    except Exception as exc:  # noqa: BLE001
+        print(f"(sync ignoré : {exc})")
+
     OUT.mkdir(exist_ok=True)
     created: list[Path] = []
     for folder in sorted(PACKAGES.iterdir()):
-        if not folder.is_dir():
+        if not folder.is_dir() or folder.name.startswith("."):
             continue
         files = [p for p in folder.iterdir() if p.is_file() and not p.name.startswith("~$")]
         if not files:

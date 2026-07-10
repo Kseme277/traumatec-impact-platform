@@ -262,21 +262,21 @@ Admin connecté → **Administration → Utilisateurs** → formulaire d'invitat
 
 ---
 
-## 7. Paquets documentaires (séminaires)
+## 7. Paquets documentaires (templates)
 
-Les modèles Word sont dans `Seminaires/` (dossiers `PBO`, `Op`, `IEC`). Le service **catalog** les importe vers MinIO ; **docgen** assemble le ZIP.
+Les modèles Word/Excel/PDF sources sont dans **`Template/`** (`Paquet_Cours/`, `Paquet_Sem/`).
+Ils sont synchronisés vers **`Packages/{TYPE}/`** puis importés dans MinIO par le service **catalog**.
 
 | Étape | Qui | Action |
 |-------|-----|--------|
-| 1 | Admin | `docker compose up` (incl. `catalog`, `docgen`, `docgen-worker`, MinIO, Redis) |
-| 2 | Admin | **Documents → Templates** → *Importer les séminaires* (ou `python scripts/seed_seminaire_templates.py`) |
-| 3 | Tous | Vérifier les parcours (étapes par thème PBO / Operatory / IEC) |
-| 4 | Préparateur | Statut **Prêt** ; thème sur la fiche ou choisi à la génération si absent |
-| 5 | Préparateur | **Documents → Génération** → *Enregistrer le thème et générer* → télécharger |
+| 1 | Admin | `docker compose up -d` (catalog, docgen, MinIO, Redis) |
+| 2 | Admin | `bash scripts/apply_all_migrations.sh` |
+| 3 | Admin | `bash scripts/deploy_templates.sh` (sync + bootstrap) |
+| 4 | Admin | Ou UI : **Documents → Templates → Charger paquets système** |
+| 5 | Préparateur | Importer `Projects.xlsx` / modèle événements, puis participants |
+| 6 | Préparateur | **Documents → Génération** → générer le paquet ZIP |
 
-Traçabilité MinIO : sources `templates/seminaires/sources/{lot}/PBO|Op|IEC/…` ; paquets `generations/events/{event_id}/{job_id}/`.
-
-Détails : [ADR-013](decisions/013-seminaire-parcours-package-generation.md).
+Voir aussi [`Packages/README.md`](../Packages/README.md) et [`docs/import-templates-flow.md`](import-templates-flow.md).
 
 ---
 
