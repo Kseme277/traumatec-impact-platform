@@ -7,11 +7,13 @@ import {
   type ReactNode,
 } from "react";
 import { useAuth } from "@clerk/clerk-react";
+import useSWR from "swr";
 import { fetchMe } from "../api/users";
 import { ApiError } from "../api/client";
 import type { RoleUtilisateur, Utilisateur } from "../features/auth/types";
 import { hasAnyRole, hasRole, normalizeRoles } from "../features/auth/types";
-import { clearTipSwrCache, useTipSWR } from "../lib/swr";
+import { getApiToken } from "../lib/clerkToken";
+import { clearTipSwrCache, tipSwrDefaults } from "../lib/swr";
 
 interface TipAuthContextValue {
   tipUser: Utilisateur | null;
@@ -29,12 +31,18 @@ interface TipAuthContextValue {
 
 const TipAuthContext = createContext<TipAuthContextValue | undefined>(undefined);
 
-const PROFILE_FETCH_TIMEOUT_MS = 20_000;
+const PROFILE_FETCH_TIMEOUT_MS = 15_000;
 
-async function fetchMeWithTimeout(token: string | null): Promise<Utilisateur> {
+async function loadProfileWithTimeout(
+  getToken: ReturnType<typeof useAuth>["getToken"],
+): Promise<Utilisateur> {
   const controller = new AbortController();
   const timeout = window.setTimeout(() => controller.abort(), PROFILE_FETCH_TIMEOUT_MS);
   try {
+    const token = await getApiToken(getToken);
+    if (controller.signal.aborted) {
+      throw new DOMException("Profile load timeout", "AbortError");
+    }
     const profile = await fetchMe(token, { signal: controller.signal });
     return {
       ...profile,
@@ -59,29 +67,35 @@ function profileErrorMessage(err: unknown): { message: string | null; status: nu
   if (err instanceof DOMException && err.name === "AbortError") {
     return {
       message:
-        "Délai dépassé lors du chargement du profil. Vérifiez que l'API TIP est démarrée (docker compose up -d).",
+        "Délai dépassé (auth Clerk / profil). Réessayez — si ça persiste, vérifiez la connexion ou reconnectez-vous.",
       status: 0,
     };
   }
   return {
     message:
-      "Impossible de contacter l'API (port 8080 / nginx). Lancez « docker compose up -d » puis vérifiez que le conteneur nginx est bien démarré.",
+      "Impossible de contacter l'API. Vérifiez que les services TIP sont démarrés, puis réessayez.",
     status: 0,
   };
 }
 
 export function TipAuthProvider({ children }: { children: ReactNode }) {
-  const { isLoaded, isSignedIn, signOut } = useAuth();
+  const { isLoaded, isSignedIn, getToken, signOut } = useAuth();
 
   const {
     data: tipUser,
     error: swrError,
     isLoading: profileLoading,
     mutate,
-  } = useTipSWR<Utilisateur>(isSignedIn ? ["me"] : null, fetchMeWithTimeout, {
-    shouldRetryOnError: false,
-    revalidateOnFocus: true,
-  });
+  } = useSWR<Utilisateur>(
+    isLoaded && isSignedIn ? ["me"] : null,
+    () => loadProfileWithTimeout(getToken),
+    {
+      ...tipSwrDefaults,
+      shouldRetryOnError: false,
+      revalidateOnFocus: true,
+      dedupingInterval: 5000,
+    },
+  );
 
   useEffect(() => {
     if (!(swrError instanceof ApiError) || !isInvalidTokenStatus(swrError.status)) {

@@ -16,7 +16,7 @@ export const tipSwrDefaults: SWRConfiguration = {
   revalidateOnReconnect: true,
   dedupingInterval: 2000,
   keepPreviousData: true,
-  errorRetryCount: 2,
+  errorRetryCount: 1,
 };
 
 /**
