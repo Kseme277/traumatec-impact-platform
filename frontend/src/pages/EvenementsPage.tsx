@@ -38,8 +38,9 @@ import { useTipAuth } from "../context/TipAuthContext";
 import { useTranslation } from "../i18n/useTranslation";
 import DataTablePagination from "../components/common/DataTablePagination";
 import TableLoader from "../components/common/TableLoader";
-import { usePagination } from "../hooks/usePagination";
 import { showSuccess } from "../lib/swal";
+
+const EVENTS_PAGE_SIZE = 10;
 
 export default function EvenementsPage() {
   const { t, localeTag } = useTranslation();
@@ -52,6 +53,7 @@ export default function EvenementsPage() {
   const [country, setCountry] = useState("");
   const [sortBy, setSortBy] = useState<EventSortField>(DEFAULT_EVENT_SORT);
   const [sortDir, setSortDir] = useState(DEFAULT_EVENT_SORT_DIR);
+  const [page, setPage] = useState(1);
 
   useEffect(() => {
     const statusFromUrl = searchParams.get("status");
@@ -68,6 +70,10 @@ export default function EvenementsPage() {
     return () => window.clearTimeout(timer);
   }, [searchInput]);
 
+  useEffect(() => {
+    setPage(1);
+  }, [search, projectStatus, country, sortBy, sortDir]);
+
   const filters: EvenementFilters = useMemo(
     () => ({
       q: search || undefined,
@@ -75,8 +81,10 @@ export default function EvenementsPage() {
       country: country.trim() || undefined,
       sort_by: sortBy,
       sort_dir: sortDir,
+      page,
+      page_size: EVENTS_PAGE_SIZE,
     }),
-    [search, projectStatus, country, sortBy, sortDir],
+    [search, projectStatus, country, sortBy, sortDir, page],
   );
 
   const {
@@ -103,16 +111,13 @@ export default function EvenementsPage() {
     setSortDir(parsed.dir);
   }, []);
 
-  const paginationKey = `${search}|${projectStatus}|${country}|${sortBy}|${sortDir}|${events.length}`;
-  const {
-    paginatedItems,
-    page,
-    setPage,
-    totalPages,
-    totalItems,
-    rangeStart,
-    rangeEnd,
-  } = usePagination(events, 10, paginationKey);
+  const totalPages = Math.max(1, Math.ceil(total / EVENTS_PAGE_SIZE));
+  const rangeStart = total === 0 ? 0 : (page - 1) * EVENTS_PAGE_SIZE + 1;
+  const rangeEnd = Math.min(page * EVENTS_PAGE_SIZE, total);
+
+  useEffect(() => {
+    if (page > totalPages) setPage(totalPages);
+  }, [page, totalPages]);
 
   const openCount = stats?.open_count ?? events.filter((event) => isEventOpen(event.project_status)).length;
   const closedCount = stats?.closed_count ?? events.filter(
@@ -249,7 +254,7 @@ export default function EvenementsPage() {
         ) : (
           <>
             <p className="mb-3 text-xs text-gray-500 dark:text-gray-400">
-              {totalItems} {t("events.resultsCount")}
+              {total} {t("events.resultsCount")}
               {search ? ` · ${t("events.searchActive")}` : ""}
               {packageDueCount > 0 && (
                 <span className="text-error-600 dark:text-error-400">
@@ -259,7 +264,7 @@ export default function EvenementsPage() {
               )}
             </p>
             <EvenementsTable
-              events={paginatedItems}
+              events={events}
               sortBy={sortBy}
               sortDir={sortDir}
               onSort={handleSort}
@@ -272,7 +277,7 @@ export default function EvenementsPage() {
             <DataTablePagination
               page={page}
               totalPages={totalPages}
-              totalItems={totalItems}
+              totalItems={total}
               rangeStart={rangeStart}
               rangeEnd={rangeEnd}
               onPageChange={setPage}

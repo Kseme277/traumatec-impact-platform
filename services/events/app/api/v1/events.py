@@ -4,6 +4,7 @@ from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import delete, func, or_, select, text
+from sqlalchemy.orm import load_only
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.services.project_status import (
@@ -70,13 +71,26 @@ def _apply_latest_package_meta(updates: dict, latest_package: dict | None) -> No
     updates["latest_package_zip_filename"] = latest_package["zip_filename"]
 
 
+def _slim_list_metadata(metadata: dict | None) -> dict | None:
+    """Retire le snapshot Excel (très volumineux) des réponses liste."""
+    if not metadata:
+        return metadata
+    if "excel" not in metadata:
+        return metadata
+    slim = {key: value for key, value in metadata.items() if key != "excel"}
+    return slim or None
+
+
 def _event_to_response(
     event: Event,
     teachers: list[Teacher] | None = None,
     *,
     latest_package: dict | None = None,
+    slim_metadata: bool = False,
 ) -> EventResponse:
     response = EventResponse.model_validate(event)
+    if slim_metadata:
+        response.metadata_json = _slim_list_metadata(response.metadata_json)
     teacher_items = [TeacherResponse.model_validate(t) for t in (teachers or [])]
     inferred = describe_inferred_event_package(**_event_payload_for_classify(event))
     updates: dict = {"teachers": teacher_items}
@@ -293,6 +307,10 @@ async def _load_latest_package_meta(db: AsyncSession, event_ids: list[UUID]) -> 
     }
 
 
+DEFAULT_LIST_PAGE_SIZE = 25
+MAX_LIST_PAGE_SIZE = 200
+
+
 async def _list_events_impl(
     db: AsyncSession,
     *,
@@ -304,6 +322,8 @@ async def _list_events_impl(
     sort_by: str | None,
     sort_dir: str | None,
     upcoming: bool | None,
+    page: int,
+    page_size: int,
     organizer_user_id: int | None = None,
 ) -> EventListResponse:
     query = _apply_event_sort(select(Event), sort_by, sort_dir)
@@ -344,7 +364,8 @@ async def _list_events_impl(
         count_query = count_query.where(*filters)
 
     total = (await db.execute(count_query)).scalar_one()
-    result = await db.execute(query)
+    offset = (page - 1) * page_size
+    result = await db.execute(query.offset(offset).limit(page_size))
     items = result.scalars().all()
     package_meta = await _load_latest_package_meta(db, [event.id for event in items])
     return EventListResponse(
@@ -352,10 +373,13 @@ async def _list_events_impl(
             _event_to_response(
                 event,
                 latest_package=package_meta.get(str(event.id)),
+                slim_metadata=True,
             )
             for event in items
         ],
         total=total,
+        page=page,
+        page_size=page_size,
     )
 
 
@@ -372,6 +396,13 @@ async def list_events(
         default=None,
         description="Si true, uniquement les événements dont la date de fin (ou début) n'est pas passée",
     ),
+    page: int = Query(default=1, ge=1, description="Page (1-indexée)"),
+    page_size: int = Query(
+        default=DEFAULT_LIST_PAGE_SIZE,
+        ge=1,
+        le=MAX_LIST_PAGE_SIZE,
+        description="Taille de page (max 200)",
+    ),
     user: AuthenticatedUser = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> EventListResponse:
@@ -386,7 +417,10 @@ async def list_events(
         "sort_by": sort_by,
         "sort_dir": sort_dir,
         "upcoming": upcoming,
+        "page": page,
+        "page_size": page_size,
         "organizer": organizer_scope,
+        "v": 2,
     }
     return await cached_call(
         redis_url=settings.redis_url,
@@ -404,6 +438,8 @@ async def list_events(
             sort_by=sort_by,
             sort_dir=sort_dir,
             upcoming=upcoming,
+            page=page,
+            page_size=page_size,
             organizer_user_id=organizer_scope,
         ),
         serialize=lambda response: response.model_dump(mode="json"),
@@ -416,7 +452,28 @@ async def _dashboard_stats_impl(
     *,
     organizer_user_id: int | None = None,
 ) -> DashboardStatsResponse:
-    query = select(Event)
+    query = select(Event).options(
+        load_only(
+            Event.id,
+            Event.title,
+            Event.project_number,
+            Event.event_type,
+            Event.status,
+            Event.project_status,
+            Event.country,
+            Event.city,
+            Event.region,
+            Event.responsible_person,
+            Event.start_date,
+            Event.end_date,
+            Event.amount_chf,
+            Event.payments_done_chf,
+            Event.balance_to_pay_chf,
+            Event.percent_paid,
+            Event.participants_expected,
+            Event.participants_real,
+        )
+    )
     if organizer_user_id is not None:
         query = query.where(Event.organizer_responsible_user_id == organizer_user_id)
     result = await db.execute(query)
@@ -548,7 +605,7 @@ async def dashboard_stats(
     return await cached_call(
         redis_url=settings.redis_url,
         namespace="events:stats",
-        key_parts={"year": current_year, "organizer": organizer_scope},
+        key_parts={"year": current_year, "organizer": organizer_scope, "v": 2},
         ttl_seconds=settings.cache_ttl_stats_seconds,
         enabled=settings.cache_enabled,
         factory=lambda: _dashboard_stats_impl(db, organizer_user_id=organizer_scope),

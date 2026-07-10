@@ -95,7 +95,7 @@ export default function DocumentsGenerationDetailPage() {
   const [centralRemark, setCentralRemark] = useState<string | null>(null);
 
   const generationEventFilters = useMemo<EvenementFilters>(
-    () => ({ upcoming: true, project_status: "Open" }),
+    () => ({ upcoming: true, project_status: "Open", page: 1, page_size: 200 }),
     [],
   );
 

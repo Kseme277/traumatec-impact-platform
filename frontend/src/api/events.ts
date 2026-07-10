@@ -153,6 +153,8 @@ function buildQuery(filters: EvenementFilters = {}): string {
   if (filters.sort_by) params.set("sort_by", filters.sort_by);
   if (filters.sort_dir) params.set("sort_dir", filters.sort_dir);
   if (filters.upcoming) params.set("upcoming", "true");
+  if (filters.page) params.set("page", String(filters.page));
+  if (filters.page_size) params.set("page_size", String(filters.page_size));
   const query = params.toString();
   return query ? `?${query}` : "";
 }

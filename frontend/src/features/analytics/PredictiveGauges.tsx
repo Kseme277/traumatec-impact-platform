@@ -97,6 +97,8 @@ export default function PredictiveGauges({
       fetchEvents(token, {
         sort_by: sortBy,
         sort_dir: sortDir,
+        page: 1,
+        page_size: 100,
         ...(search ? { q: search } : {}),
       }),
   );

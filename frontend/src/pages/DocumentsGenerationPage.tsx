@@ -32,7 +32,7 @@ export default function DocumentsGenerationPage() {
   const [eventTypeFilter, setEventTypeFilter] = useState("");
 
   const generationEventFilters = useMemo<EvenementFilters>(
-    () => ({ upcoming: true, project_status: "Open" }),
+    () => ({ upcoming: true, project_status: "Open", page: 1, page_size: 200 }),
     [],
   );
 

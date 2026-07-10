@@ -60,7 +60,11 @@ export default function GlobalSearch() {
       const needle = debouncedQuery.toLowerCase();
       const next: SearchResult[] = [];
 
-      const eventsResponse = await fetchEvents(token, { q: debouncedQuery });
+      const eventsResponse = await fetchEvents(token, {
+        q: debouncedQuery,
+        page: 1,
+        page_size: 10,
+      });
       for (const event of eventsResponse.items.slice(0, 5)) {
         next.push({
           id: `event-${event.id}`,

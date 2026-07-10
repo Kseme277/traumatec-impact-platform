@@ -106,10 +106,10 @@ async function ensureEventReadyForGeneration(
 
 export async function searchEventsForCommand(getToken: GetTokenFn, query: string): Promise<Evenement[]> {
   const token = await getToken();
-  const response = await fetchEvents(token, { q: query, upcoming: true });
+  const response = await fetchEvents(token, { q: query, upcoming: true, page: 1, page_size: 50 });
   const ranked = rankEvents(response.items, query);
   if (ranked.length > 0) return ranked.slice(0, 5);
-  const fallback = await fetchEvents(token, { q: query });
+  const fallback = await fetchEvents(token, { q: query, page: 1, page_size: 50 });
   return rankEvents(fallback.items, query).slice(0, 5);
 }
 
@@ -349,7 +349,7 @@ export async function runAnalyzeBudgetCommand(
 export async function listUpcomingEvents(getToken: GetTokenFn): Promise<CommandActionResult> {
   const token = await getToken();
   try {
-    const response = await fetchEvents(token, { upcoming: true });
+    const response = await fetchEvents(token, { upcoming: true, page: 1, page_size: 20 });
     if (response.items.length === 0) {
       return { success: true, message: "Aucun événement à venir." };
     }

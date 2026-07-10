@@ -97,6 +97,8 @@ export interface EvenementPayload {
 export interface EvenementListResponse {
   items: Evenement[];
   total: number;
+  page?: number;
+  page_size?: number;
 }
 
 export type EventSortField =
@@ -122,6 +124,8 @@ export interface EvenementFilters {
   sort_dir?: EventSortDir;
   /** Uniquement événements dont la date de fin (ou début) n'est pas passée */
   upcoming?: boolean;
+  page?: number;
+  page_size?: number;
 }
 
 export interface ImportResult {

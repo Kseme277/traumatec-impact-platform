@@ -80,7 +80,7 @@ export default function CertificatesPage() {
   const [isEditorLoading, setIsEditorLoading] = useState(false);
 
   const certificateEventFilters = useMemo<EvenementFilters>(
-    () => ({ project_status: "Open" }),
+    () => ({ project_status: "Open", page: 1, page_size: 200 }),
     [],
   );
   const { events, loadEvent } = useEvents({ filters: certificateEventFilters });
