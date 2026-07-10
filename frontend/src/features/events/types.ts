@@ -119,6 +119,7 @@ export interface EvenementFilters {
   status?: EventStatus | "";
   project_status?: string;
   event_type?: string;
+  preparation_theme?: string;
   country?: string;
   sort_by?: EventSortField;
   sort_dir?: EventSortDir;

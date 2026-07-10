@@ -81,18 +81,32 @@ def _slim_list_metadata(metadata: dict | None) -> dict | None:
     return slim or None
 
 
+def _slim_inferred_for_list(inferred: dict | None) -> dict | None:
+    """Liste : garder le type/thème, sans package_candidates (payload trop lourd)."""
+    if not inferred:
+        return None
+    return {
+        key: value
+        for key, value in inferred.items()
+        if key != "package_candidates"
+    }
+
+
 def _event_to_response(
     event: Event,
     teachers: list[Teacher] | None = None,
     *,
     latest_package: dict | None = None,
     slim_metadata: bool = False,
+    slim_inferred: bool = False,
 ) -> EventResponse:
     response = EventResponse.model_validate(event)
     if slim_metadata:
         response.metadata_json = _slim_list_metadata(response.metadata_json)
     teacher_items = [TeacherResponse.model_validate(t) for t in (teachers or [])]
     inferred = describe_inferred_event_package(**_event_payload_for_classify(event))
+    if slim_inferred:
+        inferred = _slim_inferred_for_list(inferred)
     updates: dict = {"teachers": teacher_items}
     _apply_latest_package_meta(updates, latest_package)
     if inferred:
@@ -308,7 +322,7 @@ async def _load_latest_package_meta(db: AsyncSession, event_ids: list[UUID]) -> 
 
 
 DEFAULT_LIST_PAGE_SIZE = 25
-MAX_LIST_PAGE_SIZE = 200
+MAX_LIST_PAGE_SIZE = 500
 
 
 async def _list_events_impl(
@@ -318,6 +332,7 @@ async def _list_events_impl(
     status_filter: str | None,
     project_status: str | None,
     event_type: str | None,
+    preparation_theme: str | None,
     country: str | None,
     sort_by: str | None,
     sort_dir: str | None,
@@ -351,6 +366,8 @@ async def _list_events_impl(
         filters.append(Event.project_status.in_(values))
     if event_type:
         filters.append(Event.event_type.ilike(f"%{event_type.strip()}%"))
+    if preparation_theme:
+        filters.append(Event.preparation_theme == preparation_theme.strip().lower())
     if country:
         filters.append(Event.country.ilike(f"%{country.strip()}%"))
     if upcoming:
@@ -374,6 +391,7 @@ async def _list_events_impl(
                 event,
                 latest_package=package_meta.get(str(event.id)),
                 slim_metadata=True,
+                slim_inferred=True,
             )
             for event in items
         ],
@@ -389,6 +407,10 @@ async def list_events(
     status_filter: str | None = Query(default=None, alias="status"),
     project_status: str | None = Query(default=None, description="Statut AO Alliance (Open, Closed, Cancelled)"),
     event_type: str | None = Query(default=None),
+    preparation_theme: str | None = Query(
+        default=None,
+        description="Thème TIP (operatory, pbo, iec)",
+    ),
     country: str | None = Query(default=None),
     sort_by: str | None = Query(default="start_date", description="Colonne de tri"),
     sort_dir: str | None = Query(default="desc", description="asc ou desc"),
@@ -401,7 +423,7 @@ async def list_events(
         default=DEFAULT_LIST_PAGE_SIZE,
         ge=1,
         le=MAX_LIST_PAGE_SIZE,
-        description="Taille de page (max 200)",
+        description="Taille de page (max 500)",
     ),
     user: AuthenticatedUser = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
@@ -413,6 +435,7 @@ async def list_events(
         "status": status_filter,
         "project_status": project_status,
         "event_type": event_type,
+        "preparation_theme": preparation_theme,
         "country": country,
         "sort_by": sort_by,
         "sort_dir": sort_dir,
@@ -420,7 +443,7 @@ async def list_events(
         "page": page,
         "page_size": page_size,
         "organizer": organizer_scope,
-        "v": 2,
+        "v": 3,
     }
     return await cached_call(
         redis_url=settings.redis_url,
@@ -434,6 +457,7 @@ async def list_events(
             status_filter=status_filter,
             project_status=project_status,
             event_type=event_type,
+            preparation_theme=preparation_theme,
             country=country,
             sort_by=sort_by,
             sort_dir=sort_dir,

@@ -98,7 +98,7 @@ export default function PredictiveGauges({
         sort_by: sortBy,
         sort_dir: sortDir,
         page: 1,
-        page_size: 100,
+        page_size: 500,
         ...(search ? { q: search } : {}),
       }),
   );

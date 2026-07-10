@@ -32,15 +32,16 @@ import CertificateGenerationProgressBar, {
 import OnlyOfficeEditor from "../features/documents/OnlyOfficeEditor";
 import { fetchPackageTypes } from "../api/catalog";
 import {
-  eventPackageTypeCode,
+  eventMatchesPackageType,
   FALLBACK_PACKAGE_TYPES,
   mergePackageCatalog,
   packageTypeFilterOptions,
+  preparationThemeForPackageType,
 } from "../features/documents/eventPackageTypes";
 import { eventMatchesSearch, formatEventDateRange } from "../features/events/eventDates";
 import { isEventOpen } from "../features/events/projectStatus";
-import { useEvents } from "../features/events/useEvents";
-import type { Evenement, EvenementFilters } from "../features/events/types";
+import { useSelectableEvents } from "../features/events/useSelectableEvents";
+import type { Evenement } from "../features/events/types";
 import { ApiError } from "../api/client";
 import { getApiToken } from "../lib/clerkToken";
 import { useTranslation } from "../i18n/useTranslation";
@@ -79,11 +80,30 @@ export default function CertificatesPage() {
   const [editorConfig, setEditorConfig] = useState<CertificateEditorConfig | null>(null);
   const [isEditorLoading, setIsEditorLoading] = useState(false);
 
-  const certificateEventFilters = useMemo<EvenementFilters>(
-    () => ({ project_status: "Open", page: 1, page_size: 200 }),
-    [],
+  const { data: catalogData } = useTipSWR(["package-catalog"] as const, async (token) => {
+    try {
+      return await fetchPackageTypes(token);
+    } catch {
+      return null;
+    }
+  });
+  const packageCatalog = useMemo(
+    () => (catalogData ? mergePackageCatalog(catalogData) : FALLBACK_PACKAGE_TYPES),
+    [catalogData],
   );
-  const { events, loadEvent } = useEvents({ filters: certificateEventFilters });
+
+  const preparationThemeFilter = useMemo(
+    () => preparationThemeForPackageType(eventTypeFilter, packageCatalog),
+    [eventTypeFilter, packageCatalog],
+  );
+
+  const { events, total, isLoading: eventsLoading, loadEvent } = useSelectableEvents({
+    projectStatus: "Open",
+    search: eventSearchQuery,
+    preparationTheme: preparationThemeFilter,
+    sortBy: "start_date",
+    sortDir: "asc",
+  });
 
   useEffect(() => {
     if (!urlEventId) {
@@ -113,18 +133,6 @@ export default function CertificatesPage() {
     [events],
   );
 
-  const { data: catalogData } = useTipSWR(["package-catalog"] as const, async (token) => {
-    try {
-      return await fetchPackageTypes(token);
-    } catch {
-      return null;
-    }
-  });
-  const packageCatalog = useMemo(
-    () => (catalogData ? mergePackageCatalog(catalogData) : FALLBACK_PACKAGE_TYPES),
-    [catalogData],
-  );
-
   const eventTypeOptions = useMemo(
     () => packageTypeFilterOptions(packageCatalog, t),
     [packageCatalog, t],
@@ -133,12 +141,12 @@ export default function CertificatesPage() {
   const filteredEvents = useMemo(
     () =>
       openEvents.filter((event) => {
-        if (eventTypeFilter) {
-          if (eventPackageTypeCode(event) !== eventTypeFilter) return false;
+        if (eventTypeFilter && !eventMatchesPackageType(event, eventTypeFilter, packageCatalog)) {
+          return false;
         }
         return eventMatchesSearch(event, eventSearchQuery);
       }),
-    [eventSearchQuery, eventTypeFilter, openEvents],
+    [eventSearchQuery, eventTypeFilter, openEvents, packageCatalog],
   );
 
   const selectedEvent = useMemo(() => {
@@ -488,16 +496,21 @@ export default function CertificatesPage() {
           <div className="max-w-2xl">
             <Label>{t("participants.selectEventLabel")}</Label>
             <Select
-              placeholder={t("participants.selectEventPlaceholder")}
+              placeholder={
+                eventsLoading
+                  ? t("events.loadingList")
+                  : t("participants.selectEventPlaceholder")
+              }
               options={eventOptions}
               value={selectedEventId}
               onChange={handleEventChange}
+              disabled={eventsLoading}
             />
-            {openEvents.length > 0 && (
-              <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                {filteredEvents.length} / {openEvents.length} {t("participants.eventsShown")}
-              </p>
-            )}
+            <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+              {eventsLoading
+                ? t("events.loadingList")
+                : `${filteredEvents.length} / ${total || openEvents.length} ${t("participants.eventsShown")}`}
+            </p>
           </div>
         </div>
         {selectedEvent && (

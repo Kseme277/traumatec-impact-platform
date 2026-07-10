@@ -22,14 +22,12 @@ import {
   filterTemplatesByPackageDuration,
 } from "../features/documents/templateDurationFilter";
 import { useEvents } from "../features/events/useEvents";
-import type { Evenement, EvenementFilters, PreparationTheme } from "../features/events/types";
+import type { Evenement, PreparationTheme } from "../features/events/types";
 import { statusColor, statusLabel, themeLabel } from "../features/events/types";
 import {
   formatEventDateRange,
   isGeneratableEvent,
-  isUpcomingEvent,
 } from "../features/events/eventDates";
-import { isEventOpen } from "../features/events/projectStatus";
 import type { PackageCandidate } from "../features/events/types";
 import {
   inferActivityKind,
@@ -94,14 +92,15 @@ export default function DocumentsGenerationDetailPage() {
   const [fileReviewsLoading, setFileReviewsLoading] = useState(false);
   const [centralRemark, setCentralRemark] = useState<string | null>(null);
 
-  const generationEventFilters = useMemo<EvenementFilters>(
-    () => ({ upcoming: true, project_status: "Open", page: 1, page_size: 200 }),
-    [],
-  );
+  const { update, isSubmitting } = useEvents();
 
-  const { events, isLoading, loadEvents, update, isSubmitting } = useEvents({
-    filters: generationEventFilters,
-  });
+  const refreshEventDetail = useCallback(async () => {
+    if (!selectedEventId) return null;
+    const token = await getApiToken(getToken);
+    const detail = await fetchEvent(token, selectedEventId);
+    setEventDetail(detail);
+    return detail;
+  }, [getToken, selectedEventId]);
 
   useEffect(() => {
     if (!isLoaded || !isSignedIn) return;
@@ -115,14 +114,6 @@ export default function DocumentsGenerationDetailPage() {
       }
     })();
   }, [getToken, isLoaded, isSignedIn]);
-
-  useEffect(() => {
-    if (!selectedEventId || events.length === 0) return;
-    const event = events.find((item) => item.id === selectedEventId);
-    if (event && isEventPackageApproved(event)) {
-      navigate("/documents/generation", { replace: true });
-    }
-  }, [navigate, selectedEventId, events]);
 
   useEffect(() => {
     if (!selectedEventId || !isLoaded || !isSignedIn) {
@@ -141,6 +132,11 @@ export default function DocumentsGenerationDetailPage() {
         const detail = await fetchEvent(token, selectedEventId);
         if (cancelled) return;
         setEventDetail(detail);
+
+        if (isEventPackageApproved(detail)) {
+          navigate("/documents/generation", { replace: true });
+          return;
+        }
 
         const packageType = detail.inferred_package?.package_type;
         if (!packageType) {
@@ -181,22 +177,10 @@ export default function DocumentsGenerationDetailPage() {
     return () => {
       cancelled = true;
     };
-  }, [getToken, isLoaded, isSignedIn, selectedEventId]);
+  }, [getToken, isLoaded, isSignedIn, navigate, selectedEventId]);
 
-  const selectableEvents = useMemo(
-    () =>
-      events
-        .filter(
-          (event) =>
-            isUpcomingEvent(event)
-            && isEventOpen(event.project_status)
-            && !isEventPackageApproved(event),
-        )
-        .sort((a, b) => (a.start_date ?? "").localeCompare(b.start_date ?? "")),
-    [events],
-  );
-
-  const selectedEvent = selectableEvents.find((event) => event.id === selectedEventId) ?? null;
+  const selectedEvent = eventDetail;
+  const isLoading = Boolean(selectedEventId) && !eventDetail && isLoaded && isSignedIn && packagePreviewLoading;
 
   const themeSourceEvent = eventDetail ?? selectedEvent;
 
@@ -333,7 +317,7 @@ export default function DocumentsGenerationDetailPage() {
       if (candidate.preparation_theme && isPreparationTheme(candidate.preparation_theme)) {
         setThemeDraft(candidate.preparation_theme);
       }
-      await loadEvents(generationEventFilters);
+      await refreshEventDetail();
     }
   };
 
@@ -354,7 +338,7 @@ export default function DocumentsGenerationDetailPage() {
         const updated = await updateEvent(token, selectedEvent.id, {
           preparation_theme: themeDraft,
         });
-        await loadEvents(generationEventFilters);
+        await refreshEventDetail();
         return updated;
       } catch (err) {
         const message = err instanceof ApiError ? err.message : t("profile.saveFailed");
@@ -364,7 +348,8 @@ export default function DocumentsGenerationDetailPage() {
     }
     const updated = await update(selectedEvent.id, { preparation_theme: themeDraft });
     if (updated) {
-      await loadEvents(generationEventFilters);
+      setEventDetail(updated);
+      await refreshEventDetail();
     }
     return updated;
   };

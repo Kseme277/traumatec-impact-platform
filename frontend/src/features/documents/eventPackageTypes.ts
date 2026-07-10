@@ -202,9 +202,39 @@ export function allPackageTypesFromCatalog(catalog: EventPackageTypeCatalog): Ev
 /** Code paquet canonique pour filtrage (ORP_S → PBO_S). */
 export function eventPackageTypeCode(event: {
   inferred_package?: { package_type?: string } | null;
+  preparation_theme?: string | null;
 }): string {
   const raw = event.inferred_package?.package_type;
   return raw ? canonicalPackageType(raw) : "";
+}
+
+/** Filtre type de paquet : code inféré, sinon thème catalogue. */
+export function eventMatchesPackageType(
+  event: {
+    inferred_package?: { package_type?: string; preparation_theme?: string } | null;
+    preparation_theme?: string | null;
+  },
+  packageTypeCode: string,
+  catalog: EventPackageTypeCatalog,
+): boolean {
+  if (!packageTypeCode) return true;
+  const code = eventPackageTypeCode(event);
+  if (code && code === packageTypeCode) return true;
+  const pkg = findPackageType(catalog, packageTypeCode);
+  if (!pkg) return code === packageTypeCode;
+  const theme = (event.inferred_package?.preparation_theme || event.preparation_theme || "")
+    .trim()
+    .toLowerCase();
+  return Boolean(theme) && theme === pkg.preparation_theme;
+}
+
+/** Thème TIP associé à un code paquet (pour filtre API). */
+export function preparationThemeForPackageType(
+  packageTypeCode: string,
+  catalog: EventPackageTypeCatalog,
+): string | undefined {
+  if (!packageTypeCode) return undefined;
+  return findPackageType(catalog, packageTypeCode)?.preparation_theme;
 }
 
 /** Options filtre « type » : tous les paquets catalogue, pas seulement activity_label. */

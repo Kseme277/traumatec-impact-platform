@@ -10,8 +10,7 @@ import Select from "../components/form/Select";
 import GenerationEventsTable from "../features/documents/GenerationEventsTable";
 import GenerationProcessGuide from "../features/documents/GenerationProcessGuide";
 import PackageDueEventsPanel from "../features/events/PackageDueEventsPanel";
-import { useEvents } from "../features/events/useEvents";
-import type { EvenementFilters } from "../features/events/types";
+import { useSelectableEvents } from "../features/events/useSelectableEvents";
 import {
   distinctEventTypeFilterOptions,
   eventMatchesEventTypeFilter,
@@ -31,12 +30,13 @@ export default function DocumentsGenerationPage() {
   const [eventSearchQuery, setEventSearchQuery] = useState("");
   const [eventTypeFilter, setEventTypeFilter] = useState("");
 
-  const generationEventFilters = useMemo<EvenementFilters>(
-    () => ({ upcoming: true, project_status: "Open", page: 1, page_size: 200 }),
-    [],
-  );
-
-  const { events, isLoading } = useEvents({ filters: generationEventFilters });
+  const { events, isLoading } = useSelectableEvents({
+    projectStatus: "Open",
+    upcoming: true,
+    search: eventSearchQuery,
+    sortBy: "start_date",
+    sortDir: "asc",
+  });
 
   const selectableEvents = useMemo(
     () =>
